@@ -1,0 +1,283 @@
+[
+    {
+        "section": "Administrator",
+        "data": [
+            {
+                "permission": 1,
+                "alias": "owner",
+                "ui_alias": "Club owner",
+                "description": "A team member with this permission is the owner of the Club. They have full permissions, including adding or removing administrators. There can only be 1 owner in a Club at any given time."
+            },
+            {
+                "permission": 2,
+                "alias": "administrator",
+                "ui_alias": "Administrator privileges",
+                "description": "A team member with this permission is an adminstrator of the Club. They have full permissions."
+            }
+        ]
+    },
+    {
+        "section": "Branding",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 6,
+                "alias": "branding",
+                "ui_alias": "Get branding",
+                "description": "A team member with this permission can read branding information about the Club, such as it's name and logo. This permission is given to all users and cannot be disabled, as branding data is public."
+            },
+            {
+                "permission": 7,
+                "alias": "branding_update",
+                "ui_alias": "Update branding",
+                "description": "A team member with this permission can update branding information (such as the Club name/logo) within the Club."
+            }
+        ]
+    },
+    {
+        "section": "Content",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 3,
+                "alias": "content",
+                "ui_alias": "Get content",
+                "description": "A team member with this permission can read content (such as videos) within the Club, including playing that content."
+            },
+            {
+                "permission": 4,
+                "alias": "content_update",
+                "ui_alias": "Update content",
+                "description": "A team member with this permission can update content (such as videos) within the Club. This permission requires \"content\"."
+            },
+            {
+                "permission": 5,
+                "alias": "content_upload",
+                "ui_alias": "Upload content",
+                "description": "A team member with this permission can upload content (such as videos) within the Club. This permission requires \"content\" and \"content_update\"."
+            }
+        ]
+    },
+    {
+        "section": "Collection",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 8,
+                "alias": "collection",
+                "ui_alias": "Get collection",
+                "description": "A team member with this permission can read collections within the Club."
+            },
+            {
+                "permission": 9,
+                "alias": "collection_update",
+                "ui_alias": "Update collection",
+                "description": "A team member with this permission can update collections within the Club. This permission requires \"collection\"."
+            }
+        ]
+    },
+    {
+        "section": "Catalog",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 10,
+                "alias": "catalog",
+                "ui_alias": "Get catalog",
+                "description": "A team member with this permission can read catalogs within the Club."
+            },
+            {
+                "permission": 11,
+                "alias": "catalog_update",
+                "ui_alias": "Update catalog",
+                "description": "A team member with this permission can update catalogs within the Club. This permission requires \"catalog\"."
+            }
+        ]
+    },
+    {
+        "section": "Custom Content Store",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 12,
+                "alias": "customcontentstore",
+                "ui_alias": "Get custom content store",
+                "description": "A team member with this permission can read Custom Content Stores within the Club."
+            },
+            {
+                "permission": 13,
+                "alias": "customcontentstore_update",
+                "ui_alias": "Update custom content store",
+                "description": "A team member with this permission can update Custom Content Store within the Club. This permission requires \"customcontentstore_update\"."
+            }
+        ]
+    },
+    {
+        "section": "Login Methods",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 14,
+                "alias": "login_methods",
+                "ui_alias": "Get login methods",
+                "description": "A team member with this permission can read Login Methods within the Club."
+            },
+            {
+                "permission": 15,
+                "alias": "login_methods_update",
+                "ui_alias": "Update login methods",
+                "description": "A team member with this permission can update Login Methods within the Club. This permission requires \"login_methods_update\"."
+            }
+        ]
+    },
+    {
+        "section": "Club Payment Methods",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 16,
+                "alias": "payment_methods",
+                "ui_alias": "Get Club payment methods",
+                "description": "A team member with this permission can read Club Payment Methods within the Club. This is different from user payment methods, and involves things like setting up Stripe integration."
+            },
+            {
+                "permission": 17,
+                "alias": "payment_methods_update",
+                "ui_alias": "Update Club payment methods",
+                "description": "A team member with this permission can update Club Payment Methods within the Club. This is different from user payment methods, and involves things like setting up Stripe integration. This permission requires \"payment_methods\"."
+            }
+        ]
+    },
+    {
+        "section": "Plans and Add-ons",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 18,
+                "alias": "plans_and_addons",
+                "ui_alias": "Get plans and add-ons",
+                "description": "A team member with this permission can read Plans and Addons within the Club."
+            },
+            {
+                "permission": 19,
+                "alias": "plans_and_addons_update",
+                "ui_alias": "Update plans and add-ons",
+                "description": "A team member with this permission can update Plans and Addons within the Club. This permission requires \"plans_and_addons\"."
+            }
+        ]
+    },
+    {
+        "section": "Profile Pictures",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 20,
+                "alias": "profile_pictures",
+                "ui_alias": "Get profile pictures",
+                "description": "A team member with this permission can view profile picture candidates within the Club."
+            },
+            {
+                "permission": 21,
+                "alias": "profile_pictures_update",
+                "ui_alias": "Update profile pictures",
+                "description": "A team member with this permission can update profile picture candidates within the Club. This permission requires \"profile_pictures\"."
+            }
+        ]
+    },
+    {
+        "section": "Tags",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 22,
+                "alias": "tags",
+                "ui_alias": "Get tags",
+                "description": "A team member with this permission can view tags within the Club."
+            },
+            {
+                "permission": 23,
+                "alias": "tags_update",
+                "ui_alias": "Update tags",
+                "description": "A team member with this permission can update tags within the Club. This permission requires \"tags\"."
+            }
+        ]
+    },
+    {
+        "section": "User Accounts",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 24,
+                "alias": "user_accounts",
+                "ui_alias": "Get user accounts",
+                "description": "A team member with this permission can view User Account Information for all users within the Club. This includes the ability to view information of a User Account, such as it's email, first name, last name, etc. You should be careful who you give this permission to and follow relevant user privacy laws."
+            },
+            {
+                "permission": 25,
+                "alias": "user_accounts_update",
+                "ui_alias": "Update user accounts",
+                "description": "A team member with this permission can update User Account Information for all users within the Club. This includes the ability to see the email, first name, last name, etc, of a User Account. You should be careful who you give this permission to and follow relevant user privacy laws. This permission requires \"user_accounts\"."
+            },
+            {
+                "permission": 26,
+                "alias": "user_accounts_payment_methods",
+                "ui_alias": "View payment methods for user accounts",
+                "description": "A team member with this permission can view User Account Payment Information for all users within the Club. You should be extremely careful who you give this permission to and follow relevant user privacy laws. This permission requires \"user_accounts\"."
+            },
+            {
+                "permission": 27,
+                "alias": "user_accounts_payment_methods_update",
+                "ui_alias": "Update user account payment methods",
+                "description": "A team member with this permission can update User Account Payment Information for all users within the Club. You should be extremely careful who you give this permission to and follow relevant user privacy laws. This permission requires \"user_accounts\", \"user_accounts_update\", \"user_accounts_payment_methods\"."
+            }
+        ]
+    },
+    {
+        "section": "Team members",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 28,
+                "alias": "team_members",
+                "ui_alias": "View team members",
+                "description": "A team member with this permission can view a list of all other Team Members within the Club."
+            },
+            {
+                "permission": 29,
+                "alias": "team_members_update",
+                "ui_alias": "Update team members",
+                "description": "A team member with this permission can update other Team Members within the Club, including adding or removing members, and giving or revoking their permissions (provided that team member has the permissions they are managing. For example, a user who deosn't have administrator cannot just make another user an administrator for obvious security reasons). This permission requires \"team_members\"."
+            }
+        ]
+    },
+    {
+        "section": "My Billing",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 30,
+                "alias": "my_billing",
+                "ui_alias": "View my billing",
+                "description": "A team member with this permission can view Billing Information for this Club. You should give this permission to your financial team. Please note, this permission allows a team member to pay invoices via Stripe and \"my_billing_update\" permission is not required to pay invoices."
+            },
+            {
+                "permission": 31,
+                "alias": "my_billing_update",
+                "ui_alias": "Update my billing",
+                "description": "A team member with this permission can update Billing Information for this Club. You should give this permission to your financial team. This permission requires \"my_billing\"."
+            }
+        ]
+    },
+    {
+        "section": "Analytics",
+        "api_key_eligible": true,
+        "data": [
+            {
+                "permission": 32,
+                "alias": "analytics",
+                "ui_alias": "View Analytics",
+                "description": "A team member with this permission can view analytics for this Club."
+            }
+        ]
+    }
+]

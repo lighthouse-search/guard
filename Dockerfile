@@ -8,7 +8,6 @@ COPY README.md /guard-server/README.md
 COPY Rocket.toml /guard-server/Rocket.toml
 COPY src /guard-server/src
 COPY frontend /guard-server/frontend
-COPY config.toml /guard-server/config.toml
 
 RUN apt update -y
 RUN apt upgrade -y

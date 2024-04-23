@@ -1,3 +1,4 @@
+.DS_Store
 target
 frontend/_static
-.DS_Store
+frontend/guard-npm/node_modules

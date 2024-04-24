@@ -67,7 +67,7 @@ WORKDIR /guard-server
 
 # Install libcap2-bin for setting capabilities
 RUN apt update
-RUN apt install -y libcap2-bin default-mysql-client dnsutils msmtp
+RUN apt install -y libcap2-bin default-mysql-client dnsutils
 
 # Set the capability to bind to port 80 for the cargo binary
 RUN setcap 'cap_net_bind_service=+ep' /usr/local/cargo/bin/cargo
@@ -86,7 +86,7 @@ RUN usermod -s /bin/rbash kube
 COPY --from=build-stage /guard-server /guard-server
 
 # Expose port 80 for the web server
-EXPOSE 8000
+EXPOSE 80
 
 # Remove libcap2-bin and clean up apt cache
 RUN apt remove -y libcap2-bin

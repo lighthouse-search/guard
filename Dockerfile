@@ -86,7 +86,7 @@ RUN usermod -s /bin/rbash kube
 COPY --from=build-stage /guard-server /guard-server
 
 # Expose port 80 for the web server
-EXPOSE 80
+EXPOSE 8000
 
 # Remove libcap2-bin and clean up apt cache
 RUN apt remove -y libcap2-bin

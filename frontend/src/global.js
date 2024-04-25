@@ -40,6 +40,14 @@ async function generatePublicPrivateKey() {
   return { publicKeyNaked: publicexportedAsBase64, privateKeyNaked: privateexportedAsBase64 };
 }
 
+function has_only_alphabetic_characters(str) {
+  // Regular expression to match only alphabetical characters
+  const regex = /^[a-zA-Z]+$/;
+  
+  // Test if the string matches the regular expression
+  return regex.test(str);
+}
+
 async function handle_new(device_id, private_key) {
   let localAppend = "";
   if (localStorage.getItem("use_prod_servers") != "true" && window.location.hostname.includes("127.0.0.1")) {
@@ -61,8 +69,17 @@ async function handle_new(device_id, private_key) {
   expirationDate.setFullYear(expirationDate.getFullYear() + 10);
 
   let result = await static_auth_sign({ device_id: device_id }, private_key);
+
+  let root_domain_split = window.location.hostname.split(".");
+  let root_domain = `${root_domain_split[root_domain_split.length-1]}.${root_domain_split[root_domain_split.length-1]}`;
+
+  if (has_only_alphabetic_characters(window.location.hostname) == true) {
+    // Almost certainly 127.0.0.1, 0.0.0.0, etc.
+    root_domain = window.location.hostname;
+  }
+
   await cookies.set(`guard_static_auth`, result, {
-    domain: "."+window.location.hostname,
+    domain: "."+root_domain,
     path: "/",
     secure: false,
     expires: expirationDate,
@@ -138,8 +155,9 @@ function is_motionfans_site(url) {
 function get_routing_host(window) {
   let url = new URL(window.location.href);
   let host = window.location.host;
-  if (url && url.searchParams.get("host")) {
-    host = url.searchParams.get("host")
+  if (url && url.searchParams.get("redirect")) {
+    let redirect_url = new URL(url.searchParams.get("redirect"));
+    host = redirect_url.host;
   }
 
   return host;

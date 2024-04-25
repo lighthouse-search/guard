@@ -118,7 +118,7 @@ impl Fairing for Cors {
 
         let headers = Headers { headers_map: value };
 
-        let get_current_valid_hostname = get_current_valid_hostname(&headers).await.expect("Invalid hostname");
+        let get_current_valid_hostname = get_current_valid_hostname(&headers, None).await.expect("Invalid hostname");
 
         response.set_header(Header::new("Access-Control-Allow-Origin", get_current_valid_hostname));
         response.set_header(Header::new(

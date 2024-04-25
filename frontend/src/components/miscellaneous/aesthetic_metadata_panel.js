@@ -2,14 +2,14 @@ import './css/aesthetic_metadata_panel.css';
 import './../global.css';
 import { useEffect, useRef, useState } from 'react';
 import { Guard } from "@oracularhades/guard";
+import { get_routing_host } from '@/global';
 
 export default function AestheticMetadataPanel(props) {
     const should_run = useRef(true);
     const [metadata, set_metadata] = useState(null);
 
     async function get_metadata() {
-        let url = new URL(window.location.href);
-        let host = get_routing_host(window, url);
+        let host = get_routing_host(window);
 
         const metadata_v = await Guard().metadata.get(host);
         if (metadata_v.ok == true) {

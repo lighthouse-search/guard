@@ -5,7 +5,7 @@ import Frame_AestheticMetadataPanel from '@/components/miscellaneous/frame_aesth
 import './css/magiclink1.css';
 import './../../global.css';
 import FormStyle_1 from '../forms/form_style1';
-import { generatePublicPrivateKey, get_auth_url, handle_new, is_motionfans_site } from '@/global';
+import { generatePublicPrivateKey, get_auth_url, get_routing_host, handle_new, is_motionfans_site } from '@/global';
 
 export default function Magiclink1() {
   const [error, set_error] = useState(null);
@@ -17,8 +17,7 @@ export default function Magiclink1() {
   async function send_magiclink(params) {
     const keys = await generatePublicPrivateKey();
 
-    let url = new URL(window.location.href);
-    let host = get_routing_host(window, url);
+    let host = get_routing_host(window);
 
     let response = null;
     try {

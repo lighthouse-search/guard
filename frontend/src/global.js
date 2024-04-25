@@ -135,7 +135,7 @@ function is_motionfans_site(url) {
   return ok;
 }
 
-function get_routing_host(window, url) {
+function get_routing_host(window) {
   let url = new URL(window.location.href);
   let host = window.location.host;
   if (url && url.searchParams.get("host")) {

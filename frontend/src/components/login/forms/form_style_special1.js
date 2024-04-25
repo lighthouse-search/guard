@@ -21,8 +21,7 @@ export default function FormStyle_special_1(props) {
     const [loading, set_loading] = useState(false);
 
     async function get_authentication_methods() {
-        let url = new URL(window.location.href);
-        let host = get_routing_host(window, url);
+        let host = get_routing_host(window);
 
         const authentication_methods_v = await Guard().metadata.get_authentication_methods(host);
         set_authentication_methods(authentication_methods_v.data);

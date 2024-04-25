@@ -61,7 +61,7 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
     let metadata_json = serde_json::to_string(&CONFIG_VALUE["frontend"]["metadata"]).expect("Failed to serialize");
     let frontend_metadata: Frontend_metadata = serde_json::from_str(&metadata_json).expect("Failed to parse");
 
-    let mut url = Url::parse(&format!("https://example.com/magiclink?{}", output_params)).unwrap();
+    let mut url = Url::parse(&format!("https://example.com/frontend/magiclink?{}", output_params)).unwrap();
     // Update the hostname
     url.set_host(Some(&frontend_metadata.instance_hostname.expect("Missing instance_hostname"))).unwrap();
 

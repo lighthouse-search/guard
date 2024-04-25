@@ -223,7 +223,9 @@ async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut body
 }
 
 async fn proxy_authentication(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    println!("{:?}", headers.headers_map); // add debug.
     let host = get_current_valid_hostname(headers).await.expect("Invalid or missing hostname.");
+
     let (result, user, device, db): (bool, Option<Guard_user>, Option<Guard_devices>, Connection<Db>) = user_authentication_pipeline(db, jar, remote_addr, host).await.expect("User authentication pipeline failed");
 
     if (result == true) {

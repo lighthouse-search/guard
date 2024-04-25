@@ -118,10 +118,12 @@ async fn metadata_get_authentication_methods(mut db: Connection<Db>, hostname: O
     }));
 }
 
-#[post("/request", format = "application/json", data = "<body>")]
-async fn auth_method_request(mut db: Connection<Db>, mut body: Json<Method_request_body>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
-    let host = get_current_valid_hostname(headers).await.expect("Invalid or missing hostname from headers.");
-    let hostname = get_hostname(host).await.expect("Invalid or missing hostname.");
+#[post("/request?<host>", format = "application/json", data = "<body>")]
+async fn auth_method_request(mut db: Connection<Db>, mut host: Option<String>, mut body: Json<Method_request_body>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
+    if (host.is_none() == true) {
+        return Ok(status::Custom(Status::BadRequest, error_message("params.hostname is null or whitespace.")));
+    }
+    let hostname = get_hostname(host.unwrap()).await.expect("Invalid or missing hostname.");
 
     let authentication_method_result = is_valid_authentication_method(body.authentication_method.clone()).await;
     if (authentication_method_result.is_none() != false) {
@@ -143,7 +145,7 @@ async fn auth_method_request(mut db: Connection<Db>, mut body: Json<Method_reque
             return Ok(status::Custom(Status::BadRequest, error_message("body.request_data.email is null or whitespace.")));
         }
 
-        let (request_magiclink_response, request_magiclink_response_db): (Request_magiclink, Connection<Db>) = request_email(db, requested_email.clone(), authentication_method, remote_addr).await.expect("Failed to send magiclink.");
+        let (request_magiclink_response, request_magiclink_response_db): (Request_magiclink, Connection<Db>) = request_email(db, requested_email.clone(), authentication_method, remote_addr, hostname).await.expect("Failed to send magiclink.");
         if (request_magiclink_response.error_to_respond_to_client_with.is_none() == false) {
             return Ok(request_magiclink_response.error_to_respond_to_client_with.unwrap());
         }
@@ -158,10 +160,9 @@ async fn auth_method_request(mut db: Connection<Db>, mut body: Json<Method_reque
     })))
 }
 
-#[post("/authenticate", format = "application/json", data = "<body>")]
-async fn authenticate(mut db: Connection<Db>, mut body: Json<Method_request_body>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
-    let host = get_current_valid_hostname(headers).await.expect("Invalid or missing hostname from headers.");
-    let hostname = get_hostname(host).await.expect("Invalid or missing hostname.");
+#[post("/authenticate?<host>", format = "application/json", data = "<body>")]
+async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut body: Json<Method_request_body>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
+    let hostname = get_hostname(host.unwrap()).await.expect("Invalid or missing hostname.");
 
     let authentication_method_result = is_valid_authentication_method(body.authentication_method.clone()).await;
     if (authentication_method_result.is_none() != false) {

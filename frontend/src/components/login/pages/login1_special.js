@@ -15,7 +15,13 @@ export default function Login1_special(props) {
   const [metadata, set_metadata] = useState(undefined);
 
   async function get_metadata() {
-    const metadata_v = await Guard().metadata.get(window.location.host);
+    let url = new URL(window.location.href);
+    let host = window.location.host;
+    if (url && url.searchParams.get("host")) {
+      host = url.searchParams.get("host")
+    }
+
+    const metadata_v = await Guard().metadata.get(host);
     if (metadata_v.ok == true) {
       set_metadata(metadata_v.data);
       if (props.set_metadata) {

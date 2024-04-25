@@ -58,7 +58,7 @@ export default function FormStyle_special_1(props) {
     async function start_email_authentication(authentication_method, request_data) {
         set_loading(true);
 
-        const response = await Guard().request(authentication_method, request_data);
+        const response = await Guard().request(window.location.host, authentication_method, request_data);
         if (response.ok == true) {
             set_state("check_your_email");
             return;

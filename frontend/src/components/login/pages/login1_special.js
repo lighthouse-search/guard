@@ -15,7 +15,7 @@ export default function Login1_special(props) {
   const [metadata, set_metadata] = useState(undefined);
 
   async function get_metadata() {
-    const metadata_v = await Guard().metadata.get(window.location.hostname);
+    const metadata_v = await Guard().metadata.get(window.location.host);
     if (metadata_v.ok == true) {
       set_metadata(metadata_v.data);
       if (props.set_metadata) {

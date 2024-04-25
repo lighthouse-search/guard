@@ -13,7 +13,7 @@ function getGuardApiURL() {
         url.searchParams.delete(key, value);
     });
     
-    return `${url.port}//${url.host}/api`;
+    return `${url.protocol}//${url.host}/api`;
 }
 
 export { getGuardApiURL };

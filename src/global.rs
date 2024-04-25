@@ -344,6 +344,7 @@ pub async fn get_current_valid_hostname(headers: &Headers) -> Option<String> {
 
     let headers_cloned = headers.headers_map.clone();
     if (headers_cloned.get("host").is_none() == true) {
+        println!("Missing \"host\" header");
         return None;
     }
 

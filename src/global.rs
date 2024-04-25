@@ -339,20 +339,44 @@ pub async fn get_hostname(hostname: String) -> Option<Guarded_Hostname> {
     hostname_output
 }
 
-pub async fn get_current_valid_hostname(headers: &Headers) -> Option<String> {
+pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option<String>) -> Option<String> {
     let hostnames: Vec<Guarded_Hostname> = list_hostnames(true).await;
 
+    let mut header: String = "host".to_string();
+    if (header_to_use.is_none() == false) {
+        header = header_to_use.unwrap();
+    }
+
     let headers_cloned = headers.headers_map.clone();
-    if (headers_cloned.get("host").is_none() == true) {
-        println!("Missing \"host\" header");
+    if (headers_cloned.get(&header).is_none() == true) {
+        println!("Missing header: {}", header);
         return None;
     }
 
-    let host = headers_cloned.get("host").unwrap().to_owned();
+    let mut host_unparsed = headers_cloned.get(&header).unwrap().to_owned();
+
+    // host_unparsed.contains("://") == false, could pick up something in the pathname, but this isn't for security's sake, this is for error handling sake. The URL parser validates the URL.
+    if (host_unparsed.starts_with("https://") == false && host_unparsed.starts_with("http://") == false && host_unparsed.contains("://") == false) {
+        // Add HTTPS to protocol in URL, since none was specified (which is always going to happen in "host" headers).
+        host_unparsed = format!("https://{}", host_unparsed);
+    }
+
+    // Parse URL through parser to get host.
+    let mut host = Url::parse(&host_unparsed).unwrap(); // Future: Handle bad value here, otherwise it will just error.
+
+    // Set the result as output_host. This streamlines the value.
+    let mut output_host = host.host_str().unwrap().to_string();
+
+    // Sometimes, the header has a port set (e.g example.com:1234, instead of example.com). Guard allows having the same hostnames with different ports, we need to add that information if the port is not 443, otherwise the hostname won't be found.
+    if (host.port().is_none() == false) {
+        if (host.port().unwrap() != 443) {
+            output_host = format!("{}:{}", host.host_str().unwrap().to_string(), host.port().unwrap())
+        }
+    }
 
     let mut is_valid_guarded_hostname: bool = false;
     for item in hostnames {
-        if (item.hostname == host) {
+        if (item.hostname == output_host) {
             // Valid Guarded hostname!
             is_valid_guarded_hostname = true;
             break;
@@ -360,8 +384,9 @@ pub async fn get_current_valid_hostname(headers: &Headers) -> Option<String> {
     }
 
     if (is_valid_guarded_hostname == true) {
-        return Some(host);
+        return Some(output_host);
     } else {
+        println!("Invalid hostname");
         return None;
     }
 }

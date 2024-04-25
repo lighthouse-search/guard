@@ -213,6 +213,11 @@ impl From<AuthMethod> for AuthMethod_Public {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Config_proxy_authentication_config {
+    pub header: Option<String>
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config_sql {
     pub users_table: Option<String>,
     pub devices_table: Option<String>,

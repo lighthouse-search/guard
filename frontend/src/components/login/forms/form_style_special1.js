@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Guard } from '@oracularhades/guard';
 import Or_Bar from './or_bar';
 import FormStyle_1 from './form_style1';
+import LoadingSpinner from '@/components/miscellaneous/loadingspinner';
 
 export default function FormStyle_special_1(props) {
     const should_run = useRef(true);
@@ -16,9 +17,10 @@ export default function FormStyle_special_1(props) {
     const [show_captcha, set_show_captcha] = useState(false);
     const [authentication_methods, set_authentication_methods] = useState([]);
     const [state, set_state] = useState(null);
+    const [loading, set_loading] = useState(false);
 
     async function get_authentication_methods() {
-        const authentication_methods_v = await Guard().metadata.get_authentication_methods(window.location.hostname);
+        const authentication_methods_v = await Guard().metadata.get_authentication_methods(window.location.host);
         set_authentication_methods(authentication_methods_v.data);
     }
 
@@ -54,6 +56,8 @@ export default function FormStyle_special_1(props) {
     }
 
     async function start_email_authentication(authentication_method, request_data) {
+        set_loading(true);
+
         const response = await Guard().request(authentication_method, request_data);
         if (response.ok == true) {
             set_state("check_your_email");
@@ -62,6 +66,8 @@ export default function FormStyle_special_1(props) {
         if (response.error == true) {
             alert(response.message);
         }
+
+        set_loading(false);
     }
 
     let email_method = null;
@@ -100,7 +106,7 @@ export default function FormStyle_special_1(props) {
                 {showHeader && <h1 className='FormStyle_1_header'>{header}</h1>}
                 {props.logo && <div className='FormStyle_1_logo'>{props.logo}</div>}
 
-                <div className='FormStyle_1_div'>
+                {loading == false && <div className='FormStyle_1_div'>
                     {email_method && <div className='FormStyle_1_div'>
                         <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }} onKeyPress={() => { on_login_start(); }}/>
                         <button className='FormStyle_1_div_login_button' onClick={() => { start_email_authentication(email_method.id, { email: email }); }}>Login</button>
@@ -112,7 +118,8 @@ export default function FormStyle_special_1(props) {
                         size="normal"
                         onVerify={(token,ekey) => { request_magiclink(token); }}
                     />} */}
-                </div>
+                </div>}
+                {loading == true && <LoadingSpinner speed="600ms" style={{ width: 15, height: 15, alignSelf: "center" }}/>}
 
                 {/* <Or_Bar/> */}
 

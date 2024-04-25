@@ -23,7 +23,6 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magiclink_handling_data, authentication_method: AuthMethod, remote_addr: SocketAddr) -> Result<(Handling_magiclink, Connection<Db>), Box<dyn Error>> {
     let code: String = request_data.code.unwrap();
-    let referer: String = request_data.referer.unwrap();
 
     if (is_null_or_whitespace(code.clone())) {
         // Return error.

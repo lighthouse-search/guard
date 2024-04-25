@@ -8,6 +8,7 @@ import { Guard } from '@oracularhades/guard';
 import Or_Bar from './or_bar';
 import FormStyle_1 from './form_style1';
 import LoadingSpinner from '@/components/miscellaneous/loadingspinner';
+import { get_routing_host } from '@/global';
 
 export default function FormStyle_special_1(props) {
     const should_run = useRef(true);
@@ -20,7 +21,10 @@ export default function FormStyle_special_1(props) {
     const [loading, set_loading] = useState(false);
 
     async function get_authentication_methods() {
-        const authentication_methods_v = await Guard().metadata.get_authentication_methods(window.location.host);
+        let url = new URL(window.location.href);
+        let host = get_routing_host(window, url);
+
+        const authentication_methods_v = await Guard().metadata.get_authentication_methods(host);
         set_authentication_methods(authentication_methods_v.data);
     }
 

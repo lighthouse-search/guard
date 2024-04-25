@@ -9,10 +9,7 @@ export default function AestheticMetadataPanel(props) {
 
     async function get_metadata() {
         let url = new URL(window.location.href);
-        let host = window.location.host;
-        if (url && url.searchParams.get("host")) {
-        host = url.searchParams.get("host")
-        }
+        let host = get_routing_host(window, url);
 
         const metadata_v = await Guard().metadata.get(host);
         if (metadata_v.ok == true) {

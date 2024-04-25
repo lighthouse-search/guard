@@ -21,7 +21,7 @@ export default function Magiclink1() {
 
     let response = null;
     try {
-      response = await Guard().authenticate(host, params.get("authentication_method"), { code: params.get("code"), referer: window.location.host, public_key: keys.publicKeyNaked });
+      response = await Guard().authenticate(host, params.get("authentication_method"), { code: params.get("code"), public_key: keys.publicKeyNaked });
     } catch (error) {
       console.log(error);
       set_error(error.message);

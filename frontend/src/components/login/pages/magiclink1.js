@@ -18,10 +18,7 @@ export default function Magiclink1() {
     const keys = await generatePublicPrivateKey();
 
     let url = new URL(window.location.href);
-    let host = window.location.host;
-    if (url && url.searchParams.get("host")) {
-      host = url.searchParams.get("host")
-    }
+    let host = get_routing_host(window, url);
 
     let response = null;
     try {

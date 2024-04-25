@@ -135,4 +135,14 @@ function is_motionfans_site(url) {
   return ok;
 }
 
-export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, is_motionfans_site };
+function get_routing_host(window, url) {
+  let url = new URL(window.location.href);
+  let host = window.location.host;
+  if (url && url.searchParams.get("host")) {
+    host = url.searchParams.get("host")
+  }
+
+  return host;
+}
+
+export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, is_motionfans_site, get_routing_host };

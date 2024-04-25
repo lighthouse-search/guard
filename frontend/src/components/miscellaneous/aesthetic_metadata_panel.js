@@ -7,8 +7,14 @@ export default function AestheticMetadataPanel(props) {
     const should_run = useRef(true);
     const [metadata, set_metadata] = useState(null);
 
+    let url = new URL(window.location.href);
+    let host = window.location.host;
+    if (url && url.searchParams.get("host")) {
+      host = url.searchParams.get("host")
+    }
+
     async function get_metadata() {
-        const metadata_v = await Guard().metadata.get(window.location.hostname);
+        const metadata_v = await Guard().metadata.get(host);
         if (metadata_v.ok == true) {
             set_metadata(metadata_v.data);
         }

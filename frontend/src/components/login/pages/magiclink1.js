@@ -17,9 +17,15 @@ export default function Magiclink1() {
   async function send_magiclink(params) {
     const keys = await generatePublicPrivateKey();
 
+    let url = new URL(window.location.href);
+    let host = window.location.host;
+    if (url && url.searchParams.get("host")) {
+      host = url.searchParams.get("host")
+    }
+
     let response = null;
     try {
-      response = await Guard().authenticate(params.get("authentication_method"), { code: params.get("code"), referer: window.location.host, public_key: keys.publicKeyNaked });
+      response = await Guard().authenticate(host, params.get("authentication_method"), { code: params.get("code"), referer: window.location.host, public_key: keys.publicKeyNaked });
     } catch (error) {
       console.log(error);
       set_error(error.message);

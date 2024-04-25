@@ -24,7 +24,7 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 // Some authenticatiom methods, such as email require action (such as sending a magiclink) before the user can present credentials to authenticate. This is where that logic is kept.
 
-pub async fn request_email(mut db: Connection<Db>, email: String, authentication_method: AuthMethod, remote_addr: SocketAddr) -> Result<(Request_magiclink, Connection<Db>), Box<dyn Error>> {
+pub async fn request_email(mut db: Connection<Db>, email: String, authentication_method: AuthMethod, remote_addr: SocketAddr, host: Guarded_Hostname) -> Result<(Request_magiclink, Connection<Db>), Box<dyn Error>> {
     let sql: Config_sql = (&*SQL_TABLES).clone();
 
     // TODO: This needs to be get_user.
@@ -53,7 +53,8 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
 
     let params: Value = json!({
         "authentication_method": authentication_method.id,
-        "code": code
+        "code": code,
+        "host": host.hostname
     });
 
     let output_params = serde_urlencoded::to_string(params).expect("Failed to encode URL parameters");

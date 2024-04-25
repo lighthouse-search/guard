@@ -5,6 +5,7 @@ import { Guard } from '@oracularhades/guard';
 import FormStyle_special_1 from '../forms/form_style_special1';
 import './css/login1_special.css';
 import './../../global.css';
+import { get_routing_host } from '@/global';
 
 export default function Login1_special(props) {
   const [magiclink, set_magiclink] = useState(false);
@@ -15,8 +16,7 @@ export default function Login1_special(props) {
   const [metadata, set_metadata] = useState(undefined);
 
   async function get_metadata() {
-    let url = new URL(window.location.href);
-    let host = get_routing_host(window, url);
+    let host = get_routing_host(window);
 
     const metadata_v = await Guard().metadata.get(host);
     if (metadata_v.ok == true) {

@@ -33,17 +33,6 @@ pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magi
         }, db));
     }
 
-    // referrer is validating where the person came from.
-    let invalid_referer = status::Custom(Status::BadRequest, error_message("body.request_data.referer is invalid."));
-    let hostname = get_hostname(referer.clone()).await;
-    if (hostname.is_none() == true) {
-        println!("Missing hostname");
-        return Ok((Handling_magiclink {
-            magiclink: None,
-            error_to_respond_to_client_with: Some(invalid_referer)
-        }, db));
-    }
-
     let sql: Config_sql = (&*SQL_TABLES).clone();
     let magiclink_table = sql.magiclink_table.unwrap();
 

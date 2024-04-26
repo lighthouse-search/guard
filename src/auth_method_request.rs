@@ -54,7 +54,7 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
     let params: Value = json!({
         "authentication_method": authentication_method.id,
         "code": code,
-        "host": host.hostname
+        "redirect": format!("https://{}", host.hostname)
     });
 
     let output_params = serde_urlencoded::to_string(params).expect("Failed to encode URL parameters");

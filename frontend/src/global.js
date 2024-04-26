@@ -50,7 +50,7 @@ function has_only_alphabetic_characters(str) {
 
 async function handle_new(device_id, private_key) {
   let localAppend = "";
-  if (localStorage.getItem("use_prod_servers") != "true" && window.location.hostname.includes("127.0.0.1")) {
+  if (localStorage.getItem("use_prod_servers") == "false" && window.location.hostname.includes("127.0.0.1")) {
     localAppend = "_local";
   }
   
@@ -70,10 +70,18 @@ async function handle_new(device_id, private_key) {
 
   let result = await static_auth_sign({ device_id: device_id }, private_key);
 
-  let root_domain_split = window.location.hostname.split(".");
-  let root_domain = `${root_domain_split[root_domain_split.length-1]}.${root_domain_split[root_domain_split.length-1]}`;
+  let root_domain_split = ".motionfans.com".split(".");
+  let root_domain = `${root_domain_split[root_domain_split.length-2]}.${root_domain_split[root_domain_split.length-1]}`;
 
-  if (has_only_alphabetic_characters(window.location.hostname) == true) {
+  function has_only_alphabetic_characters(str) {
+    // Regular expression to match only alphabetical characters
+    const regex = /^[a-zA-Z]+$/;
+    
+    // Test if the string matches the regular expression
+    return regex.test(str);
+  }
+
+  if (has_only_alphabetic_characters(window.location.hostname) == true || window.location.hostname == "localhost") {
     // Almost certainly 127.0.0.1, 0.0.0.0, etc.
     root_domain = window.location.hostname;
   }
@@ -84,8 +92,7 @@ async function handle_new(device_id, private_key) {
     secure: false,
     expires: expirationDate,
     sameSite: "strict"
-});
-
+  });
 }
 
 async function credentials_object() {

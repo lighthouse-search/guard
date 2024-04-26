@@ -339,6 +339,23 @@ pub async fn get_hostname(hostname: String) -> Option<Guarded_Hostname> {
     hostname_output
 }
 
+pub fn url_to_domain_port(host_unparsed: String) -> Result<String, Box<dyn Error>> {
+    // Parse URL through parser to get host.
+    let mut host = Url::parse(&host_unparsed).unwrap(); // Future: Handle bad value here, otherwise it will just error.
+
+    // Set the result as output_host. This streamlines the value.
+    let mut output_host = host.host_str().unwrap().to_string();
+
+    // Sometimes, the header has a port set (e.g example.com:1234, instead of example.com). Guard allows having the same hostnames with different ports, we need to add that information if the port is not 443, otherwise the hostname won't be found.
+    if (host.port().is_none() == false) {
+        if (host.port().unwrap() != 443) {
+            output_host = format!("{}:{}", host.host_str().unwrap().to_string(), host.port().unwrap())
+        }
+    }
+
+    return Ok(output_host);
+}
+
 pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option<String>) -> Option<String> {
     let hostnames: Vec<Guarded_Hostname> = list_hostnames(true).await;
 
@@ -361,18 +378,7 @@ pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option
         host_unparsed = format!("https://{}", host_unparsed);
     }
 
-    // Parse URL through parser to get host.
-    let mut host = Url::parse(&host_unparsed).unwrap(); // Future: Handle bad value here, otherwise it will just error.
-
-    // Set the result as output_host. This streamlines the value.
-    let mut output_host = host.host_str().unwrap().to_string();
-
-    // Sometimes, the header has a port set (e.g example.com:1234, instead of example.com). Guard allows having the same hostnames with different ports, we need to add that information if the port is not 443, otherwise the hostname won't be found.
-    if (host.port().is_none() == false) {
-        if (host.port().unwrap() != 443) {
-            output_host = format!("{}:{}", host.host_str().unwrap().to_string(), host.port().unwrap())
-        }
-    }
+    let output_host = url_to_domain_port(host_unparsed).expect("Failed to get output_host");
 
     let mut is_valid_guarded_hostname: bool = false;
     for item in hostnames {

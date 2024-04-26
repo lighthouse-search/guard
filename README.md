@@ -122,6 +122,8 @@ devices {
 - Some UI cleanup (Frontend doesn't redirect to original URL after successfully authenticating with magiclink).
 - Set a header Guard should tell Rocket (the webserver Guard runs on) to treat as the IP, such as, x-real-ip.
 - Removing requirement for database, allowing someone to just rely on OAuth/SSO/SAML with a good UI, if they'd like.
+- Ability for Guard to be an app's authentication. Such as authenticating a user, and then proxying all requests, but adding a header identifying the user.
+- SQL credentials should not be stored in Guard configuration. It was never intended to be, and this will be fixed. It will be referenced in an environment variable, such as SMTP password is.
 - Suggestions! I'm happy to add what people need. However, Guard will not have clutter or barely used features. It's important to minimize the attack surface. Code we have is code we have to maintain, Guard needs to be highly secure.
 
 # Code guidelines

@@ -114,7 +114,7 @@ devices {
 }
 ```
 
-#Whats left to do?
+# Whats left to do?
 - OAuth/SSO/SAML authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
 - Better error handling in requests.
 - Some syntax improvements.

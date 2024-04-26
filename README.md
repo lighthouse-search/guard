@@ -6,6 +6,8 @@ Reverse-proxy authentication sucks. It's usually some NGINX configuration snippe
 # Security
 Guard is built off [Hades-auth](https://github.com/oracularhades/hades-auth) and [Dashboard-builder](https://github.com/oracularhades/dashboard-builder). Guard uses hades-auth static_auth, which is a signed JWT, stored in cookies, signed with a private key generated on the user's device. It's pratically impossible to bruteforce a signed JWT, which matches a valid deviceid, certainly without setting off alarm bells, and is much more secure than session tokens.
 
+Guard never uses passwords, passwords suck. Magiclinks are also restricted to the IP address of the user that requested it (hard to brute-force).
+
 Note: Yes, hades-auth is all about completely signed requests, but that can't be done with Guard, because the static_auth key has to be stored in cookies.
 
 # Example
@@ -113,11 +115,13 @@ devices {
 ```
 
 #Whats left to do?
-- Saml/Oauth authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
+- OAuth/SSO/SAML authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
 - Better error handling in requests.
 - Some syntax improvements.
-- Cleaning up where functions are stored and adding comments
-- Some UI cleanup (Frontend doesn't redirect to original URL after successfully authenticating with magiclink)
+- Cleaning up where functions are stored and adding comments.
+- Some UI cleanup (Frontend doesn't redirect to original URL after successfully authenticating with magiclink).
+- Set a header Guard should tell Rocket (the webserver Guard runs on) to treat as the IP, such as, x-real-ip.
+- Removing requirement for database, allowing someone to just rely on OAuth/SSO/SAML with a good UI, if they'd like.
 - Suggestions! I'm happy to add what people need. However, Guard will not have clutter or barely used features. It's important to minimize the attack surface. Code we have is code we have to maintain, Guard needs to be highly secure.
 
 # Code guidelines

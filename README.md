@@ -11,7 +11,7 @@ Guard never uses passwords, passwords suck. Magiclinks are also restricted to th
 Note: Yes, hades-auth is all about completely signed requests, but that can't be done with Guard, because the static_auth key has to be stored in cookies.
 
 # Example
-Guard allows you to create great, styled, authentication with simple configuration.
+Guard allows you to create great, styled, authentication with a simple configuration.
 <img width="1440" alt="Screenshot 2024-04-27 at 12 38 15 AM" src="https://github.com/oracularhades/guard/assets/91714073/6ab7e3eb-11dd-4066-8f71-34caa00f5920">
 
 ```

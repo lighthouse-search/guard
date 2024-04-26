@@ -1,6 +1,11 @@
 # Why
 Reverse-proxy authentication sucks. It's usually some NGINX configuration snippet that redirects out to OAuth/Saml, with some hack-job HTML, and an if statement if this person is authorized. Or having to program authentication into individual authentication APIs. It sucks to maintain, not to mention with proper security (such as not using bearer tokens).
 
+# Security
+Guard is built off [Hades-auth](https://github.com/oracularhades/hades-auth) and [Dashboard-builder](https://github.com/oracularhades/dashboard-builder). Guard uses hades-auth static_auth, which is a signed JWT, stored in cookies, signed with a private key generated on the user's device. It's pratically impossible to bruteforce a signed JWT, which matches a valid deviceid, certainly without setting off alarm bells, and is much more secure than session tokens.
+
+Note: Yes, hades-auth is all about completely signed requests, but that can't be done with Guard, because the static_auth key has to be stored in cookies.
+
 # Example
 Guard allows you to create great, styled, authentication with simple configuration.
 <img width="1440" alt="Screenshot 2024-04-27 at 12 38 15 AM" src="https://github.com/oracularhades/guard/assets/91714073/6ab7e3eb-11dd-4066-8f71-34caa00f5920">

@@ -69,7 +69,7 @@ multistep_authentication_methods = false
 applied_policies = ["staff_only"]
 ```
 
-# NGINX, here's what that configuration looks like when tied with NGINX:
+# NGINX:
 ```
 apiVersion: networking.k8s.io/v1
 kind: Ingress

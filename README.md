@@ -62,4 +62,4 @@ multistep_authentication_methods = false
 applied_policies = ["staff_only"]
 ```
 
-*more docs to come soon*
+*Actual docs to come soon, this is a description*

@@ -68,11 +68,56 @@ authentication_methods = ["email"]
 multistep_authentication_methods = false
 applied_policies = ["staff_only"]
 ```
+
+# NGINX, here's what that configuration looks like when tied with NGINX:
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/auth-method: POST
+    nginx.ingress.kubernetes.io/auth-url: http://guard-service.guard.svc.cluster.local/api/proxy/authentication
+    nginx.ingress.kubernetes.io/error-page: https://guard.motionfans.com/frontend/access-denied
+    nginx.ingress.kubernetes.io/auth-signin: https://guard.motionfans.com/frontend/login?redirect=$scheme://$http_host$request_uri
+spec:
+    [..]
+  tls:
+  - hosts:
+    - sydney.motionfans.com
+    secretName: sydney-motionfans-com-tls
+```
+
+# Database schema (You will not have to use a database in future versions, and can just reply on OAuth providers, if you'd like):
+```
+users {
+    id: String,
+    email: String
+}
+
+magiclink {
+    user_id: String,
+    code: String,
+    ip: String,
+    authentication_method: String,
+    created: Option<i64>
+}
+
+devices {
+    id: String,
+    user_id: String,
+    authentication_method: String,
+    collateral: Option<String>,
+    public_key: String,
+    created: Option<i64>
+}
+```
+
 #Whats left to do?
 - Saml/Oauth authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
 - Better error handling in requests.
 - Some syntax improvements.
-- Cleaning up where functions are stored and adding comments.
+- Cleaning up where functions are stored and adding comments
+- Some UI cleanup (Frontend doesn't redirect to original URL after successfully authenticating with magiclink)
 - Suggestions! I'm happy to add what people need. However, Guard will not have clutter or barely used features. It's important to minimize the attack surface. Code we have is code we have to maintain, Guard needs to be highly secure.
 
 # Code guidelines

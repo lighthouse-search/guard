@@ -1,3 +1,5 @@
+*Guard is not yet ready for full production use*
+
 # Why
 Reverse-proxy authentication sucks. It's usually some NGINX configuration snippet that redirects out to OAuth/Saml, with some hack-job HTML, and an if statement if this person is authorized. Or having to program authentication into individual authentication APIs. It sucks to maintain, not to mention with proper security (such as not using bearer tokens).
 
@@ -66,5 +68,16 @@ authentication_methods = ["email"]
 multistep_authentication_methods = false
 applied_policies = ["staff_only"]
 ```
+#Whats left to do?
+- Saml/Oauth authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
+- Better error handling in requests.
+- Some syntax improvements.
+- Cleaning up where functions are stored and adding comments.
+- Suggestions! I'm happy to add what people need. However, Guard will not have clutter or barely used features. It's important to minimize the attack surface. Code we have is code we have to maintain, Guard needs to be highly secure.
+
+# Code guidelines
+- Keep functions to <50 lines of code, with small exceptions, excluding code comments. If you go over 50 lines, you should consider if you're doing too much. Read-able code is very important.
+- Do not add non-standard/not closely monitored cargo packages. Don't just add a cargo package because you want your terminal output to be colourful. Supply chain attacks exist, and we dont want that.
+- Comment your code.
 
 *Actual docs to come soon, this is a description*

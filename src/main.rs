@@ -16,6 +16,31 @@ mod users;
 mod policy;
 mod device;
 mod database;
+mod authentication_misc;
+
+pub mod endpoints {
+    pub mod auth;
+    pub mod metadata;
+    pub mod proxy;
+}
+pub mod globals {
+    pub mod environment_variables;
+}
+mod protocols {
+    pub mod misc_pipeline {
+        pub mod device;
+    }
+    pub mod email {
+        pub mod magiclink;
+    }
+    pub mod oauth {
+        pub mod oauth_client;
+        pub mod oauth_pipeline;
+        pub mod endpoint {
+            pub mod oauth_endpoint;
+        }
+    }
+}
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
@@ -89,8 +114,10 @@ fn internal_error() -> serde_json::Value {
 
 #[launch]
 async fn rocket() -> _ {
-    validate_sql_table_inputs().await.expect("Config validation failed");
-    check_database_environment().await.expect("Check database environment failed");
+    validate_sql_table_inputs().await.expect("Config validation failed.");
+    check_database_environment().await.expect("Check database environment failed.");
+
+    // oauth_client::oauth_userinfo().await;
 
     rocket::build()
     .register("/", catchers![internal_error])

@@ -1,7 +1,8 @@
 import fetch_wrapper from "./fetcher.js";
 import general from "./general.js";
 import metadata from "./metadata.js";
-import { authenticate, request } from './lib.js';
+import auth from './lib.js';
+import oauth from "./protocols/oauth.js";
 
 let deviceIDG = null;
 let privateKeyG = null;
@@ -20,15 +21,6 @@ async function getCreds() {
     };
 }
 
-async function OnlyGetAdditionalData() {
-    // The getCreds function returns null for safety, however some parts of the codebase might still need something from the additional data object, such as a domain for local development.
-    let additional_data_v = {};
-    if (additional_data_v) {
-        additional_data_v = additional_data_v;
-    }
-    return additional_data_v
-}
-
 function Guard(credsObject) {
     if (credsObject) {
         deviceIDG = credsObject.deviceid;
@@ -40,13 +32,12 @@ function Guard(credsObject) {
     }
 
     return {
-        getCreds: getCreds,
         metadata: metadata,
-        request: request,
-        authenticate: authenticate,
+        auth: auth,
+        oauth: oauth,
         fetch_wrapper: fetch_wrapper,
         general: general
     };
 }
 
-export { Guard, getCreds, OnlyGetAdditionalData };
+export { Guard, getCreds }

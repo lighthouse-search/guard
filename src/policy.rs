@@ -2,6 +2,7 @@ use crate::structs::*;
 use crate::tables::*;
 use crate::global::*;
 use std::error::Error;
+use serde_json::Value;
 
 pub async fn get_hostname_policies(hostname: Guarded_Hostname, only_active: bool) -> Vec<Guard_Policy> {
     let mut policies: Vec<Guard_Policy> = Vec::new();
@@ -19,7 +20,7 @@ pub async fn get_hostname_policies(hostname: Guarded_Hostname, only_active: bool
     policies
 }
 
-pub async fn policy_authentication(policies: Vec<Guard_Policy>, user: Guard_user, ip: String) -> bool {
+pub async fn policy_authentication(policies: Vec<Guard_Policy>, user: Value, ip: String) -> bool {
     let mut action: String = "block".to_string();
 
     for policy in policies {
@@ -40,19 +41,33 @@ pub async fn policy_authentication(policies: Vec<Guard_Policy>, user: Guard_user
     }
 }
 
-pub async fn matches_policy(policy: Guard_Policy, user: Guard_user, ip: String) -> Result<bool, Box<dyn Error>> {
+pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Result<bool, String> {
     let mut matches: bool = false;
     let mut property = String::new();
 
-    let requested_property = policy.property.to_lowercase(); // So we can always get the property as lower-case without 
-    if (requested_property == "email") {
-        property = user.email;
-    } else if (requested_property == "ip") {
-        property = ip;
+    if let Some(property_value) = user.get(policy.property.clone()) {
+        if property_value.is_null() || property_value.as_str().map_or(false, |s| s.is_empty()) {
+            println!("The property is empty");
+        } else {
+            property = property_value.as_str().unwrap_or_default().to_string();;
+        }
     } else {
-        // Throw error, invalid property.
-        return Err("Invalid property specified for policy. This should have been caught in a config integrity check.".into());
+        println!("The property does not exist");
     }
+
+    if (property == String::new()) {
+        return Err(format!("'{}' is null or does not exist in the user data", policy.property));
+    }
+
+    // let requested_property = policy.property.to_lowercase(); // So we can always get the property as lower-case without 
+    // if (requested_property == "email") {
+    //     property = user.email;
+    // } else if (requested_property == "ip") {
+    //     property = ip;
+    // } else {
+    //     // Throw error, invalid property.
+    //     return Err("Invalid property specified for policy. This should have been caught in a config integrity check.".into());
+    // }
 
     if (policy.is.is_none() == false) {
         let is_vec = policy.is.unwrap();

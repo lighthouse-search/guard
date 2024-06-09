@@ -69,7 +69,8 @@ pub async fn get_authentication_methods() -> HashMap<String, AuthMethod> {
     for (key, value) in auth_methods {
         let parts: Vec<&str> = key.split('.').collect();
         if parts.len() == 1 {
-            let mut method: AuthMethod = value.clone().try_into().expect("lmao");
+            let mut method: AuthMethod = value.clone().try_into().expect("Missing authentication method.");
+            println!("METHOD: {:?}", method.clone());
             method.id = Some(key.clone());
             methods.insert(key.clone(), method);
         }
@@ -78,17 +79,27 @@ pub async fn get_authentication_methods() -> HashMap<String, AuthMethod> {
     return methods;
 }
 
-pub async fn get_authentication_method(id: String) -> Option<AuthMethod> {
+pub async fn get_authentication_method(id: String, only_active: bool) -> Option<AuthMethod> {
     let auth_methods = get_authentication_methods().await;
     
-    let mut authentication_method: Option<AuthMethod> = None;
+    let mut authentication_method_candidate: Option<AuthMethod> = None;
     for (key, value) in auth_methods {
-        if value.clone().id.expect("Missing id") == id && authentication_method.is_none() == true {
-            authentication_method = Some(value.clone());
+        if value.clone().id.expect("Missing id") == id && authentication_method_candidate.is_none() == true {
+            authentication_method_candidate = Some(value.clone());
         }
     }
 
-    authentication_method
+    if (authentication_method_candidate.is_none()) {
+        return None;
+    }
+
+    // Caller has required the authentication-method be active.
+    let authentication_method = authentication_method_candidate.unwrap();
+    if (authentication_method.active != true && only_active == true) {
+        return None;
+    }
+
+    return Some(authentication_method);
 }
 
 pub async fn get_policies() -> HashMap<String, Guard_Policy> {
@@ -295,7 +306,7 @@ pub async fn get_hostname_authentication_methods(hostname: Guarded_Hostname, onl
     let mut authentication_methods: Vec<AuthMethod> = Vec::new();
 
     for authentication_method_id in hostname.authentication_methods {
-        let authentication_method = get_authentication_method(authentication_method_id.clone()).await.expect("Missing");
+        let authentication_method = get_authentication_method(authentication_method_id.clone(), false).await.expect("Missing");
         if (only_active == true && authentication_method.active == true) {
             authentication_methods.push(authentication_method.clone());
         }

@@ -14,7 +14,7 @@ export default function Magiclink(props) {
 
     return (
         <div style={{ width: "100%", height: "100vh", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-            <Magiclink1></Magiclink1>
+            <Magiclink1/>
         </div>
     )
 }

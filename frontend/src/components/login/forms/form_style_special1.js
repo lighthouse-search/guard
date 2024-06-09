@@ -18,6 +18,7 @@ export default function FormStyle_special_1(props) {
     const [show_captcha, set_show_captcha] = useState(false);
     const [authentication_methods, set_authentication_methods] = useState([]);
     const [state, set_state] = useState(null);
+    const [error, set_error] = useState(null);
     const [loading, set_loading] = useState(false);
 
     async function get_authentication_methods() {
@@ -60,15 +61,17 @@ export default function FormStyle_special_1(props) {
 
     async function start_email_authentication(authentication_method, request_data) {
         set_loading(true);
+        set_error(null);
 
         let host = get_routing_host(window);
-        const response = await Guard().request(host, authentication_method, request_data);
-        if (response.ok == true) {
-            set_state("check_your_email");
-            return;
-        }
-        if (response.error == true) {
-            alert(response.message);
+        try {
+            const response = await Guard().auth.request(host, authentication_method, request_data);
+            if (response.ok == true) {
+                set_state("check_your_email");
+                return;
+            }
+        } catch (error) {
+            set_error(error.message);
         }
 
         set_loading(false);
@@ -82,20 +85,15 @@ export default function FormStyle_special_1(props) {
             return;
         }
 
-        let service = data.id;
-        if (data.alias) {
-            service = data.alias;
-        }
-
         return (
-            <Login_With service={service} icon={data.icon} redirect={data.login_page}/>
+            <Login_With authentication_method={data}/>
         )
     });
 
     const Check_your_email = (() => {
         return (
             <FormStyle_1 header={false} className="magiclink_form" style={{ rowGap: 5 }}>
-                <img className='magiclink_img' src="/frontend/assets/magiclink.png"/>
+                <img className='magiclink_img' src="/guard/frontend/assets/magiclink.png"/>
                 <h2 className='magiclink_checkyouremail'>Check your email</h2>
                 <p className='magiclink_wesentalink'>We've sent you a Magiclink to authenticate with. <b>Remember to check your junk/spam folder.</b></p>
             </FormStyle_1>
@@ -111,6 +109,7 @@ export default function FormStyle_special_1(props) {
                 {props.logo && <div className='FormStyle_1_logo'>{props.logo}</div>}
 
                 {loading == false && <div className='FormStyle_1_div'>
+                    {error != null && <p className='FormStyle_1_div_error'>Error: {error}</p>}
                     {email_method && <div className='FormStyle_1_div'>
                         <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }} onKeyPress={() => { on_login_start(); }}/>
                         <button className='FormStyle_1_div_login_button' onClick={() => { start_email_authentication(email_method.id, { email: email }); }}>Login</button>

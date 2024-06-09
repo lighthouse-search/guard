@@ -1,9 +1,10 @@
-import general from "./general.js";
 import { Guard, getCreds } from "./index.js";
+
+import general from "./general.js";
 import { getGuardApiURL } from "./routing.js";
 
 async function request(host, authentication_method, request_data) {
-    const response = await Guard(await getCreds()).fetch_wrapper(`${getGuardApiURL()}/request?${general().objectToParams({ host })}`, {
+    const response = await Guard(await getCreds()).fetch_wrapper(`${getGuardApiURL()}/auth/request?${general().objectToParams({ host })}`, {
         method: 'POST', // *GET, POST, PUT, DELETE, etc.
         mode: 'cors', // no-cors, *cors, same-origin
         cache: 'default', // *default, no-cache, reload, force-cache, only-if-cached
@@ -29,7 +30,7 @@ async function request(host, authentication_method, request_data) {
 }
 
 async function authenticate(host, authentication_method, request_data) {
-    const response = await Guard(await getCreds()).fetch_wrapper(`${getGuardApiURL()}/authenticate?${general().objectToParams({ host })}`, {
+    const response = await Guard(await getCreds()).fetch_wrapper(`${getGuardApiURL()}/auth/authenticate?${general().objectToParams({ host })}`, {
         method: 'POST', // *GET, POST, PUT, DELETE, etc.
         mode: 'cors', // no-cors, *cors, same-origin
         cache: 'default', // *default, no-cache, reload, force-cache, only-if-cached
@@ -54,4 +55,5 @@ async function authenticate(host, authentication_method, request_data) {
     return data;
 }
 
-export { request, authenticate }
+const auth = { request, authenticate }
+export default auth;

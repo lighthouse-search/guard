@@ -40,59 +40,96 @@ async function generatePublicPrivateKey() {
   return { publicKeyNaked: publicexportedAsBase64, privateKeyNaked: privateexportedAsBase64 };
 }
 
-function has_only_alphabetic_characters(str) {
+function has_only_alphabetic_domain(str) {
   // Regular expression to match only alphabetical characters
-  const regex = /^[a-zA-Z]+$/;
+  const regex = /^[a-zA-Z.]+$/;
+
+  // Check this is considered a URL.
+  new URL("https://"+str);
   
   // Test if the string matches the regular expression
   return regex.test(str);
 }
 
-async function handle_new(device_id, private_key) {
+async function handle_new(auth_data, auth_metadata, private_key) {
   let localAppend = "";
   if (localStorage.getItem("use_prod_servers") == "false" && window.location.hostname.includes("127.0.0.1")) {
     localAppend = "_local";
   }
   
-  if (!device_id || !private_key) {
-    return null;
+  if (!auth_data) {
+    throw "No auth data given.";
   }
 
-  let authObject = {
-    device_id: device_id,
-    private_key: private_key
-  }
+  await localStorage.setItem(`auth${localAppend}`, JSON.stringify(auth_data));
+  await handle_new_authentication_metadata(auth_metadata);
+}
 
-  await localStorage.setItem(`auth${localAppend}`, JSON.stringify(authObject));
-
+async function handle_new_authentication_metadata(metadata) {
   let expirationDate = new Date();
   expirationDate.setFullYear(expirationDate.getFullYear() + 10);
 
-  let result = await static_auth_sign({ device_id: device_id }, private_key);
+  let root_domain = root_domain_logic();
 
-  let root_domain_split = ".motionfans.com".split(".");
-  let root_domain = `${root_domain_split[root_domain_split.length-2]}.${root_domain_split[root_domain_split.length-1]}`;
-
-  function has_only_alphabetic_characters(str) {
-    // Regular expression to match only alphabetical characters
-    const regex = /^[a-zA-Z]+$/;
-    
-    // Test if the string matches the regular expression
-    return regex.test(str);
-  }
-
-  if (has_only_alphabetic_characters(window.location.hostname) == true || window.location.hostname == "localhost") {
-    // Almost certainly 127.0.0.1, 0.0.0.0, etc.
-    root_domain = window.location.hostname;
-  }
-
-  await cookies.set(`guard_static_auth`, result, {
-    domain: "."+root_domain,
+  await cookies.set(`guard_authentication_metadata`, JSON.stringify(metadata), {
+    domain: root_domain,
     path: "/",
     secure: false,
     expires: expirationDate,
     sameSite: "strict"
   });
+}
+
+async function handle_new_static_auth(auth_data, private_key) {
+  let device_id = auth_data.device_id;
+  if (!device_id) {
+    throw "device_id not provided.";
+  }
+
+  let result = await static_auth_sign({ device_id: device_id }, private_key);
+
+  let expirationDate = new Date();
+  expirationDate.setFullYear(expirationDate.getFullYear() + 10);
+
+  let root_domain = root_domain_logic();
+
+  await cookies.set(`guard_static_auth`, result, {
+    domain: root_domain,
+    path: "/",
+    secure: false,
+    expires: expirationDate,
+    sameSite: "strict"
+  });
+}
+
+async function handle_new_oauth_access_token(access_token) {
+  let expirationDate = new Date();
+  expirationDate.setFullYear(expirationDate.getFullYear() + 10);
+
+  let root_domain = root_domain_logic();
+
+  await cookies.set(`guard_oauth_access_token`, access_token, {
+    domain: root_domain,
+    path: "/",
+    secure: false,
+    expires: expirationDate,
+    sameSite: "strict"
+  });
+}
+
+function root_domain_logic() {
+  let root_domain = window.location.hostname;
+  if (window.location.hostname != "127.0.0.1") {
+    let root_domain_split = window.location.host.split(".");
+    root_domain = "."+`${root_domain_split[root_domain_split.length-2]}.${root_domain_split[root_domain_split.length-1]}`;
+  }
+
+  if (has_only_alphabetic_domain(window.location.hostname) == true || window.location.hostname == "localhost") {
+    // Almost certainly 127.0.0.1, 0.0.0.0, etc.
+    root_domain = window.location.hostname;
+  }
+
+  return root_domain;
 }
 
 async function credentials_object() {
@@ -102,7 +139,6 @@ async function credentials_object() {
   }
 
   const authData = JSON.parse(await localStorage.getItem(`auth${localAppend}`));
-
   if (!authData) {
     console.log("No auth data found.");
     return null;
@@ -127,38 +163,6 @@ async function logout() {
   await localStorage.removeItem(`auth${localAppend}`);
 }
 
-function is_motionfans_site(url) {
-  let ok = false;
-
-  let url_data = null;
-  try {
-    url_data = new URL(url);
-    if (url_data.hostname != "127.0.0.1" && url_data.hostname != "motionfans.com" && !url_data.hostname.endsWith(".motionfans.com")) {
-      // not a motionfans webpage.
-    } else {
-      ok = true;
-    }
-  } catch (error) {
-    // probably an invalid url.
-  }
-
-  // just in the future if MotionFans ever proxies return URLs and this gets caught up in there for some very stupid reason, that would allow credentials to go to bad webpages.
-  let url_data_params = new URLSearchParams(url_data.search);
-  if (url_data_params.get("return_url")) {
-    try {
-      if (is_motionfans_site(url_data_params.get("return_url")) != true) {
-        throw "bad url.";
-      }
-    } catch (error) {
-      alert("A return_url was provided within the return_url, but it is not a motionfans site.");
-
-      ok = false;
-    }
-  }
-
-  return ok;
-}
-
 function get_routing_host(window) {
   let url = new URL(window.location.href);
   let host = window.location.host;
@@ -170,4 +174,29 @@ function get_routing_host(window) {
   return host;
 }
 
-export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, is_motionfans_site, get_routing_host };
+function generateRandomID() {
+  var random_string = '';
+  // const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for(var i, i = 0; i < characters.length; i++){
+    random_string += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return random_string.slice(0, 20)+new Date().getTime();
+}
+
+async function auth_init_parmas(authentication_method, document) {
+  const state = generateRandomID();
+  const redirect_url = document.referrer;
+
+  const confirm_metadata = {
+    authentication_method,
+    state,
+    redirect_url
+  }
+
+  await localStorage.setItem("confirm_metadata", JSON.stringify(confirm_metadata));
+
+  return confirm_metadata;
+}
+
+export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_parmas };

@@ -6,7 +6,7 @@ const nextConfig = {
         unoptimized: true
     },
     trailingSlash: true,
-    basePath: '/frontend'
+    basePath: '/guard/frontend'
 }
 
 module.exports = nextConfig

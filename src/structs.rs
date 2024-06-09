@@ -128,10 +128,21 @@ pub struct AuthMethod {
     pub icon: Option<String>,
     pub method_type: String,
     pub login_page: String,
-    pub validation_endpoint: String,
+    pub validation_endpoint: Option<String>,
     pub applied_policies: Vec<String>,
     pub ratelimit: u32,
     pub ratelimit_cooldown: u32,
+    pub should_create_new_users: Option<bool>,
+    pub oauth_api: Option<String>,
+    pub oauth_user_info: Option<String>,
+    pub oauth_user_info_id: Option<String>,
+    pub oauth_user_info_reference_type: Option<String>,
+    pub oauth_user_info_reference_key: Option<String>,
+    pub oauth_token_endpoint: Option<String>,
+    // pub oauth_token_endpoint_redirect_uri: Option<String>,
+    // pub oauth_scope: Option<String>,
+    pub oauth_client_id: Option<String>,
+    pub oauth_client_secret_env: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -142,6 +153,29 @@ pub struct AuthMethod_Public {
     pub icon: Option<String>,
     pub method_type: String,
     pub login_page: String
+}
+
+impl From<AuthMethod> for AuthMethod_Public {
+    fn from(auth_method: AuthMethod) -> Self {
+        AuthMethod_Public {
+            active: auth_method.active,
+            id: auth_method.id,
+            alias: auth_method.alias,
+            icon: auth_method.icon,
+            method_type: auth_method.method_type,
+            login_page: auth_method.login_page,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Oauth_code_access_exchange_response {
+    pub access_token: Option<String>,
+    pub token_type: Option<String>,
+    pub expires_in: Option<i64>,
+    pub scope: Option<String>,
+    pub refresh_token: Option<String>,
+    pub id_token: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -162,6 +196,35 @@ pub struct Guarded_Hostname {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Guarded_Hostname_Pub {
+    pub hostname: String,
+    pub alias: Option<String>,
+    pub public_description: Option<String>,
+    pub logo: Option<String>,
+    pub image: Option<String>,
+    pub motd_banner: Option<String>,
+    pub background_colour: Option<String>,
+    pub email_domain_placeholder: Option<String>,
+    pub example_username_placeholder: Option<String>
+}
+
+impl From<Guarded_Hostname> for Guarded_Hostname_Pub {
+    fn from(hostname: Guarded_Hostname) -> Self {
+        Guarded_Hostname_Pub {
+            hostname: hostname.hostname,
+            alias: hostname.alias,
+            public_description: hostname.public_description,
+            logo: hostname.logo,
+            image: hostname.image,
+            motd_banner: hostname.motd_banner,
+            background_colour: hostname.background_colour,
+            email_domain_placeholder: hostname.email_domain_placeholder,
+            example_username_placeholder: hostname.example_username_placeholder
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Guard_Policy {
     pub active: bool,
     pub id: Option<String>,
@@ -176,7 +239,8 @@ pub struct Guard_Policy {
 
 pub struct Handling_magiclink {
     pub error_to_respond_to_client_with: Option<Custom<Value>>,
-    pub magiclink: Option<Magiclink>
+    pub magiclink: Option<Magiclink>,
+    pub user: Option<Guard_user>
 }
 
 pub struct Request_magiclink {
@@ -190,7 +254,8 @@ pub struct User_create {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Magiclink_request_data {
-    pub email: Option<String>
+    pub email: Option<String>,
+    pub state: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -199,17 +264,14 @@ pub struct Magiclink_handling_data {
     pub referer: Option<String>
 }
 
-impl From<AuthMethod> for AuthMethod_Public {
-    fn from(auth_method: AuthMethod) -> Self {
-        AuthMethod_Public {
-            active: auth_method.active,
-            id: auth_method.id,
-            alias: auth_method.alias,
-            icon: auth_method.icon,
-            method_type: auth_method.method_type,
-            login_page: auth_method.login_page,
-        }
-    }
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct OAuth_authentication_data {
+    pub bearer_token: String
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Oauth_handling_data {
+    pub authorization_code: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -252,4 +314,29 @@ pub struct AuthMethod_sql {
 
 pub struct Headers {
     pub headers_map: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct User_get_id_preference_struct {
+    pub has_value: bool,
+    pub id: Option<String>,
+    pub email: Option<String>
+}
+
+// #[derive(Debug, Clone, Deserialize, Serialize)]
+// pub struct Signed_data {
+//     pub authentication_method: bool,
+//     pub value: Option<String>,
+//     pub email: Option<String>
+// }
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Guard_authentication_metadata {
+    pub authentication_method: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct OAuth_login_url_information {
+    pub redirect_uri: Option<String>,
+    pub scope: Option<String>
 }

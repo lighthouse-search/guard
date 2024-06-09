@@ -61,3 +61,37 @@ pub async fn device_create(mut db: Connection<Db>, user_id: String, authenticati
 
     Ok((device_id, db))
 }
+
+pub fn device_guard_static_auth_from_cookies(jar: &CookieJar<'_>) -> Option<String> {
+    let mut signed_data: String = String::new();
+
+    if (jar.get("guard_static_auth").is_none() == false) {
+        signed_data = jar.get("guard_static_auth").map(|c| c.value()).expect("Failed to parse signed_data.").to_string();
+        println!("Signed_data cookie: {:?}", signed_data);
+    } else {
+        println!("Signed_data cookie: None");
+        return None;
+    }
+
+    return Some(signed_data);
+}
+
+pub async fn device_authentication(db: Connection<Db>, signed_data: String) -> (Option<Guard_devices>, Connection<Db>) {
+    let unsigned_data: Static_auth_sign = serde_json::from_value(get_unsafe_noverification_jwt_payload(signed_data.clone()).expect("Failed to parse payload.")).expect("Failed to prase JWT");
+    
+    // TODO: Instead of things like .expect("Missing additional data"), return an actual response.
+    let unsigned_data_deviceinfo: Signed_data_identifier = serde_json::from_value(unsigned_data.additional_data.expect("Missing additional data")).expect("Failed to parse identifier data.");
+    
+    let device_id = unsigned_data_deviceinfo.device_id;
+    let (device_wrapped, db) = device_get(db, device_id).await.expect("Failed to query for device.");
+    let device = device_wrapped.expect("Device not found");
+
+    let result = static_auth_verify(signed_data, device.public_key.clone()).await.expect("Failed to verify static auth.");
+    if (result.is_none() == true) {
+        // Invalid static auth.
+        println!("Invalid static auth");
+        return (None, db);
+    }
+
+    return (Some(device), db);
+}

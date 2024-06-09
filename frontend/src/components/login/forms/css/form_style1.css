@@ -36,3 +36,9 @@
 .FormStyle_1_div_login_button {
     margin-top: 4px;
 }
+
+.FormStyle_1_div_error {
+    font-size: 13px;
+    font-weight: bold;
+    color: rgb(255, 38, 38);
+}

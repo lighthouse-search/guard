@@ -5,18 +5,14 @@ import Frame_AestheticMetadataPanel from '@/components/miscellaneous/frame_aesth
 import './css/magiclink1.css';
 import './../../global.css';
 import FormStyle_1 from '../forms/form_style1';
-import { generatePublicPrivateKey, get_routing_host, handle_new, handle_new_oauth_access_token, handle_new_static_auth } from '@/global';
+import { generatePublicPrivateKey, handle_new, handle_new_oauth_access_token, handle_new_static_auth } from '@/global';
 
 export default function Magiclink1() {
   const [error, set_error] = useState(null);
 
-  // TODO: ADD STATE PARAMS TO BLOCK CLICKJACKING!
-
   const shouldSend = useRef(true);
 
   async function send_magiclink(params) {
-    // let host = get_routing_host(window);
-
     const confirm_metadata = await localStorage.getItem("confirm_metadata");
     if (!confirm_metadata) {
       set_error("missing confirm_metadata. Try going to /login and starting again.");
@@ -48,7 +44,7 @@ export default function Magiclink1() {
 
       let authentication_data = {
         public_key: keys.publicKeyNaked,
-        code: params.get("code")
+        code: params.get("magiclink_code")
       }
 
       let response = null;
@@ -61,8 +57,9 @@ export default function Magiclink1() {
         return;
       }
 
-      let auth_data = { device_id: response.device_id, private_key: response.private_key };
-      await handle_new(auth_data, null, keys.privateKeyNaked);
+      let private_key = keys.privateKeyNaked;
+      let auth_data = { device_id: response.device_id, private_key: private_key };
+      await handle_new(auth_data, auth_metadata, private_key);
       await handle_new_static_auth(auth_data, private_key);
     } else if (params.get("code")) {
       let response = null;
@@ -81,7 +78,7 @@ export default function Magiclink1() {
     }
 
     // If a hostname was returned, it means the host param we provided as valid. Provided redirect_uri is still in good shape up until this part of the function, we're good to redirect.
-    if (hostname) {
+    if (hostname && redirect_url.host != new URL(window.location.href).host) {
       let hostname_url = new URL("https://"+hostname.host);
       if (hostname_url.host == redirect_url.host) {
         window.location.href = redirect_url.href;

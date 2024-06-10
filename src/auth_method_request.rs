@@ -40,16 +40,10 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
 
     if (result.len() == 0) {
         // User not found.
-        // return Ok((Request_magiclink {
-        //     error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("User not found."))),
-        //     email: None,
-        // }, db));
-
-        // We'll respond with a success, because we don't want to give away if that's a valid email or not.
         return Ok((Request_magiclink {
-            error_to_respond_to_client_with: None,
-            email: Some(email),
-        }, db))
+            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("User not found."))),
+            email: None,
+        }, db));
     }
 
     let user = result[0].clone();
@@ -63,7 +57,7 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
         "authentication_method": authentication_method.id,
         "magiclink_code": code,
         "redirect": format!("https://{}", host.host),
-        "state": state
+        "state": state.unwrap_or("none".to_string())
     });
 
     let output_params = serde_urlencoded::to_string(params).expect("Failed to encode URL parameters");
@@ -71,7 +65,7 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
     let metadata_json = serde_json::to_string(&CONFIG_VALUE["frontend"]["metadata"]).expect("Failed to serialize");
     let frontend_metadata: Frontend_metadata = serde_json::from_str(&metadata_json).expect("Failed to parse");
 
-    let mut url = Url::parse(&format!("https://example.com/frontend/magiclink?{}", output_params)).unwrap();
+    let mut url = Url::parse(&format!("https://example.com/guard/frontend/magiclink?{}", output_params)).unwrap();
     // Update the hostname
     url.set_host(Some(&frontend_metadata.instance_hostname.expect("Missing instance_hostname"))).unwrap();
 

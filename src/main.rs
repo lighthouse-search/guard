@@ -17,6 +17,7 @@ mod policy;
 mod device;
 mod database;
 mod authentication_misc;
+mod hostname;
 
 pub mod endpoints {
     pub mod auth;

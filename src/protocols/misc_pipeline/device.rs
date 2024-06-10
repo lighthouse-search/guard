@@ -53,5 +53,7 @@ pub async fn device_pipeline(mut db: Connection<Db>, hostname: Guarded_Hostname,
 
     let user: Guard_user = user_result.expect("User tied to device does not exist.");
 
+    println!("RAW USER: {:?}", user);
+
     return Ok((true, Some(user), Some(device), db));
 }

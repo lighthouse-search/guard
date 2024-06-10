@@ -3,7 +3,7 @@ use rocket::{http::Status, response::status::{self, Custom}};
 use rocket_db_pools::{Database, Connection};
 use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use std::net::SocketAddr;
-use crate::{global::{get_hostname, is_valid_authentication_method_for_hostname}, structs::*};
+use crate::{global::{get_hostname, is_valid_authentication_method_for_hostname}, hostname::hostname_auth_exit_flow, structs::*};
 
 use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{oauth_client::oauth_code_exchange_for_access_key, oauth_pipeline::oauth_get_data_from_oauth_login_url}, Db, Headers};
 
@@ -50,23 +50,15 @@ pub async fn oauth_exchange_code(mut db: Connection<Db>, mut authentication_meth
     if (host.is_none() == true) {
         return Ok(status::Custom(Status::BadRequest, error_message("params.hostname is null or whitespace.")));
     }
-    // TODO: If 404, this error.
-    let hostname_result = get_hostname(host.unwrap()).await;
+    
+    let hostname_result = hostname_auth_exit_flow(host.unwrap(), auth_method).await;
     if (hostname_result.is_none() == true) {
         return Ok(status::Custom(Status::BadRequest, error_message("Invalid params.host")));
-    }
-    let hostname = hostname_result.expect("Invalid or missing hostname.");
-    
-    // get hostname and put it in here, and then return the hostname in the request.
-    let mut hostname_pub: Option<Guarded_Hostname_Pub> = None;
-    let is_valid_authmethod: bool = is_valid_authentication_method_for_hostname(hostname.clone(), auth_method.clone()).await.expect("is_valid_authentication_method_for_hostname failed");
-    if (is_valid_authmethod == true) {
-        hostname_pub = Some(hostname.into());
     }
 
     Ok(status::Custom(Status::Ok, json!({
         "ok": true,
         "access_token": oauth_code_exchange.access_token,
-        "hostname": hostname_pub
+        "hostname": hostname_result.unwrap()
     })))
 }

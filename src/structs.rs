@@ -181,7 +181,7 @@ pub struct Oauth_code_access_exchange_response {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Guarded_Hostname {
     pub active: bool,
-    pub hostname: String,
+    pub host: String,
     pub authentication_methods: Vec<String>,
     pub multistep_authentication_methods: bool,
     pub applied_policies: Vec<String>,
@@ -197,7 +197,7 @@ pub struct Guarded_Hostname {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Guarded_Hostname_Pub {
-    pub hostname: String,
+    pub host: String,
     pub alias: Option<String>,
     pub public_description: Option<String>,
     pub logo: Option<String>,
@@ -211,7 +211,7 @@ pub struct Guarded_Hostname_Pub {
 impl From<Guarded_Hostname> for Guarded_Hostname_Pub {
     fn from(hostname: Guarded_Hostname) -> Self {
         Guarded_Hostname_Pub {
-            hostname: hostname.hostname,
+            host: hostname.host,
             alias: hostname.alias,
             public_description: hostname.public_description,
             logo: hostname.logo,

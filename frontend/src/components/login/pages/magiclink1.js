@@ -33,11 +33,11 @@ export default function Magiclink1() {
     let authentication_method_id = params.get("authentication_method");
     let auth_metadata = { authentication_method_id };
 
-    let return_url = null;
+    let redirect_url = null;
     let host = null;
     try {
-      return_url = new URL(auth_init_params.return_url);
-      host = return_url.host;
+      redirect_url = new URL(auth_init_params.redirect_url);
+      host = redirect_url.host;
     } catch (error) {
       console.log(error);
     }
@@ -80,20 +80,11 @@ export default function Magiclink1() {
       await handle_new_oauth_access_token(response.access_token);
     }
 
-    // let return_url = auth_init_params.return_url;
-    // if (!return_url || return_url.length == 0) {
-    //   return_url = hostname.hostname;
-    //   if (!return_url.startsWith("https://") && return_url.startsWith("http://")) {
-    //     return_url = "https://"+return_url;
-    //   }
-    // }
-
-    // CHECK URL AGAINST HOSTNAME.
-
+    // If a hostname was returned, it means the host param we provided as valid. Provided redirect_uri is still in good shape up until this part of the function, we're good to redirect.
     if (hostname) {
-      let hostname_url = new URL(hostname);
-      if (hostname_url.host == return_url.host) {
-        window.location.href = return_url;
+      let hostname_url = new URL("https://"+hostname.host);
+      if (hostname_url.host == redirect_url.host) {
+        window.location.href = redirect_url.href;
       }
     } else {
       alert("Sorry, we couldn't redirect you. Just manually go to the page you want.")

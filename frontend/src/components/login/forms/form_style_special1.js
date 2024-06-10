@@ -8,7 +8,7 @@ import { Guard } from '@oracularhades/guard';
 import Or_Bar from './or_bar';
 import FormStyle_1 from './form_style1';
 import LoadingSpinner from '@/components/miscellaneous/loadingspinner';
-import { get_routing_host } from '@/global';
+import { get_routing_host, auth_init_params } from '@/global';
 
 export default function FormStyle_special_1(props) {
     const should_run = useRef(true);
@@ -22,9 +22,9 @@ export default function FormStyle_special_1(props) {
     const [loading, set_loading] = useState(false);
 
     async function get_authentication_methods() {
-        let host = get_routing_host(window);
+        let routing_host = get_routing_host(window);
 
-        const authentication_methods_v = await Guard().metadata.get_authentication_methods(host);
+        const authentication_methods_v = await Guard().metadata.get_authentication_methods(routing_host.host);
         set_authentication_methods(authentication_methods_v.data);
     }
 
@@ -63,9 +63,12 @@ export default function FormStyle_special_1(props) {
         set_loading(true);
         set_error(null);
 
-        let host = get_routing_host(window);
+        const auth_init_params_v = await auth_init_params(authentication_method.id, window);
+        request_data.state = auth_init_params_v.state;
+
+        let routing_host = get_routing_host(window);
         try {
-            const response = await Guard().auth.request(host, authentication_method, request_data);
+            const response = await Guard().auth.request(routing_host.host, authentication_method, request_data);
             if (response.ok == true) {
                 set_state("check_your_email");
                 return;

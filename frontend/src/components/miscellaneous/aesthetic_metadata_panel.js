@@ -9,9 +9,9 @@ export default function AestheticMetadataPanel(props) {
     const [metadata, set_metadata] = useState(null);
 
     async function get_metadata() {
-        let host = get_routing_host(window);
+        let routing_host = get_routing_host(window);
 
-        const metadata_v = await Guard().metadata.get(host);
+        const metadata_v = await Guard().metadata.get(routing_host.host);
         if (metadata_v.ok == true) {
             set_metadata(metadata_v.data);
         }

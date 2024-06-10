@@ -39,7 +39,7 @@ pub async fn user_get(mut db: Connection<Db>, id: Option<String>, email: Option<
         value = id.unwrap();
         condition = "id".to_string();
     } else if (email.is_none() == false) {
-        value = id.unwrap();
+        value = email.unwrap();
         condition = "email".to_string();
     } else {
         return Err(format!("Both id and email are null.").into());
@@ -50,6 +50,8 @@ pub async fn user_get(mut db: Connection<Db>, id: Option<String>, email: Option<
     .load::<Guard_user>(&mut db)
     .await
     .expect("Something went wrong querying the DB.");
+
+    println!("USER_GET RESULT: {:?}", result.clone());
 
     if (result.len() == 0) {
         // Device not found.
@@ -129,18 +131,20 @@ pub async fn user_authentication_pipeline(mut db: Connection<Db>, jar: &CookieJa
 }
 
 pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<User_get_id_preference_struct, Box<dyn Error>> {
-    let reference_type: String = authentication_method.oauth_user_info_reference_type.unwrap();
+    let reference_type: String = authentication_method.user_info_reference_type.unwrap();
     let mut reference_key: String = reference_type.clone();
-    if (authentication_method.oauth_user_info_reference_key.is_none() == true) {
-        reference_key = authentication_method.oauth_user_info_reference_key.unwrap();
+    if (authentication_method.user_info_reference_key.is_none() == true) {
+        reference_key = reference_type.clone();
     }
 
     let mut has_value: bool = false;
     let mut id: Option<String> = None;
     let mut email: Option<String> = None;
 
-    if (user_data.get(reference_key.clone()).is_none() == true) {
-        let value: String = user_data.get(reference_key.clone()).expect("Missing reference key").to_string();
+    println!("user_get_id_preference user_data: {}", user_data.clone());
+
+    if (user_data.get(reference_key.clone()).is_none() == false) {
+        let value: String = user_data.get(reference_key.clone()).unwrap().as_str().unwrap().to_string();
         has_value = true;
         
         if (reference_type == "id") {
@@ -148,8 +152,10 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
         } else if (reference_type == "email") {
             email = Some(value);
         } else {
-            return Err(format!("'{}' is not a valid authentication_method.oauth_user_info_reference_key type. Examples of valid authentication_method.oauth_user_info_reference_key: 'id', 'email'", reference_type).into())
+            return Err(format!("'{}' is not a valid authentication_method.user_info_reference_key type. Examples of valid authentication_method.user_info_reference_key: 'id', 'email'", reference_type).into())
         }
+    } else {
+        println!("user_get_id_preference: User data did not include key '{}'", reference_key.clone());
     }
 
     let output: User_get_id_preference_struct = User_get_id_preference_struct {
@@ -182,6 +188,7 @@ pub async fn attempted_external_user_handling(mut db: Connection<Db>, attempted_
 
     if (user_check.is_none() == true) {
         if (authentication_method.clone().should_create_new_users.unwrap_or(false) == true) {
+            println!("USER CREATE EMAIL: {}", user_get_id_preference_status.email.clone().unwrap());
             let (user_create, user_create_db) = user_create(db, user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to create user.");
             db = user_create_db;
             user_id = Some(user_create.user_id);

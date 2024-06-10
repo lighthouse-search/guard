@@ -1,15 +1,15 @@
 import './css/login_with.css';
 import './../../global.css';
-import { auth_init_parmas } from '@/global';
+import { auth_init_params } from '@/global';
 
 export default function Login_With(props) {
     const authentication_method = props.authentication_method;
 
     async function handle_out() {
-        const auth_init_parmas_v = await auth_init_parmas(authentication_method.id, document);
+        const auth_init_params_v = await auth_init_params(authentication_method.id, window);
         let login_page = new URL(authentication_method.login_page);
-        login_page.searchParams.set("state", auth_init_parmas_v.state);
-        // login_page.searchParams.set("fallback_domain", auth_init_parmas_v.redirect_url);
+        login_page.searchParams.set("state", auth_init_params_v.state);
+        // login_page.searchParams.set("fallback_domain", auth_init_params_v.redirect_url);
 
         window.location.href = login_page.href;
     }

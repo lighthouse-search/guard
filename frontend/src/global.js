@@ -150,12 +150,14 @@ async function logout() {
 function get_routing_host(window) {
   let url = new URL(window.location.href);
   let host = window.location.host;
+  let href = window.location.href;
   if (url && url.searchParams.get("redirect")) {
     let redirect_url = new URL(url.searchParams.get("redirect"));
     host = redirect_url.host;
+    href = redirect_url.href;
   }
 
-  return host;
+  return { host: host, href: href };
 }
 
 function generateRandomID() {
@@ -168,11 +170,10 @@ function generateRandomID() {
   return random_string.slice(0, 20)+new Date().getTime();
 }
 
-async function auth_init_parmas(authentication_method, document) {
+async function auth_init_params(authentication_method, window) {
   const state = generateRandomID();
   
-  const params = new URLSearchParams(document.location.search);
-  const redirect_url = params.get("redirect");
+  const redirect_url = get_routing_host(window).href;
 
   const confirm_metadata = {
     authentication_method,
@@ -185,4 +186,4 @@ async function auth_init_parmas(authentication_method, document) {
   return confirm_metadata;
 }
 
-export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_parmas };
+export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params };

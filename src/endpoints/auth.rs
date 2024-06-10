@@ -8,6 +8,7 @@ use crate::auth_method_handling::handling_email_magiclink;
 use crate::auth_method_request::request_email;
 use crate::device::device_create;
 use crate::global::is_valid_authentication_method;
+use crate::hostname::hostname_auth_exit_flow;
 use crate::users::attempted_external_user_handling;
 use crate::{Essential_authenticate_request_data, Guard_user, Magiclink, Magiclink_handling_data, Magiclink_request_data, Method_request_body, Request_magiclink};
 use crate::{error_message, global::{get_hostname, is_null_or_whitespace, is_valid_authentication_method_for_hostname}, Db, Headers};
@@ -57,7 +58,12 @@ pub async fn auth_method_request(mut db: Connection<Db>, mut host: Option<String
 
 #[post("/authenticate?<host>", format = "application/json", data = "<body>")]
 pub async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut body: Json<Method_request_body>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
-    let hostname = get_hostname(host.unwrap()).await.expect("Invalid or missing hostname.");
+    // TODO: this should return 404 instead of error.
+    let hostname_check = get_hostname(host.unwrap()).await;
+    if (hostname_check.is_none() == true) {
+        return Ok(status::Custom(Status::BadRequest, error_message("params.host is invalid.".into())));
+    }
+    let hostname = hostname_check.unwrap();
 
     let authentication_method_result = is_valid_authentication_method(body.authentication_method.clone()).await;
     if (authentication_method_result.is_none() != false) {
@@ -96,6 +102,8 @@ pub async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut 
         return Err(Status::InternalServerError);
     }
 
+    println!("attempted_external_user: {:?}", attempted_external_user.clone());
+
     let (user_id, external_user_handling_db) = attempted_external_user_handling(db, attempted_external_user.unwrap(), authentication_method.clone()).await.expect("Failed to complete external user handling");
     db = external_user_handling_db;
 
@@ -103,6 +111,7 @@ pub async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut 
     let public_key = essential_authenticate_request_data.public_key;
 
     // TODO: Collateral needs to be here, such as a userid or MS bearer token, so when that person loses access they immediately get kicked.
+    // TODO: Collateral should actually be removed. Oauth isn't handled this way anymore.
 
     let (device_id, device_db) = device_create(
         db,
@@ -114,11 +123,17 @@ pub async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut 
 
     db = device_db;
 
-    let public_authmethod: AuthMethod_Public = authentication_method.into();
+    let public_authmethod: AuthMethod_Public = authentication_method.clone().into();
+    
+    let hostname_result = hostname_auth_exit_flow(hostname.host, authentication_method).await;
+    if (hostname_result.is_none() == true) {
+        return Ok(status::Custom(Status::BadRequest, error_message("Invalid params.host")));
+    }
 
     Ok(status::Custom(Status::Ok, json!({
         "ok": true,
         "device_id": device_id,
-        "authentication_method": public_authmethod
+        "authentication_method": public_authmethod,
+        "hostname": hostname_result
     })))
 }

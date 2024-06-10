@@ -57,6 +57,8 @@ pub async fn protocol_decision_to_pipeline(mut db: Connection<Db>, hostname: Gua
 
         let user_value: Value = serde_json::to_value(user).expect("Failed ot convert user to value");
 
+        println!("email_user_value: {}", user_value);
+
         return Ok((success, Some(user_value), device, None, db));
     } else {
         return Err(format!("Unhandled authentication_method.method_type type '{}'", authentication_method.method_type).into());

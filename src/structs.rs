@@ -51,7 +51,6 @@ pub struct Db(MysqlPool);
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
 #[diesel(table_name = guard_user)]
 pub struct Guard_user {
-    #[serde(skip_deserializing)]
     pub id: String,
     pub email: String
 }
@@ -59,7 +58,6 @@ pub struct Guard_user {
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
 #[diesel(table_name = magiclinks)]
 pub struct Magiclink {
-    #[serde(skip_deserializing)]
     pub user_id: String,
     pub code: String,
     pub ip: String,
@@ -133,11 +131,11 @@ pub struct AuthMethod {
     pub ratelimit: u32,
     pub ratelimit_cooldown: u32,
     pub should_create_new_users: Option<bool>,
+    pub user_info_reference_type: Option<String>,
+    pub user_info_reference_key: Option<String>,
     pub oauth_api: Option<String>,
     pub oauth_user_info: Option<String>,
     pub oauth_user_info_id: Option<String>,
-    pub oauth_user_info_reference_type: Option<String>,
-    pub oauth_user_info_reference_key: Option<String>,
     pub oauth_token_endpoint: Option<String>,
     // pub oauth_token_endpoint_redirect_uri: Option<String>,
     // pub oauth_scope: Option<String>,

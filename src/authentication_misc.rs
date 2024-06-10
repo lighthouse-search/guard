@@ -44,6 +44,7 @@ pub async fn protocol_decision_to_pipeline(mut db: Connection<Db>, hostname: Gua
         db = user_db;
 
         if (success == false) {
+            println!("oauth_pipeline failed");
             return Ok((false, None, None, None, db));
         }
 

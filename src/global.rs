@@ -341,8 +341,8 @@ pub async fn get_hostname(hostname: String) -> Option<Guarded_Hostname> {
     
     let mut hostname_output: Option<Guarded_Hostname> = None;
     for value in hostnames {
-        println!("{} {}", value.hostname, hostname);
-        if value.hostname == hostname {
+        println!("{} {}", value.host, hostname);
+        if value.host == hostname {
             hostname_output = Some(value);
         }
     }
@@ -393,7 +393,7 @@ pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option
 
     let mut is_valid_guarded_hostname: bool = false;
     for item in hostnames {
-        if (item.hostname == output_host) {
+        if (item.host == output_host) {
             // Valid Guarded hostname!
             is_valid_guarded_hostname = true;
             break;

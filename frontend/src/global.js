@@ -186,7 +186,9 @@ function generateRandomID() {
 
 async function auth_init_parmas(authentication_method, document) {
   const state = generateRandomID();
-  const redirect_url = document.referrer;
+  
+  const params = new URLSearchParams(document.location.search);
+  const redirect_url = params.get("redirect");
 
   const confirm_metadata = {
     authentication_method,

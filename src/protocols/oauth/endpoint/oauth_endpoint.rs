@@ -27,11 +27,6 @@ pub async fn oauth_exchange_code(mut db: Connection<Db>, mut authentication_meth
         return Ok(status::Custom(Status::BadRequest, error_message(&format!("authentication method '{}' is not oauth", authentication_method_string_unwrapped))));
     }
 
-    if (host.is_none() == true) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.hostname is null or whitespace.")));
-    }
-    let hostname = get_hostname(host.unwrap()).await.expect("Invalid or missing hostname.");
-
     let oauth_client_secret_env = auth_method.oauth_client_secret_env.clone().unwrap();
     let client_secret: String = environment_variables::get(oauth_client_secret_env.clone()).await.expect(&format!("environment variable '{}' is missing.", oauth_client_secret_env));
 
@@ -52,6 +47,16 @@ pub async fn oauth_exchange_code(mut db: Connection<Db>, mut authentication_meth
 
     let oauth_code_exchange = result.unwrap();
 
+    if (host.is_none() == true) {
+        return Ok(status::Custom(Status::BadRequest, error_message("params.hostname is null or whitespace.")));
+    }
+    // TODO: If 404, this error.
+    let hostname_result = get_hostname(host.unwrap()).await;
+    if (hostname_result.is_none() == true) {
+        return Ok(status::Custom(Status::BadRequest, error_message("Invalid params.host")));
+    }
+    let hostname = hostname_result.expect("Invalid or missing hostname.");
+    
     // get hostname and put it in here, and then return the hostname in the request.
     let mut hostname_pub: Option<Guarded_Hostname_Pub> = None;
     let is_valid_authmethod: bool = is_valid_authentication_method_for_hostname(hostname.clone(), auth_method.clone()).await.expect("is_valid_authentication_method_for_hostname failed");

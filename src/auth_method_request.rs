@@ -62,7 +62,7 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
     let params: Value = json!({
         "authentication_method": authentication_method.id,
         "magiclink_code": code,
-        "redirect": format!("https://{}", host.hostname),
+        "redirect": format!("https://{}", host.host),
         "state": state
     });
 

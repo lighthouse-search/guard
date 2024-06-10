@@ -32,7 +32,7 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
     // TODO: Add fail conditions from config, such as if the account is suspended. Like values that if true then we should fail.
     let query = format!("SELECT id, email FROM {} WHERE email=LOWER(?)", sql.users_table.unwrap());
     let result: Vec<Guard_user> = sql_query(query)
-        .bind::<Text, _>(email)
+        .bind::<Text, _>(email.clone())
         // .bind::<Text, _>(json!({"hm":"true"}))
         .load::<Guard_user>(&mut db)
         .await
@@ -40,10 +40,16 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
 
     if (result.len() == 0) {
         // User not found.
+        // return Ok((Request_magiclink {
+        //     error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("User not found."))),
+        //     email: None,
+        // }, db));
+
+        // We'll respond with a success, because we don't want to give away if that's a valid email or not.
         return Ok((Request_magiclink {
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("User not found."))),
-            email: None,
-        }, db));
+            error_to_respond_to_client_with: None,
+            email: Some(email),
+        }, db))
     }
 
     let user = result[0].clone();

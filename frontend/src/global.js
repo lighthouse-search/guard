@@ -40,17 +40,6 @@ async function generatePublicPrivateKey() {
   return { publicKeyNaked: publicexportedAsBase64, privateKeyNaked: privateexportedAsBase64 };
 }
 
-function has_only_alphabetic_domain(str) {
-  // Regular expression to match only alphabetical characters
-  const regex = /^[a-zA-Z.]+$/;
-
-  // Check this is considered a URL.
-  new URL("https://"+str);
-  
-  // Test if the string matches the regular expression
-  return regex.test(str);
-}
-
 async function handle_new(auth_data, auth_metadata, private_key) {
   let localAppend = "";
   if (localStorage.getItem("use_prod_servers") == "false" && window.location.hostname.includes("127.0.0.1")) {
@@ -119,14 +108,9 @@ async function handle_new_oauth_access_token(access_token) {
 
 function root_domain_logic() {
   let root_domain = window.location.hostname;
-  if (window.location.hostname != "127.0.0.1") {
+  if (window.location.hostname != "127.0.0.1" && window.location.hostname != "localhost") {
     let root_domain_split = window.location.host.split(".");
     root_domain = "."+`${root_domain_split[root_domain_split.length-2]}.${root_domain_split[root_domain_split.length-1]}`;
-  }
-
-  if (has_only_alphabetic_domain(window.location.hostname) == true || window.location.hostname == "localhost") {
-    // Almost certainly 127.0.0.1, 0.0.0.0, etc.
-    root_domain = window.location.hostname;
   }
 
   return root_domain;

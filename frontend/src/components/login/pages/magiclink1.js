@@ -31,7 +31,7 @@ export default function Magiclink1() {
     }
 
     let authentication_method_id = params.get("authentication_method");
-    let auth_metadata = { authentication_method_id };
+    let auth_metadata = { authentication_method: authentication_method_id };
 
     let redirect_url = null;
     let host = null;
@@ -62,7 +62,7 @@ export default function Magiclink1() {
       }
 
       let auth_data = { device_id: response.device_id, private_key: response.private_key };
-      await handle_new(auth_data, keys.privateKeyNaked);
+      await handle_new(auth_data, null, keys.privateKeyNaked);
       await handle_new_static_auth(auth_data, private_key);
     } else if (params.get("code")) {
       let response = null;

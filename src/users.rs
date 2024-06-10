@@ -117,7 +117,7 @@ pub async fn user_authentication_pipeline(mut db: Connection<Db>, jar: &CookieJa
     let (success, user_result, device, error_to_respond_with, user_db) = protocol_decision_to_pipeline(db, hostname.clone(), jar, remote_addr, host.clone(), headers).await.expect("An error occurred during protocol_decision_to_pipeline");
     db = user_db;
     if (success == false) {
-        println!("protocol_decision_to_pipeline failed");
+        println!("protocol_decision_to_pipeline failed: {}", error_to_respond_with);
         return Ok((false, None, None, error_to_respond_with, db));
     }
 

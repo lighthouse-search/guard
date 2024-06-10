@@ -1,6 +1,6 @@
 function getGuardApiURL() {
     let url = new URL(window.location.href);
-    url.port = 8000
+    url.port = window.location.port;
     url.pathname = "/api";
 
     if (window.location.protocol == "http:") {

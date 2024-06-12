@@ -137,14 +137,18 @@ async function credentials_object() {
   return { deviceid: deviceId, privatekey: authData.private_key };
 }
 
-async function logout() {
+async function logout(redirect) {
   // TODO: Should be signaling to the backend the credential is no longer valid and await verification it was removed.
-  let localAppend = "";
-  if (localStorage.getItem("use_prod_servers") != "true" && window.location.origin.includes("127.0.0.1")) { //window.location.origin.includes("127.0.0.1") IS DANGEROUS IF YOU DON'T CHECK FOR A DOT. IF THERE IS A DOT IN THE HOSTNAME THEN IT'S A DOMAIN AND NOT THE REAL LOCALHOST. IT'S FINE IN THIS SPECIFIC CASE THOUGH.
-    localAppend = "_local";
+  const all_cookies = cookies.getAll();
+  for (let key in Object.keys(all_cookies)) {
+    await cookies.remove(key);
   }
 
-  await localStorage.removeItem(`auth${localAppend}`);
+  await localStorage.removeItem(`auth`);
+  await localStorage.removeItem(`auth_local`);
+
+  let url_params = new URLSearchParams({ redirect });
+  window.location.href = `/guard/frontend/login?${url_params.toString()}`;
 }
 
 function get_routing_host(window) {
@@ -186,4 +190,12 @@ async function auth_init_params(authentication_method, window) {
   return confirm_metadata;
 }
 
-export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params };
+async function is_authenticated() {
+  if (await localStorage.getItem("auth") != null || await localStorage.getItem("auth_local") != null) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated };

@@ -138,7 +138,7 @@ impl Fairing for Cors {
     // TODO: Cors shouldn't be everything.
 
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
-        // TODO: Finish this.
+        // TODO: Finish this (CORS, 'server' and 'x-guard' is not updating).
         
         let value = _request.headers().iter()
         .map(|header| (header.name.to_string(), header.value.to_string()))
@@ -155,6 +155,7 @@ impl Fairing for Cors {
         ));
         response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
         response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+        response.set_header(Header::new("x-guard", "https://github.com/oracularhades/guard"));
         response.remove_header("server");
     }
 }

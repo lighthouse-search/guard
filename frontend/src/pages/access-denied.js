@@ -5,8 +5,11 @@ import Login1 from '../components/login/pages/login1';
 import './../components/login/pages/css/magiclink1.css';
 import FormStyle_1 from "@/components/login/forms/form_style1";
 import { useEffect, useRef, useState } from 'react';
+import { logout } from "@/global";
 
 export default function Access_denied(props) {
+    const params = new URLSearchParams(document.location.search);
+
     const This_is_weird = ((props) => {
         return (
             <FormStyle_1 header={false} className="access_denied_form" style={{ rowGap: 5 }}>
@@ -17,11 +20,13 @@ export default function Access_denied(props) {
     });
 
     const Access_denied = ((props) => {
+        // <a className="greyText">user@example.com</a> (this was going to be in place of "You", but the user @me endpoints are not implemented yet.)
         return (
             <FormStyle_1 header={false} className="access_denied_form" style={{ rowGap: 5 }}>
                 {/* <img className='magiclink_img' src="/assets/crystalball.png"/> */}
                 <h2 className='access_denied_header'>Access Denied</h2>
-                <p className='access_denied_subtext'><a className="greyText">josh@motionfans.com</a> does not have access to this resource.</p>
+                <p className='access_denied_subtext'>You don't have access to this resource (<a className="greyText">{params.get("redirect")}</a>).</p>
+                <button onClick={() => { logout(params.get("redirect")); }}>Logout</button>
             </FormStyle_1>
         )
     })

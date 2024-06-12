@@ -112,7 +112,7 @@ pub async fn get_policies() -> HashMap<String, Guard_Policy> {
     for (key, value) in auth_methods {
         let parts: Vec<&str> = key.split('.').collect();
         if parts.len() == 1 {
-            let mut method: Guard_Policy = value.clone().try_into().expect("lmao");
+            let mut method: Guard_Policy = value.clone().try_into().expect(&format!("Failed to parse policy in '{}'", key));
             method.id = Some(key.clone());
             methods.insert(key.clone(), method);
         }
@@ -181,7 +181,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
         reply_to = format!("<{}>", smtp.reply_to_address.expect("Missing reply_to_address"));
     }
 
-    // NOTE: IT IS ABSOLUTELY VITAL .PARSE IS HERE FOR SAFETY. Lettre validates the input here via .parse, injection is possible without .parse.
+    // NOTE: IT IS ABSOLUTELY VITAL .PARSE IS HERE, ON ALL INPUTS, FOR SAFETY. Lettre validates the input here via .parse, injection is possible without .parse.
     let mut email_packet = Message::builder()
     .from(from.parse().unwrap())
     .reply_to(reply_to.parse().unwrap())

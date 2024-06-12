@@ -17,7 +17,7 @@ acess_denied_header=""
 
 [database.mysql]
 username = "example-user"
-password = "my_cool_secret"
+password_env = "example_user_mysql_password"
 hostname = "internal-mariadb-main-service.sql.svc.cluster.local"
 port = 3306
 database = "guard"

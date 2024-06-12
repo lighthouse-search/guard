@@ -33,8 +33,10 @@
     row-gap: 8px;
 }
 
-.FormStyle_1_div_login_button {
-    margin-top: 4px;
+.FormStyle_1_div_email {
+    display: flex;
+    flex-direction: column;
+    row-gap: 8px;
 }
 
 .FormStyle_1_div_error {

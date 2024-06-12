@@ -6,7 +6,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@hcaptcha/react-hcaptcha": "^1.9.2",
+    "@hcaptcha/react-hcaptcha": "^1.10.1",
     "@oracularhades/guard": "file:guard-npm",
     "elliptic": "^6.5.4",
     "hades-auth": "latest",

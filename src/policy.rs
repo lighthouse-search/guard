@@ -34,6 +34,8 @@ pub async fn policy_authentication(policies: Vec<Guard_Policy>, user: Value, ip:
         }
     }
 
+    // Check though internal policy loop. If one of the policies are block (or otherwise not allow), THEN we block the policy. We don't return the action of the last policy, because that's not representative of the main actual policy, but if the internal policies fail, then that's definitely a no go.
+
     if (action == "allow") {
         return true;
     } else {

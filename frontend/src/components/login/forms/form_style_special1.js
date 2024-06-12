@@ -9,13 +9,13 @@ import Or_Bar from './or_bar';
 import FormStyle_1 from './form_style1';
 import LoadingSpinner from '@/components/miscellaneous/loadingspinner';
 import { get_routing_host, auth_init_params } from '@/global';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 
 export default function FormStyle_special_1(props) {
     const should_run = useRef(true);
     const metadata = props.metadata;
     const [magiclink, set_magiclink] = useState(false);
     const [email, set_email] = useState(null);
-    const [show_captcha, set_show_captcha] = useState(false);
     const [authentication_methods, set_authentication_methods] = useState([]);
     const [state, set_state] = useState(null);
     const [error, set_error] = useState(null);
@@ -48,10 +48,6 @@ export default function FormStyle_special_1(props) {
         return (
             <Magiclink email={email}/>
         );
-    }
-
-    function on_login_start() {
-        set_show_captcha(true);
     }
 
     let email_placeholder = null;
@@ -105,6 +101,18 @@ export default function FormStyle_special_1(props) {
 
     if (state == "check_your_email") {
         return <Check_your_email/>
+    } else if (state == "show_captcha") {
+        return (
+            <div className={`FormStyle_1 shade ${props.className}`} style={props.style}>
+                <div className='FormStyle_1_div'>
+                    <HCaptcha
+                        sitekey="9a1a8707-24b1-48f8-aa43-5f47f2a9e8cf"
+                        size="normal"
+                        onVerify={(token,ekey) => {  }}
+                    />
+                </div>
+            </div>
+        );
     } else {
         return (
             <div className={`FormStyle_1 shade ${props.className}`} style={props.style}>
@@ -113,8 +121,8 @@ export default function FormStyle_special_1(props) {
 
                 {loading == false && <div className='FormStyle_1_div'>
                     {error != null && <p className='FormStyle_1_div_error'>Error: {error}</p>}
-                    {email_method && <div className='FormStyle_1_div'>
-                        <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }} onKeyPress={() => { on_login_start(); }}/>
+                    {email_method && <div className='FormStyle_1_div_email'>
+                        <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }}/>
                         <button className='FormStyle_1_div_login_button' onClick={() => { start_email_authentication(email_method.id, { email: email }); }}>Login</button>
                     </div>}
                     {methods_ul.length > 1 && <Or_Bar/>}

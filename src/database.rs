@@ -10,6 +10,7 @@ use url::Url;
 
 use rand::prelude::*;
 
+use crate::globals::environment_variables;
 use crate::structs::*;
 use crate::tables::*;
 use rocket_db_pools::{Database, Connection};
@@ -23,13 +24,14 @@ pub async fn check_database_environment() -> Result<bool, Box<dyn Error>> {
     let sql_json = serde_json::to_string(&CONFIG_VALUE["database"]["mysql"]).expect("Failed to serialize");
     let sql: Config_database_mysql = serde_json::from_str(&sql_json).expect("Failed to parse");
 
+    let password_env = environment_variables::get(sql.password_env.expect("config.sql.password_env is missing.")).await.expect("The environment variable specified in config.sql.password_env is missing.");
+
     let username = sql.username.expect("Missing username.");
-    let password = sql.password.expect("Missing password.");
     let hostname = sql.hostname.expect("Missing hostname.");
     let port = sql.port.expect("Missing port.");
     let database = sql.database.expect("Missing database.");
 
-    let db = format!("mysql://{}:{}@{}:{}/{}", username, password, hostname, port, database);
+    let db = format!("mysql://{}:{}@{}:{}/{}", username, password_env, hostname, port, database);
     let rocket_db: String = format!("{{guard_database={{url=\"{}\"}}}}", db).to_string();
 
     if let Some(val) = env::var("ROCKET_DATABASES").ok() {

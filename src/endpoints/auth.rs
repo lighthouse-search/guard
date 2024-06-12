@@ -35,11 +35,12 @@ pub async fn auth_method_request(mut db: Connection<Db>, mut host: Option<String
 
     if (authentication_method.method_type == "email") {
         let request_data: Magiclink_request_data = serde_json::from_value(body.request_data.clone()).unwrap();
-        let mut requested_email = request_data.email.clone().expect("Missing body.request_data.email");
-        if (is_null_or_whitespace(requested_email.clone())) {
+        
+        if (request_data.email.is_none()) {
             // Return error.
             return Ok(status::Custom(Status::BadRequest, error_message("body.request_data.email is null or whitespace.")));
         }
+        let mut requested_email = request_data.email.clone().expect("Missing body.request_data.email");
 
         let (request_magiclink_response, request_magiclink_response_db): (Request_magiclink, Connection<Db>) = request_email(db, requested_email.clone(), authentication_method, request_data.clone(), remote_addr, hostname).await.expect("Failed to send magiclink.");
         if (request_magiclink_response.error_to_respond_to_client_with.is_none() == false) {

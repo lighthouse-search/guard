@@ -287,7 +287,7 @@ pub struct Config_sql {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config_database_mysql {
     pub username: Option<String>,
-    pub password: Option<String>,
+    pub password_env: Option<String>,
     pub hostname: Option<String>,
     pub port: Option<i64>,
     pub database: Option<String>

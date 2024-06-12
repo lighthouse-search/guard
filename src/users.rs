@@ -200,3 +200,31 @@ pub async fn attempted_external_user_handling(mut db: Connection<Db>, attempted_
 
     return Ok((Some(user_id.unwrap()), db));
 }
+
+pub async fn user_get_otherwise_create(mut db: Connection<Db>, host: Guarded_Hostname, email: String, remote_addr: SocketAddr) -> Result<(Option<Guard_user>, Connection<Db>), String> {
+    let email_user_as_value: Value = json!({
+        "email": email
+    });
+
+    let policy_authentication = policy_authentication(get_hostname_policies(host.clone(), true).await, email_user_as_value, remote_addr.to_string()).await;
+    if (policy_authentication == false) {
+        // Unauthorized user.
+        return Ok((None, db));
+    }
+
+    let (mut user_result, user_db) = user_get(db, None, Some(email.clone())).await.expect("Failed to get user.");
+    db = user_db;
+
+    if (user_result.is_none() == true) {
+        // User not found, however, the user is authorized, so we need to create a user entry.
+        let (user_create_struct, user_create_db) = user_create(db, None, Some(email.clone())).await.expect("Failed to create user.");
+        db = user_create_db;
+
+        let (after_create_user_result, user_db) = user_get(db, Some(user_create_struct.user_id), None).await.expect("Failed to get user after creation.");
+        user_result = after_create_user_result;
+
+        db = user_db;
+    }
+
+    return Ok((Some(user_result.unwrap()), db));
+}

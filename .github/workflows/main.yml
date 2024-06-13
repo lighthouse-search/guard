@@ -28,11 +28,10 @@ jobs:
     - name: Build and Push
       run: |
         export DOCKERFILE="./Dockerfile"
-        export PACKAGE_NAME="guard"
         export REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
         export TAG=$(echo $GITHUB_SHA | head -c7)
-        export IMAGE_NAME="ghcr.io/$REPO_NAME/$PACKAGE_NAME:$TAG"
+        export IMAGE_NAME="ghcr.io/$REPO_NAME:$TAG"
         docker build -t $IMAGE_NAME -f $DOCKERFILE .
         echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        docker tag $IMAGE_NAME ghcr.io/$REPO_NAME/$PACKAGE_NAME:latest
+        docker tag $IMAGE_NAME ghcr.io/$REPO_NAME:latest
         docker push $IMAGE_NAME

@@ -8,7 +8,11 @@ import { useEffect, useRef, useState } from 'react';
 import { logout } from "@/global";
 
 export default function Access_denied(props) {
-    const params = new URLSearchParams(document.location.search);
+    let params = new URLSearchParams({});
+    // Less code than making a useState and handling useRef.
+    if (typeof window != "undefined") {
+        params = new URLSearchParams(document.location.search);;
+    }
 
     const This_is_weird = ((props) => {
         return (

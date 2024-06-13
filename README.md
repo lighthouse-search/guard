@@ -31,7 +31,7 @@ example_username_placeholder="username"
 
 [database.mysql]
 username = "example-user"
-password = "my_cool_secret"
+password_env = "example_user_mysql_password"
 hostname = "internal-mariadb-main-service.sql.svc.cluster.local"
 port = 3306
 database = "guard"
@@ -62,7 +62,7 @@ action = "allow"
 property = "email"
 ends_with = "@oracularhades.com"
 
-[hostname.anythingyouwant]
+[hostname.sydney]
 active = true
 hostname = "sydney.motionfans.com"
 alias = "Sydney"
@@ -115,15 +115,18 @@ devices {
 ```
 
 # Whats left to do?
-- OAuth/SSO/SAML authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
+- SSO/SAML authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
 - Better error handling in requests.
 - Some syntax improvements.
 - Cleaning up where functions are stored and adding comments.
-- Some UI cleanup (Frontend doesn't redirect to original URL after successfully authenticating with magiclink).
 - Set a header Guard should tell Rocket (the webserver Guard runs on) to treat as the IP, such as, x-real-ip.
 - Removing requirement for database, allowing someone to just rely on OAuth/SSO/SAML with a good UI, if they'd like.
 - Ability for Guard to be an app's authentication. Such as authenticating a user, and then proxying all requests, but adding a header identifying the user.
-- SQL credentials should not be stored in Guard configuration. It was never intended to be, and this will be fixed. It will be referenced in an environment variable, such as SMTP password is.
+- Implement HCaptcha.
+- Magiclink codes need to be hashed / encrypted in the DB.
+- Adjustable magiclink expiry.
+- Mobile web support (screen sizing doesn’t work)
+- Showing account email / ID on access-denied page. Which requires the /user/@me endpoints.
 - Suggestions! I'm happy to add what people need. However, Guard will not have clutter or barely used features. It's important to minimize the attack surface. Code we have is code we have to maintain, Guard needs to be highly secure.
 
 # Code guidelines

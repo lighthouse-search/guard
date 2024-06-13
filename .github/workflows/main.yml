@@ -1,4 +1,4 @@
-ame: Build and push to Docker packages
+name: Build and push to Docker packages
 
 # Controls when the action will run.
 on:

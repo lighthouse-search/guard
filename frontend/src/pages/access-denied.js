@@ -1,10 +1,11 @@
 "use client"
 import "../../styles/global.css";
 import './css/access-denied.css';
-import Login1 from '../components/login/pages/login1';
 import './../components/login/pages/css/magiclink1.css';
-import FormStyle_1 from "@/components/login/forms/form_style1";
+
 import { useEffect, useRef, useState } from 'react';
+import Login1 from '../components/login/pages/login1';
+import FormStyle_1 from "@/components/login/forms/form_style1";
 import { logout } from "@/global";
 
 export default function Access_denied(props) {

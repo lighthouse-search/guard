@@ -191,7 +191,7 @@ async function auth_init_params(authentication_method, window) {
 }
 
 async function is_authenticated() {
-  if (await localStorage.getItem("auth") != null || await localStorage.getItem("auth_local") != null) {
+  if (await localStorage.getItem("auth") != null || await localStorage.getItem("auth_local") != null || cookies.get("guard_authentication_metadata")) {
     return true;
   } else {
     return false;

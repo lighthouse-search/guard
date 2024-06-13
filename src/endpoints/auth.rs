@@ -105,18 +105,17 @@ pub async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut 
 
     println!("attempted_external_user: {:?}", attempted_external_user.clone());
 
-    let (user_id, external_user_handling_db) = attempted_external_user_handling(db, attempted_external_user.unwrap(), authentication_method.clone()).await.expect("Failed to complete external user handling");
-    db = external_user_handling_db;
-
     let essential_authenticate_request_data: Essential_authenticate_request_data = serde_json::from_value(body.request_data.clone()).unwrap();
     let public_key = essential_authenticate_request_data.public_key;
 
+    let attempted_external_user_unwrapped = attempted_external_user.unwrap();
+    let user_id: String = attempted_external_user_unwrapped.get("id").unwrap().as_str().expect("Missing attempted_external_user.id").to_string();
     // TODO: Collateral needs to be here, such as a userid or MS bearer token, so when that person loses access they immediately get kicked.
     // TODO: Collateral should actually be removed. Oauth isn't handled this way anymore.
 
     let (device_id, device_db) = device_create(
         db,
-        user_id.unwrap(),
+        user_id,
         authentication_method.clone().id.unwrap(),
         Some("".to_string()),
         public_key

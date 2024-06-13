@@ -122,7 +122,7 @@ export default function FormStyle_special_1(props) {
                 {loading == false && <div className='FormStyle_1_div'>
                     {error != null && <p className='FormStyle_1_div_error'>Error: {error}</p>}
                     {email_method && <div className='FormStyle_1_div_email'>
-                        <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }}/>
+                        <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }} autoCapitalize="off"/>
                         <button className='FormStyle_1_div_login_button' onClick={() => { start_email_authentication(email_method.id, { email: email }); }}>Login</button>
                     </div>}
                     {methods_ul.length > 1 && <Or_Bar/>}

@@ -13,6 +13,12 @@
     border-radius: 4px;
 }
 
+@media only screen and (max-width: 415px) {
+    .FormStyle_1 {
+        width: 89%;
+    }
+}
+
 .FormStyle_1_header {
     font-size: 24px;
 }

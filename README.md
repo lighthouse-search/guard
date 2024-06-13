@@ -114,18 +114,19 @@ devices {
 }
 ```
 
+# Known issues
+If you run into an issue, please check https://github.com/oracularhades/guard/issues/1 - and when you do that, (nicely) prod me to fix the issue. If the bug isn't listed, please make a Github issue and I'll fix it.
+
 # Whats left to do?
 - SSO/SAML authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
 - Better error handling in requests.
 - Some syntax improvements.
 - Cleaning up where functions are stored and adding comments.
 - Set a header Guard should tell Rocket (the webserver Guard runs on) to treat as the IP, such as, x-real-ip.
-- Removing requirement for database, allowing someone to just rely on OAuth/SSO/SAML with a good UI, if they'd like.
 - Ability for Guard to be an app's authentication. Such as authenticating a user, and then proxying all requests, but adding a header identifying the user.
 - Implement HCaptcha.
 - Magiclink codes need to be hashed / encrypted in the DB.
 - Adjustable magiclink expiry.
-- Mobile web support (screen sizing doesn’t work)
 - Showing account email / ID on access-denied page. Which requires the /user/@me endpoints.
 - Suggestions! I'm happy to add what people need. However, Guard will not have clutter or barely used features. It's important to minimize the attack surface. Code we have is code we have to maintain, Guard needs to be highly secure.
 

@@ -7,6 +7,15 @@
     height: 100%;
 }
 
+@media only screen and (max-width: 808px) {
+    .aesthetic_metadata_panel_left {
+        visibility: collapse;
+    }
+    .aesthetic_metadata_panel_right {
+        background-image: none;
+    }
+}
+
 .aesthetic_metadata_panel_left {
     display: flex;
     flex-direction: column;

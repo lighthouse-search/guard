@@ -6,8 +6,10 @@ import './css/magiclink1.css';
 import './../../global.css';
 import FormStyle_1 from '../forms/form_style1';
 import { generatePublicPrivateKey, handle_new, handle_new_oauth_access_token, handle_new_static_auth } from '@/global';
+import { useRouter } from 'next/router';
 
 export default function Magiclink1() {
+  const router = useRouter();
   const [error, set_error] = useState(null);
 
   const shouldSend = useRef(true);
@@ -109,6 +111,7 @@ export default function Magiclink1() {
         {/* <img className='magiclink_img' src="/guard/frontend/assets/warningsign.png"/> */}
         <h2 className='magiclink_checkyouremail'>Error</h2>
         <p className='magiclink_wesentalink greyText'>{error}</p>
+        <button onClick={() => { router.push("/login"); }}>Try again</button>
       </FormStyle_1>}
     </Frame_AestheticMetadataPanel>
   );

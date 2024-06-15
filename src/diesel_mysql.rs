@@ -7,7 +7,7 @@ use rocket::fs::FileServer;
 use rocket_db_pools::{Database, Connection};
 use crate::endpoints::auth::{auth_method_request, authenticate};
 use crate::endpoints::metadata::{metadata_get, metadata_get_authentication_methods};
-use crate::endpoints::proxy::{proxy_authentication_delete, proxy_authentication_get, proxy_authentication_head, proxy_authentication_options, proxy_authentication_patch, proxy_authentication_post, proxy_authentication_put};
+use crate::endpoints::proxy::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put};
 use crate::protocols::oauth::endpoint::oauth_endpoint::oauth_exchange_code;
 use crate::{CONFIG_VALUE, SQL_TABLES};
 use crate::structs::*;
@@ -72,15 +72,15 @@ pub fn stage() -> AdHoc {
         .mount("/guard/api/oauth", routes![oauth_exchange_code]);
         
         let config = (&*CONFIG_VALUE).clone();
-        if (config["features"]["proxy_authentication"].to_string() == "true") {
+        if (config["features"]["reverse_proxy_authentication"].to_string() == "true") {
             app = app.mount("/guard/api/proxy", routes![
-                proxy_authentication_get,
-                proxy_authentication_put,
-                proxy_authentication_post,
-                proxy_authentication_delete,
-                proxy_authentication_head,
-                proxy_authentication_options,
-                proxy_authentication_patch
+                reverse_proxy_authentication_get,
+                reverse_proxy_authentication_put,
+                reverse_proxy_authentication_post,
+                reverse_proxy_authentication_delete,
+                reverse_proxy_authentication_head,
+                reverse_proxy_authentication_options,
+                reverse_proxy_authentication_patch
             ]);
         }
         

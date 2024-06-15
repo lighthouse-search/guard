@@ -19,8 +19,8 @@ pub async fn metadata_get(mut db: Connection<Db>, hostname: Option<String>) -> C
     let mut logo: Option<String> = frontend_metadata.logo;
     let mut image: Option<String> = frontend_metadata.image;
     let mut motd_banner: Option<String> = frontend_metadata.motd_banner;
-    let mut email_domain_placeholder: Option<String> = frontend_metadata.email_domain_placeholder;
-    let mut example_username_placeholder: Option<String> = frontend_metadata.example_username_placeholder;
+    let mut domain_placeholder: Option<String> = frontend_metadata.domain_placeholder;
+    let mut username_placeholder: Option<String> = frontend_metadata.username_placeholder;
     let mut background_colour: Option<String> = frontend_metadata.background_colour;
 
     let hostname = get_hostname(hostname.unwrap()).await;
@@ -41,11 +41,11 @@ pub async fn metadata_get(mut db: Connection<Db>, hostname: Option<String>) -> C
         if (hostname_unwrapped.motd_banner.is_none() == false) {
             motd_banner = Some(hostname_unwrapped.motd_banner.unwrap());
         }
-        if (hostname_unwrapped.email_domain_placeholder.is_none() == false) {
-            email_domain_placeholder = Some(hostname_unwrapped.email_domain_placeholder.unwrap());
+        if (hostname_unwrapped.domain_placeholder.is_none() == false) {
+            domain_placeholder = Some(hostname_unwrapped.domain_placeholder.unwrap());
         }
-        if (hostname_unwrapped.example_username_placeholder.is_none() == false) {
-            example_username_placeholder = Some(hostname_unwrapped.example_username_placeholder.unwrap());
+        if (hostname_unwrapped.username_placeholder.is_none() == false) {
+            username_placeholder = Some(hostname_unwrapped.username_placeholder.unwrap());
         }
         if (hostname_unwrapped.background_colour.is_none() == false) {
             background_colour = Some(hostname_unwrapped.background_colour.unwrap());
@@ -60,8 +60,8 @@ pub async fn metadata_get(mut db: Connection<Db>, hostname: Option<String>) -> C
             "logo": logo,
             "image": image,
             "motd_banner": motd_banner,
-            "email_domain_placeholder": email_domain_placeholder,
-            "example_username_placeholder": example_username_placeholder,
+            "domain_placeholder": domain_placeholder,
+            "username_placeholder": username_placeholder,
             "background_colour": background_colour
         }
     }));

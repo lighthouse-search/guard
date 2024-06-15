@@ -35,5 +35,5 @@ jobs:
         docker build -t $IMAGE_NAME_TAG -f $DOCKERFILE .
         echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
         echo "EXAMPLE DOCKER TAG: docker tag $IMAGE_NAME:$TAG $REPO_NAME:latest"
-        docker tag $IMAGE_NAME:$TAG $REPO_NAME:latest
+        docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
         docker push $IMAGE_NAME_TAG

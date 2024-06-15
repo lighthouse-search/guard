@@ -49,6 +49,9 @@ WORKDIR /guard-server
 
 ENV PATH="/home/linuxbrew/.cargo/bin:${PATH}"
 
+RUN echo "CURRENT DIRECTORY"
+RUN pwd
+
 # Build
 RUN cargo build --release
 

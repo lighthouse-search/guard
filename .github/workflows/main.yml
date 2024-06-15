@@ -31,7 +31,8 @@ jobs:
         export REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
         export TAG=$(echo $GITHUB_SHA | head -c7)
         export IMAGE_NAME="ghcr.io/$REPO_NAME:$TAG"
-        docker build -t $IMAGE_NAME -f $DOCKERFILE .
+        export IMAGE_NAME_TAG="ghcr.io/$REPO_NAME:$TAG"
+        docker build -t $IMAGE_NAME_TAG -f $DOCKERFILE .
         echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        docker tag guard:$TAG ghcr.io/$REPO_NAME:latest
-        docker push $IMAGE_NAME
+        docker tag $IMAGE_NAME_TAG $IMAGE_NAME:latest
+        docker push $IMAGE_NAME_TAG

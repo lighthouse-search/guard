@@ -33,5 +33,5 @@ jobs:
         export IMAGE_NAME="ghcr.io/$REPO_NAME:$TAG"
         docker build -t $IMAGE_NAME -f $DOCKERFILE .
         echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        docker tag $REPO_NAME:$TAG ghcr.io/$REPO_NAME:latest
+        docker tag guard:$TAG ghcr.io/$REPO_NAME:latest
         docker push $IMAGE_NAME

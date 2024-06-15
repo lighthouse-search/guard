@@ -1,8 +1,8 @@
-LABEL org.opencontainers.image.source=https://github.com/oracularhades/guard
-
 # Use the official Rust image as the base
 FROM --platform=linux/amd64 rust:latest as build-stage
 WORKDIR /guard-server
+
+LABEL org.opencontainers.image.source=https://github.com/oracularhades/guard
 
 COPY Cargo.lock /guard-server/Cargo.lock
 COPY Cargo.toml /guard-server/Cargo.toml

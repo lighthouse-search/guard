@@ -53,6 +53,9 @@ RUN echo "CURRENT DIRECTORY"
 RUN pwd
 RUN tree
 
+run echo "cat CARGO.TOML"
+run cat Cargo.toml
+
 # Build
 RUN cargo build --release
 

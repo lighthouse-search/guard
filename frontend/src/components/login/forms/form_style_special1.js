@@ -52,7 +52,7 @@ export default function FormStyle_special_1(props) {
 
     let email_placeholder = null;
     if (metadata) {
-        email_placeholder = `${metadata.example_username_placeholder}@${metadata.email_domain_placeholder}`;
+        email_placeholder = `${metadata.username_placeholder}@${metadata.domain_placeholder}`;
     }
 
     async function start_email_authentication(authentication_method, request_data) {

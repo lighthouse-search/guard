@@ -114,8 +114,8 @@ pub struct Frontend_metadata {
     pub image: Option<String>,
     pub motd_banner: Option<String>,
     pub background_colour: Option<String>,
-    pub email_domain_placeholder: Option<String>,
-    pub example_username_placeholder: Option<String>
+    pub domain_placeholder: Option<String>,
+    pub username_placeholder: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -126,7 +126,6 @@ pub struct AuthMethod {
     pub icon: Option<String>,
     pub method_type: String,
     pub login_page: String,
-    pub validation_endpoint: Option<String>,
     pub applied_policies: Vec<String>,
     pub ratelimit: u32,
     pub ratelimit_cooldown: u32,
@@ -189,8 +188,8 @@ pub struct Guarded_Hostname {
     pub image: Option<String>,
     pub motd_banner: Option<String>,
     pub background_colour: Option<String>,
-    pub email_domain_placeholder: Option<String>,
-    pub example_username_placeholder: Option<String>
+    pub domain_placeholder: Option<String>,
+    pub username_placeholder: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -202,8 +201,8 @@ pub struct Guarded_Hostname_Pub {
     pub image: Option<String>,
     pub motd_banner: Option<String>,
     pub background_colour: Option<String>,
-    pub email_domain_placeholder: Option<String>,
-    pub example_username_placeholder: Option<String>
+    pub domain_placeholder: Option<String>,
+    pub username_placeholder: Option<String>
 }
 
 impl From<Guarded_Hostname> for Guarded_Hostname_Pub {
@@ -216,8 +215,8 @@ impl From<Guarded_Hostname> for Guarded_Hostname_Pub {
             image: hostname.image,
             motd_banner: hostname.motd_banner,
             background_colour: hostname.background_colour,
-            email_domain_placeholder: hostname.email_domain_placeholder,
-            example_username_placeholder: hostname.example_username_placeholder
+            domain_placeholder: hostname.domain_placeholder,
+            username_placeholder: hostname.username_placeholder
         }
     }
 }
@@ -273,7 +272,7 @@ pub struct Oauth_handling_data {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Config_proxy_authentication_config {
+pub struct Config_reverse_proxy_authentication_config {
     pub header: Option<String>
 }
 

@@ -16,9 +16,9 @@ Guard allows you to create great, styled, authentication with a simple configura
 
 ```
 [features]
-proxy_authentication = true
+reverse_proxy_authentication = true
 
-[proxy_authentication.config]
+[reverse_proxy_authentication.config]
 header = "x-original-url"
 
 [frontend.metadata]
@@ -26,8 +26,8 @@ instance_hostname = "guard.motionfans.com"
 alias = "MotionFans"
 public_description = "We need to verify your identity, please login"
 image = "https://images.unsplash.com/photo-1565799557186-1abfed8a31e5?q=80&w=3087&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-email_domain_placeholder="example.com"
-example_username_placeholder="username"
+domain_placeholder="example.com"
+username_placeholder="username"
 
 [database.mysql]
 username = "example-user"

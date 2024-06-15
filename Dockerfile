@@ -11,7 +11,7 @@ COPY frontend /guard-server/frontend
 
 RUN apt update -y
 RUN apt upgrade -y
-RUN apt install -y curl git build-essential openssl libssl-dev libcap2-bin tree
+RUN apt install -y curl git build-essential openssl libssl-dev libcap2-bin
 
 # Create a non-root user to run Homebrew
 RUN useradd -m -s /bin/bash linuxbrew && \
@@ -48,13 +48,6 @@ RUN mv /guard-server/frontend/_static /guard-server-built/frontend/_static
 WORKDIR /guard-server
 
 ENV PATH="/home/linuxbrew/.cargo/bin:${PATH}"
-
-RUN echo "CURRENT DIRECTORY"
-RUN pwd
-RUN tree
-
-run echo "cat CARGO.TOML"
-run cat Cargo.toml
 
 # Build
 RUN cargo build --release

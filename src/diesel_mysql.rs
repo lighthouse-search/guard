@@ -72,16 +72,19 @@ pub fn stage() -> AdHoc {
         .mount("/guard/api/oauth", routes![oauth_exchange_code]);
         
         let config = (&*CONFIG_VALUE).clone();
-        if (config["features"]["reverse_proxy_authentication"].to_string() == "true") {
-            app = app.mount("/guard/api/proxy", routes![
-                reverse_proxy_authentication_get,
-                reverse_proxy_authentication_put,
-                reverse_proxy_authentication_post,
-                reverse_proxy_authentication_delete,
-                reverse_proxy_authentication_head,
-                reverse_proxy_authentication_options,
-                reverse_proxy_authentication_patch
-            ]);
+        // Attempt to extract "config.reverse_proxy_authentication"
+        if let Some(features) = config.get("features") {
+            if (features.get("reverse_proxy_authentication").is_none() == false && features["reverse_proxy_authentication"].to_string() == "true") {
+                app = app.mount("/guard/api/proxy", routes![
+                    reverse_proxy_authentication_get,
+                    reverse_proxy_authentication_put,
+                    reverse_proxy_authentication_post,
+                    reverse_proxy_authentication_delete,
+                    reverse_proxy_authentication_head,
+                    reverse_proxy_authentication_options,   
+                    reverse_proxy_authentication_patch
+                ]);
+            }
         }
         
         app

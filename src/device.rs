@@ -86,8 +86,10 @@ pub async fn device_authentication(db: Connection<Db>, signed_data: String) -> (
     let (device_wrapped, db) = device_get(db, device_id).await.expect("Failed to query for device.");
     let device = device_wrapped.expect("Device not found");
 
-    let result = static_auth_verify(signed_data, device.public_key.clone()).await.expect("Failed to verify static auth.");
-    if (result.is_none() == true) {
+    let output = static_auth_verify(signed_data, device.public_key.clone()).await;
+
+    // We use is_none() here, because we're expecting additional data.
+    if (output.is_err() == true || output.expect("Missing result").is_none() == true) {
         // Invalid static auth.
         println!("Invalid static auth");
         return (None, db);

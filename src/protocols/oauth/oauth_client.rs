@@ -47,7 +47,7 @@ pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, 
     return Ok(Some(oauth_code_access_exchange_response));
 }
 
-pub async fn oauth_userinfo(url: String, access_token: String) -> Result<Option<Value>, String> {
+pub async fn oauth_userinfo(url: String, access_token: String) -> Result<Value, String> {
     // Create headers for the request.
     let mut headers = HeaderMap::new();
     headers.insert("Authorization", format!("Bearer {}", access_token).parse().unwrap());
@@ -77,5 +77,5 @@ pub async fn oauth_userinfo(url: String, access_token: String) -> Result<Option<
     // Parse the response body as JSON
     let json: Value = serde_json::from_str(&text).expect(&format!("Failed to parse (json) response from '{}', is the response json?", url.clone()));
 
-    return Ok(Some(json));
+    return Ok(json);
 }

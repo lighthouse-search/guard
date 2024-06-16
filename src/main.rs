@@ -118,8 +118,6 @@ async fn rocket() -> _ {
     validate_sql_table_inputs().await.expect("Config validation failed.");
     check_database_environment().await.expect("Check database environment failed.");
 
-    // oauth_client::oauth_userinfo().await;
-
     rocket::build()
     .register("/", catchers![internal_error])
     // .attach(Cors)

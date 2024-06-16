@@ -33,8 +33,8 @@ pub async fn oauth_pipeline(mut db: Connection<Db>, hostname: Guarded_Hostname, 
         return Ok((false, None, db));
     }
 
-    let user_info_result = oauth_userinfo(auth_method.oauth_user_info.unwrap(), bearer_token).await.expect("Failed to get oauth user-info");
-    if (user_info_result.is_none() == true) {
+    let user_info_result = oauth_userinfo(auth_method.oauth_user_info.unwrap(), bearer_token).await;
+    if (user_info_result.is_err() == true) {
         println!("Failed to get user-info");
         return Ok((false, None, db));
     }

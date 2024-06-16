@@ -2,7 +2,7 @@ import Login1_special from '@/components/login/pages/login1_special'
 import "../../styles/global.css";
 import { useEffect, useRef, useState } from 'react';
 import Base from '@/components/base';
-import { is_authenticated } from '@/global';
+import { handle_new_static_auth, is_authenticated, logout } from '@/global';
 import { redirect } from 'next/navigation';
 import { useRouter } from 'next/router';
 
@@ -14,10 +14,13 @@ export default function Login() {
   async function check_logged_in() {
     const params = new URLSearchParams(document.location.search);
 
-    if (await is_authenticated() == true) {
-      router.push(`/access-denied?${params.toString()}`);
-      return;
-    }
+    // if (await is_authenticated() == true) {
+    //   const auth = JSON.parse(await localStorage.getItem("auth"));
+    //   await handle_new_static_auth(auth, auth.private_key);
+
+    //   Here we'd check if the redirect in params.redirect are valid and redirect back, but there aren't standalone endpoints for that yet.
+    //   return;
+    // }
   }
 
   useEffect(() => {

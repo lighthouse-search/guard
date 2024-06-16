@@ -139,7 +139,7 @@ async function credentials_object() {
 
 async function logout(redirect) {
   // TODO: Should be signaling to the backend the credential is no longer valid and await verification it was removed.
-  const all_cookies = cookies.getAll();
+  const all_cookies = await cookies.getAll();
   for (let key in Object.keys(all_cookies)) {
     await cookies.remove(key);
   }

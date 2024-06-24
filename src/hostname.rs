@@ -3,7 +3,7 @@ use crate::structs::*;
 
 pub async fn hostname_auth_exit_flow(host: String, authentication_method: AuthMethod) -> Option<Guarded_Hostname_Pub> {
     let hostname_result = get_hostname(host).await;
-    if (hostname_result.is_none() == true) {
+    if (hostname_result.is_err() == true) {
         return None;
     }
     let hostname = hostname_result.expect("Invalid or missing hostname.");

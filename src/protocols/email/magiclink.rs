@@ -21,7 +21,7 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 pub async fn get_magiclink(mut db: Connection<Db>, code: String) -> (Option<Magiclink>, Connection<Db>) {
     let sql: Config_sql = (&*SQL_TABLES).clone();
-    let magiclink_table = sql.magiclink_table.unwrap();
+    let magiclink_table = sql.magiclink.unwrap();
 
     let query = format!("SELECT user_id, code, ip, created, authentication_method FROM {} WHERE code=?", magiclink_table.clone());
     let result: Vec<Magiclink> = sql_query(query)

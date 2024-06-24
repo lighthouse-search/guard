@@ -45,7 +45,7 @@ pub async fn user_get(mut db: Connection<Db>, id: Option<String>, email: Option<
         return Err(format!("Both id and email are null.").into());
     }
 
-    let result: Vec<Guard_user> = sql_query(format!("SELECT id, email FROM {} WHERE {}=?", sql.users_table.unwrap(), condition))
+    let result: Vec<Guard_user> = sql_query(format!("SELECT id, email FROM {} WHERE {}=?", sql.user.unwrap(), condition))
     .bind::<Text, _>(value)
     .load::<Guard_user>(&mut db)
     .await
@@ -100,7 +100,7 @@ pub async fn user_create(mut db: Connection<Db>, id_input: Option<String>, email
     // Get the admin's SQL tables. Config_sql is filtered to A-Za-z1-9 (may be outdated, check validate_sql_table_inputs in global.rs) and is provided in the configuration file, to prevent SQL injection attacks.
     let sql: Config_sql = (&*SQL_TABLES).clone();
  
-    let query = format!("INSERT INTO {} (id, email) VALUES (?, ?)", sql.users_table.unwrap());
+    let query = format!("INSERT INTO {} (id, email) VALUES (?, ?)", sql.user.unwrap());
     let result = sql_query(query)
     .bind::<Text, _>(id.clone())
     .bind::<Text, _>(email.clone())
@@ -114,9 +114,14 @@ pub async fn user_create(mut db: Connection<Db>, id_input: Option<String>, email
 }
 
 pub async fn user_authentication_pipeline(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<Value>, Connection<Db>), Box<dyn Error>> {
-    let hostname = get_hostname(host.clone()).await.expect("Missing hostname");
+    let hostname_result = get_hostname(host.clone()).await;
+    if (hostname_result.is_err() == true) {
+        println!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
+        return Ok((false, None, None, Some(error_message("Invalid hostname")), db));
+    }
+    let hostname = hostname_result.unwrap();
     
-    let (success, user_result, device, error_to_respond_with, user_db) = protocol_decision_to_pipeline(db, hostname.clone(), jar, remote_addr, host.clone(), headers).await.expect("An error occurred during protocol_decision_to_pipeline");
+    let (success, user_result, device, error_to_respond_with, user_db) = protocol_decision_to_pipeline(db, hostname.clone(), jar, remote_addr, headers).await.expect("An error occurred during protocol_decision_to_pipeline");
     db = user_db;
     if (success == false) {
         println!("protocol_decision_to_pipeline failed, error message: {:?}", error_to_respond_with);

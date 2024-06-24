@@ -17,9 +17,13 @@ use crate::structs::*;
 #[post("/request?<host>", format = "application/json", data = "<body>")]
 pub async fn auth_method_request(mut db: Connection<Db>, mut host: Option<String>, mut body: Json<Method_request_body>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
     if (host.is_none() == true) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.hostname is null or whitespace.")));
+        return Ok(status::Custom(Status::BadRequest, error_message("params.host is null or whitespace.")));
     }
-    let hostname = get_hostname(host.unwrap()).await.expect("Invalid or missing hostname.");
+    let hostname_result = get_hostname(host.unwrap()).await;
+    if (hostname_result.is_err() == true) {
+        return Ok(status::Custom(Status::BadRequest, error_message("params.host is invalid.")));
+    }
+    let hostname = hostname_result.unwrap();
 
     let authentication_method_result = is_valid_authentication_method(body.authentication_method.clone()).await;
     if (authentication_method_result.is_none() != false) {
@@ -61,7 +65,7 @@ pub async fn auth_method_request(mut db: Connection<Db>, mut host: Option<String
 pub async fn authenticate(mut db: Connection<Db>, mut host: Option<String>, mut body: Json<Method_request_body>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
     // TODO: this should return 404 instead of error.
     let hostname_check = get_hostname(host.unwrap()).await;
-    if (hostname_check.is_none() == true) {
+    if (hostname_check.is_err() == true) {
         return Ok(status::Custom(Status::BadRequest, error_message("params.host is invalid.".into())));
     }
     let hostname = hostname_check.unwrap();

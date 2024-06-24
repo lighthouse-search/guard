@@ -21,7 +21,7 @@ use std::collections::HashMap;
 
 use crate::{CONFIG_VALUE, SQL_TABLES};
 
-pub async fn oauth_pipeline(mut db: Connection<Db>, hostname: Guarded_Hostname, auth_method: AuthMethod, jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Connection<Db>), Box<dyn Error>> {
+pub async fn oauth_pipeline(mut db: Connection<Db>, hostname: Guarded_Hostname, auth_method: AuthMethod, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Result<(bool, Option<Value>, Connection<Db>), Box<dyn Error>> {
     let mut bearer_token: String = String::new();
 
     if (headers.headers_map.get("Authorization").is_none() == false) {

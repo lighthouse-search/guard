@@ -336,7 +336,7 @@ pub async fn is_valid_authentication_method_for_hostname(hostname: Guarded_Hostn
     Ok(is_valid_hostname_authentication_method)
 }
 
-pub async fn get_hostname(hostname: String) -> Option<Guarded_Hostname> {
+pub async fn get_hostname(hostname: String) -> Result<Guarded_Hostname, String> {
     let hostnames = get_active_hostnames().await;
     
     let mut hostname_output: Option<Guarded_Hostname> = None;
@@ -347,7 +347,11 @@ pub async fn get_hostname(hostname: String) -> Option<Guarded_Hostname> {
         }
     }
 
-    hostname_output
+    if (hostname_output.is_none()) {
+        return Err("Invalid hostname.".into());
+    }
+
+    return Ok(hostname_output.unwrap());
 }
 
 pub fn url_to_domain_port(host_unparsed: String) -> Result<String, Box<dyn Error>> {
@@ -367,9 +371,7 @@ pub fn url_to_domain_port(host_unparsed: String) -> Result<String, Box<dyn Error
     return Ok(output_host);
 }
 
-pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option<String>) -> Option<String> {
-    let hostnames: Vec<Guarded_Hostname> = list_hostnames(true).await;
-
+pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option<String>) -> Option<Get_current_valid_hostname_struct> {
     let mut header: String = "host".to_string();
     if (header_to_use.is_none() == false) {
         header = header_to_use.unwrap();
@@ -382,26 +384,22 @@ pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option
     }
 
     let mut host_unparsed = headers_cloned.get(&header).unwrap().to_owned();
-
     // host_unparsed.contains("://") == false, could pick up something in the pathname, but this isn't for security's sake, this is for error handling sake. The URL parser validates the URL.
     if (host_unparsed.starts_with("https://") == false && host_unparsed.starts_with("http://") == false && host_unparsed.contains("://") == false) {
         // Add HTTPS to protocol in URL, since none was specified (which is always going to happen in "host" headers).
         host_unparsed = format!("https://{}", host_unparsed);
     }
 
-    let output_host = url_to_domain_port(host_unparsed).expect("Failed to get output_host");
+    let domain_port = url_to_domain_port(host_unparsed.clone()).expect("Failed to get output_host");
+    let hostname = get_hostname(domain_port.clone()).await;
 
-    let mut is_valid_guarded_hostname: bool = false;
-    for item in hostnames {
-        if (item.host == output_host) {
-            // Valid Guarded hostname!
-            is_valid_guarded_hostname = true;
-            break;
-        }
-    }
-
-    if (is_valid_guarded_hostname == true) {
-        return Some(output_host);
+    if (hostname.is_ok() == true) {
+        // domain_port is a valid hostname.
+        return Some(Get_current_valid_hostname_struct {
+            hostname: hostname.unwrap(),
+            domain_port: domain_port,
+            original_url: host_unparsed
+        });
     } else {
         println!("Invalid hostname");
         return None;

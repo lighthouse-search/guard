@@ -24,7 +24,7 @@ pub async fn metadata_get(mut db: Connection<Db>, hostname: Option<String>) -> C
     let mut background_colour: Option<String> = frontend_metadata.background_colour;
 
     let hostname = get_hostname(hostname.unwrap()).await;
-    if (hostname.is_none() == false) {
+    if (hostname.is_ok() == true) {
         let hostname_unwrapped = hostname.unwrap();
         if (hostname_unwrapped.alias.is_none() == false) {
             alias = Some(hostname_unwrapped.alias.unwrap());
@@ -70,7 +70,7 @@ pub async fn metadata_get(mut db: Connection<Db>, hostname: Option<String>) -> C
 #[get("/get-authentication-methods?<hostname>")]
 pub async fn metadata_get_authentication_methods(mut db: Connection<Db>, hostname: Option<String>) -> Custom<Value> {
     let hostname_data = get_hostname(hostname.unwrap()).await;
-    if (hostname_data.is_none() == true) {
+    if (hostname_data.is_err() == true) {
         return status::Custom(Status::BadRequest, error_message("Invalid hostname."));
     }
 

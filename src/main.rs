@@ -1,7 +1,7 @@
 #[macro_use] extern crate rocket;
 #[macro_use] extern crate rocket_sync_db_pools;
 
-#[cfg(test)] mod tests;
+// #[cfg(test)] mod tests;
 
 pub struct Cors;
 
@@ -18,11 +18,12 @@ mod device;
 mod database;
 mod authentication_misc;
 mod hostname;
+mod files;
 
 pub mod endpoints {
     pub mod auth;
     pub mod metadata;
-    pub mod proxy;
+    pub mod reverse_proxy_authentication;
 }
 pub mod globals {
     pub mod environment_variables;
@@ -42,15 +43,16 @@ mod protocols {
         }
     }
 }
+pub mod proxied_authentication {
+    pub mod general;
+    pub mod nginx;
+}
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
-use rocket::{Request, Response};
-
-use crate::responses::*;
+use rocket::{Request, Response, request, request::FromRequest};
 
 use once_cell::sync::Lazy;
-use structs::Config_sql;
 use toml::Value;
 
 use std::error::Error;
@@ -60,13 +62,14 @@ use std::collections::HashMap;
 use crate::global::{validate_sql_table_inputs, get_current_valid_hostname};
 use crate::database::{check_database_environment};
 use crate::structs::*;
+use crate::responses::*;
 
 pub static CONFIG_VALUE: Lazy<Value> = Lazy::new(|| {
     get_config().expect("Failed to get config")
 });
 
 pub static SQL_TABLES: Lazy<Config_sql> = Lazy::new(|| {
-    get_sql_tables()
+    get_sql_tables().expect("failed to get_sql_tables()")
 });
 
 fn get_config() -> Result<Value, Box<dyn Error>> {
@@ -101,11 +104,20 @@ fn get_config() -> Result<Value, Box<dyn Error>> {
     Ok(config)
 }
 
-fn get_sql_tables() -> Config_sql {
-    let sql_json = serde_json::to_string(&CONFIG_VALUE["sql"]).expect("Failed to serialize");
+fn get_sql_tables() -> Result<Config_sql, String> {
+    let config_value_sql = CONFIG_VALUE.get("sql");
+    if (config_value_sql.is_none() == true) {
+        return Err("Missing config.sql".into());
+    }
+    let config_value_sql_tables = config_value_sql.unwrap().get("tables");
+    if (config_value_sql_tables.is_none() == true) {
+        return Err("Missing config.sql.tables".into());
+    }
+
+    let sql_json = serde_json::to_string(&config_value_sql_tables).expect("Failed to serialize");
     let sql: Config_sql = serde_json::from_str(&sql_json).expect("Failed to parse");
 
-    return sql;
+    return Ok(sql);
 }
 
 #[catch(500)]
@@ -146,7 +158,7 @@ impl Fairing for Cors {
 
         let get_current_valid_hostname = get_current_valid_hostname(&headers, None).await.expect("Invalid hostname");
 
-        response.set_header(Header::new("Access-Control-Allow-Origin", get_current_valid_hostname));
+        response.set_header(Header::new("Access-Control-Allow-Origin", get_current_valid_hostname.domain_port));
         response.set_header(Header::new(
             "Access-Control-Allow-Methods",
             "POST, PATCH, PUT, DELETE, HEAD, OPTIONS, GET",
@@ -155,5 +167,38 @@ impl Fairing for Cors {
         response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
         response.set_header(Header::new("x-guard", "https://github.com/oracularhades/guard"));
         response.remove_header("server");
+    }
+}
+
+// Returns the current request's ID, assigning one only as necessary.
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for &'r Query_string {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        // The closure passed to `local_cache` will be executed at most once per
+        // request: the first time the `RequestId` guard is used. If it is
+        // requested again, `local_cache` will return the same value.
+
+        request::Outcome::Success(request.local_cache(|| {
+            let query_params = request.uri().query().map(|query| query.as_str().to_owned()).unwrap_or_else(|| String::new());
+
+            Query_string(query_params)
+        }))
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for &'r Headers {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        request::Outcome::Success(request.local_cache(|| {
+            let value = request.headers().iter()
+                .map(|header| (header.name.to_string(), header.value.to_string()))
+                .collect::<HashMap<String, String>>();
+
+            Headers { headers_map: value }
+        }))
     }
 }

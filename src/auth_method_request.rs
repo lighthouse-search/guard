@@ -67,7 +67,7 @@ pub async fn request_email(mut db: Connection<Db>, email: String, authentication
     send_email(email.clone(), "Your MagicLink".to_string(), format!("Do not share this with anyone. This code serves no purpose except logging you into your account. If you didn't request this code, you can safely ignore this.\n\nThis MagicLink expires within 10 minutes of requesting it.\n\n{}", url.as_str())).await.expect("Failed to send email");
 
     // FUTURE: Magiclink codes should be encrypted (via a public-key), so if you get access to the SQL database, it's not possible to use magiclink codes you find via the DB....but it would still be possible to update the account email address if you had access, which is why this is "future".
-    let query = format!("INSERT INTO {} (user_id, code, ip, authentication_method, created) VALUES (?, ?, ?, ?, ?)", sql.magiclink_table.unwrap());
+    let query = format!("INSERT INTO {} (user_id, code, ip, authentication_method, created) VALUES (?, ?, ?, ?, ?)", sql.magiclink.unwrap());
     let result = sql_query(query)
     .bind::<Text, _>(user.id.clone())
     .bind::<Text, _>(code.clone())

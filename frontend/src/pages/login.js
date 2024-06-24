@@ -2,7 +2,7 @@ import Login1_special from '@/components/login/pages/login1_special'
 import "../../styles/global.css";
 import { useEffect, useRef, useState } from 'react';
 import Base from '@/components/base';
-import { handle_new_static_auth, is_authenticated, logout } from '@/global';
+import { handle_new_static_auth, is_authenticated } from '@/global';
 import { redirect } from 'next/navigation';
 import { useRouter } from 'next/router';
 

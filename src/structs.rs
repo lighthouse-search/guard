@@ -278,9 +278,9 @@ pub struct Config_reverse_proxy_authentication_config {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config_sql {
-    pub users_table: Option<String>,
-    pub devices_table: Option<String>,
-    pub magiclink_table: Option<String>
+    pub user: Option<String>,
+    pub device: Option<String>,
+    pub magiclink: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -327,13 +327,27 @@ pub struct User_get_id_preference_struct {
 //     pub email: Option<String>
 // }
 
+// The cookie data the user provides.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Guard_authentication_metadata_cookie {
+    pub authentication_method: Option<String>,
+}
+
+// The fetched Guard authentication metadata after the server receives the original cookie and gets all the relevant information.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Guard_authentication_metadata {
-    pub authentication_method: Option<String>,
+    pub authentication_method: Option<AuthMethod>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OAuth_login_url_information {
     pub redirect_uri: Option<String>,
     pub scope: Option<String>
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Get_current_valid_hostname_struct {
+    pub hostname: Guarded_Hostname,
+    pub domain_port: String,
+    pub original_url: String
 }

@@ -25,7 +25,7 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 pub async fn device_get(mut db: Connection<Db>, id: String) -> Result<(Option<Guard_devices>, Connection<Db>), Box<dyn Error>> {
     let sql: Config_sql = (&*SQL_TABLES).clone();
 
-    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created FROM {} WHERE id=?", sql.devices_table.unwrap());
+    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created FROM {} WHERE id=?", sql.device.unwrap());
 
     let result: Vec<Guard_devices> = sql_query(query)
     .bind::<Text, _>(id)
@@ -47,7 +47,7 @@ pub async fn device_create(mut db: Connection<Db>, user_id: String, authenticati
     let device_id = generate_random_id();
 
     let sql: Config_sql = (&*SQL_TABLES).clone();
-    let query = format!("INSERT INTO {} (id, user_id, authentication_method, collateral, public_key, created) VALUES (?, ?, ?, ?, ?, ?)", sql.devices_table.unwrap());
+    let query = format!("INSERT INTO {} (id, user_id, authentication_method, collateral, public_key, created) VALUES (?, ?, ?, ?, ?, ?)", sql.device.unwrap());
     let result = sql_query(query)
     .bind::<Text, _>(device_id.clone())
     .bind::<Text, _>(user_id.clone())

@@ -27,7 +27,7 @@ use hades_auth::*;
 
 use crate::{CONFIG_VALUE, SQL_TABLES};
 
-pub async fn device_pipeline(mut db: Connection<Db>, hostname: Guarded_Hostname, jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Guard_user>, Option<Guard_devices>, Connection<Db>), Box<dyn Error>> {
+pub async fn device_pipeline(mut db: Connection<Db>, hostname: Guarded_Hostname, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Result<(bool, Option<Guard_user>, Option<Guard_devices>, Connection<Db>), Box<dyn Error>> {
     // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
     let signed_data = device_guard_static_auth_from_cookies(jar);
     if (signed_data.is_none() == true) {

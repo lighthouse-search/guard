@@ -37,7 +37,7 @@ pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magi
     }
 
     let sql: Config_sql = (&*SQL_TABLES).clone();
-    let magiclink_table = sql.magiclink_table.unwrap();
+    let magiclink_table = sql.magiclink.unwrap();
 
     let query = format!("SELECT user_id, code, ip, created, authentication_method FROM {} WHERE code=?", magiclink_table.clone());
     let (magiclink_result, magiclink_db) = crate::protocols::email::magiclink::get_magiclink(db, code.clone()).await;

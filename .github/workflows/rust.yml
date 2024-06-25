@@ -27,7 +27,7 @@ jobs:
     - name: Run tree
       run: tree
     - name: Move files.
-      run: mv ./admin-panel ./guard && mv ./admin-panel ./guard
+      run: mv ./frontend/_static ./guard/frontend/_static && mv ./admin-panel ./guard
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"

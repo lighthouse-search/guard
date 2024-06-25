@@ -26,8 +26,8 @@ jobs:
       run: sudo apt-get install tree
     - name: mkdir guard
       run: mkdir guard
-    - name: npm install && npm run build
-      run: npm install && npm run build
+    - name: cd frontend && npm install && npm run build && cd ..
+      run: cd frontend && npm install && npm run build && cd ..
     - name: Run tree
       run: tree
     - name: Move files.

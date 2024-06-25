@@ -22,8 +22,12 @@ jobs:
       run: cargo test --verbose
     - name: install tree
       run: sudo apt-get install tree
+    - name: mkdir guard
+      run: mkdir guard
     - name: Run tree
       run: tree
+    - name: Move files.
+      run: mv ./admin-panel ./guard && mv ./admin-panel ./guard
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -31,4 +35,4 @@ jobs:
         prerelease: true
         title: Release ${{ github.ref_name }}
         files: |
-          ./target/release/guard-server
+          ./guard

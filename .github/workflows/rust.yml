@@ -33,7 +33,7 @@ jobs:
     - name: Move files.
       run: mkdir ./guard/frontend && mv ./frontend/_static ./guard/frontend/_static
     - name: Zip output folder.
-      run: zip -f guard.zip ./guard
+      run: zip -r guard.zip ./guard
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"

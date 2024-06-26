@@ -16,7 +16,29 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --release
     - name: Run tests
       run: cargo test --verbose
+    - name: install tree
+      run: sudo apt-get install tree
+    - name: mkdir guard
+      run: mkdir guard
+    - name: cd frontend && npm install && npm run build && cd ..
+      run: cd frontend && npm install && npm run build && cd ..
+    - name: Run tree
+      run: tree
+    - name: Move files.
+      run: mkdir ./guard/frontend && mv ./frontend/_static ./guard/frontend/_static && mv ./target/release/guard-server ./guard/guard-server
+    - name: Zip output folder.
+      run: zip -r guard.zip ./guard
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: Release ${{ github.ref_name }}
+        files: |
+          ./guard.zip

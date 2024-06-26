@@ -32,20 +32,8 @@ fn validate_table_name(input: &str) -> bool {
     re.is_match(input)
 }
 
-pub async fn validate_sql_table_inputs() -> Result<bool, Box<dyn Error>> {
-    if let Ok(current_dir) = env::current_dir() {
-        if let Some(path) = current_dir.to_str() {
-            println!("Current directory: {}", path);
-        } else {
-            println!("Failed to get current directory path.");
-        }
-    } else {
-        println!("Failed to get current directory.");
-    }
-
-    let value = (*CONFIG_VALUE).clone();
-    let table = value.as_table().unwrap();
-    let sql_tables = table.get("sql").unwrap().as_table().unwrap();
+pub async fn validate_sql_table_inputs(raw_sql_tables: toml::Value) -> Result<bool, Box<dyn Error>> {
+    let sql_tables = raw_sql_tables.get("sql").unwrap().as_table().unwrap();
 
     for (key, value) in sql_tables {
         if let Some(table_name) = value.as_str() {

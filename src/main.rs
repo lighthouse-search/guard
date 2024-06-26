@@ -69,7 +69,8 @@ pub static CONFIG_VALUE: Lazy<Value> = Lazy::new(|| {
 });
 
 pub static SQL_TABLES: Lazy<Config_sql> = Lazy::new(|| {
-    get_sql_tables().expect("failed to get_sql_tables()")
+    let (sql_tables, raw_sql_tables) = get_sql_tables().expect("failed to get_sql_tables()");
+    sql_tables
 });
 
 fn get_config() -> Result<Value, Box<dyn Error>> {
@@ -104,7 +105,7 @@ fn get_config() -> Result<Value, Box<dyn Error>> {
     Ok(config)
 }
 
-fn get_sql_tables() -> Result<Config_sql, String> {
+fn get_sql_tables() -> Result<(Config_sql, Value), String> {
     let config_value_sql = CONFIG_VALUE.get("sql");
     if (config_value_sql.is_none() == true) {
         return Err("Missing config.sql".into());
@@ -117,7 +118,7 @@ fn get_sql_tables() -> Result<Config_sql, String> {
     let sql_json = serde_json::to_string(&config_value_sql_tables).expect("Failed to serialize");
     let sql: Config_sql = serde_json::from_str(&sql_json).expect("Failed to parse");
 
-    return Ok(sql);
+    return Ok((sql, config_value_sql_tables.unwrap().clone()));
 }
 
 #[catch(500)]
@@ -127,7 +128,8 @@ fn internal_error() -> serde_json::Value {
 
 #[launch]
 async fn rocket() -> _ {
-    validate_sql_table_inputs().await.expect("Config validation failed.");
+    let (unsafe_do_not_use_sql_tables, unsafe_do_not_use_raw_sql_tables) = get_sql_tables().unwrap();
+    validate_sql_table_inputs(unsafe_do_not_use_raw_sql_tables).await.expect("Config validation failed.");
     check_database_environment().await.expect("Check database environment failed.");
 
     rocket::build()

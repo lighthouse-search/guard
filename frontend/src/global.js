@@ -3,14 +3,6 @@ import { Cookies } from 'react-cookie';
 
 const cookies = new Cookies();
 
-function get_auth_url() {
-  return "https://auth.api.motionfans.com"
-}
-
-function get_api_url() {
-  return "https://api.motionfans.com"
-}
-
 function ab2str(buf) {
   return String.fromCharCode.apply(null, new Uint8Array(buf));
 }
@@ -198,4 +190,4 @@ async function is_authenticated() {
   }
 }
 
-export { get_auth_url, get_api_url, generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated };
+export { generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated };

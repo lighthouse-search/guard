@@ -28,7 +28,7 @@ use crate::CONFIG_VALUE;
 use hades_auth::authenticate;
 
 fn validate_table_name(input: &str) -> bool {
-    let re = Regex::new(r"^[A-Za-z1-9]+$").unwrap();
+    let re = Regex::new(r"^[A-Za-z1-9_]+$").unwrap();
     re.is_match(input)
 }
 

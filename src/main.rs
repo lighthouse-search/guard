@@ -83,7 +83,6 @@ fn get_config() -> Result<Value, Box<dyn Error>> {
         config_value = val;
     } else {
         return Err("Missing \"guard_config\" environment variable".into());
-        // ROCKET_DATABASES is not set
     }
 
     // let contents = fs::read_to_string("./config.toml")

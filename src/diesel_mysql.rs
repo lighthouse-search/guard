@@ -12,10 +12,6 @@ use crate::protocols::oauth::endpoint::oauth_endpoint::oauth_exchange_code;
 use crate::{CONFIG_VALUE, SQL_TABLES};
 use crate::structs::*;
 
-use std::collections::HashMap;
-
-// type Result<T, E = Debug<diesel::result::Error>> = std::result::Result<T, E>;
-
 // TODO: check this is blocked for proxies.
 #[options("/<_..>")]
 fn options_handler() -> &'static str {

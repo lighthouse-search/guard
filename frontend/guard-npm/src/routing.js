@@ -1,22 +1,22 @@
 function getGuardApiURL() {
     let url = new URL(window.location.href);
     url.port = window.location.port;
-    // if (window.location.hostname == "127.0.0.1") {
-    //     url.port = 8000;
-    // }
     url.pathname = "/api";
 
-    if (window.location.protocol == "http:") {
-        if (window.location.hostname == "localhost" || window.location.hostname == "127.0.0.1") {
-            url.protocol = "http:";
+    if (window.location.hostname == "localhost" || window.location.hostname == "127.0.0.1") {
+        if (typeof localStorage != "undefined") {
+            const custom_api_endpoint = localStorage.getItem("custom_api_endpoint");
+            if (custom_api_endpoint) {
+                url.href = custom_api_endpoint;
+            }
         }
+    } else {
+        url.protocol = "https:";
     }
-    
-    url.searchParams.forEach((key, value) => {
-        url.searchParams.delete(key, value);
-    });
-    
-    return `${url.protocol}//${url.host}/guard/api`;
+
+    url.search = '';
+
+    return url.href;
 }
 
 export { getGuardApiURL };

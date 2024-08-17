@@ -41,8 +41,8 @@ host="smtp.sendgrid.net"
 port=587
 username="apikey"
 from_alias="Guard"
-from_header="noreply@paperplane.motionfans.com"
-reply_to_address="noreply@paperplane.motionfans.com"
+from_header="noreply@paperplane.example.com"
+reply_to_address="noreply@paperplane.example.com"
 password_env="smtp_password"
 
 [authentication_methods.email]
@@ -64,7 +64,7 @@ ends_with = "@oracularhades.com"
 
 [hostname.sydney]
 active = true
-hostname = "sydney.motionfans.com"
+hostname = "sydney.example.com"
 alias = "Sydney"
 authentication_methods = ["email"]
 multistep_authentication_methods = false

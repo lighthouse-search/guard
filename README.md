@@ -4,7 +4,7 @@ Guard is not yet ready for production use*
 Reverse-proxy authentication sucks. It's usually some NGINX configuration snippet that redirects out to OAuth/Saml, with some hack-job HTML, and an if statement if this person is authorized. Or having to program authentication into individual authentication APIs. It sucks to maintain, not to mention with proper security (such as not using bearer tokens).
 
 # Security
-Guard is built off [Hades-auth](https://github.com/oracularhades/hades-auth) and [Dashboard-builder](https://github.com/oracularhades/dashboard-builder). Guard uses hades-auth static_auth, which is a signed JWT, stored in cookies, signed with a private key generated on the user's device. It's pratically impossible to bruteforce a signed JWT, which matches a valid deviceid, certainly without setting off alarm bells, and is much more secure than session tokens.
+Guard is built on [Hades-auth](https://github.com/oracularhades/hades-auth) and [Dashboard-builder](https://github.com/oracularhades/dashboard-builder). Guard uses hades-auth static_auth, which is a signed JWT, stored in cookies, signed with a private key generated on the user's device. It's pratically impossible to bruteforce a signed JWT, which matches a valid deviceid, certainly without setting off alarm bells, and is much more secure than session tokens.
 
 Guard never uses passwords, passwords suck. Magiclinks are also restricted to the IP address of the user that requested it (hard to brute-force).
 
@@ -12,7 +12,7 @@ Note: Yes, hades-auth is all about completely signed requests, but that can't be
 
 # Example
 Guard allows you to create great, styled, authentication with a simple configuration.
-<img width="1440" alt="Screenshot 2024-04-27 at 12 38 15 AM" src="https://github.com/oracularhades/guard/assets/91714073/6ab7e3eb-11dd-4066-8f71-34caa00f5920">
+<img width="1440" alt="Screenshot 2024-08-19 at 12 52 00 PM" src="https://github.com/user-attachments/assets/4ca73118-5564-40bb-a1d3-b51b2fe44882">
 
 ```
 [features]

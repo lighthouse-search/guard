@@ -85,8 +85,8 @@ spec:
     [..]
   tls:
   - hosts:
-    - sydney.example.com
-    secretName: sydney-example-com-tls
+    - guard.example.com
+    secretName: guard-example-com-tls
 ```
 
 # Database schema (You will not have to use a database in future versions, and can just reply on OAuth providers, if you'd like):

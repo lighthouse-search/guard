@@ -22,8 +22,8 @@ reverse_proxy_authentication = true
 header = "x-original-url"
 
 [frontend.metadata]
-instance_hostname = "guard.motionfans.com"
-alias = "MotionFans"
+instance_hostname = "guard.example.com"
+alias = "ACME"
 public_description = "We need to verify your identity, please login"
 image = "https://images.unsplash.com/photo-1565799557186-1abfed8a31e5?q=80&w=3087&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
 domain_placeholder="example.com"
@@ -79,14 +79,14 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: POST
     nginx.ingress.kubernetes.io/auth-url: http://guard-service.guard.svc.cluster.local/api/proxy/authentication
-    nginx.ingress.kubernetes.io/error-page: https://guard.motionfans.com/frontend/access-denied
-    nginx.ingress.kubernetes.io/auth-signin: https://guard.motionfans.com/frontend/login?redirect=$scheme://$http_host$request_uri
+    nginx.ingress.kubernetes.io/error-page: https://guard.example.com/frontend/access-denied
+    nginx.ingress.kubernetes.io/auth-signin: https://guard.example.com/frontend/login?redirect=$scheme://$http_host$request_uri
 spec:
     [..]
   tls:
   - hosts:
-    - sydney.motionfans.com
-    secretName: sydney-motionfans-com-tls
+    - guard.example.com
+    secretName: guard-example-com-tls
 ```
 
 # Database schema (You will not have to use a database in future versions, and can just reply on OAuth providers, if you'd like):

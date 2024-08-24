@@ -1,14 +1,18 @@
 use serde_json::{json, Value};
-use rocket::{http::Status, response::status::{self, Custom}};
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use std::net::SocketAddr;
+
+use rocket::{http::Status, response::status::{self, Custom}, get};
+
+use diesel::sql_query;
+use diesel::prelude::*;
+use diesel::sql_types::*;
+
 use crate::{global::{get_hostname, is_valid_authentication_method_for_hostname}, hostname::hostname_auth_exit_flow, structs::*};
 
-use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{oauth_client::oauth_code_exchange_for_access_key, oauth_pipeline::oauth_get_data_from_oauth_login_url}, Db, Headers};
+use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{oauth_client::oauth_code_exchange_for_access_key, oauth_pipeline::oauth_get_data_from_oauth_login_url}, Headers};
 
 #[get("/exchange-code?<authentication_method>&<code>&<host>")]
-pub async fn oauth_exchange_code(mut db: Connection<Db>, mut authentication_method: Option<String>, code: Option<String>, host: Option<String>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
+pub async fn oauth_exchange_code(mut authentication_method: Option<String>, code: Option<String>, host: Option<String>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
     if (authentication_method.is_none() == true) {
         return Ok(status::Custom(Status::BadRequest, error_message("params.authentication_method is null.")));
     }

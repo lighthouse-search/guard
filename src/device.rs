@@ -1,8 +1,6 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
 
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use rocket::http::{Status, CookieJar, Cookie};
 use rocket::response::status;
 
@@ -22,7 +20,8 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 // Some authenticatiom methods, such as email require action (such as sending a magiclink) before the user can present credentials to authenticate. This is where that logic is kept.
 
-pub async fn device_get(mut db: Connection<Db>, id: String) -> Result<(Option<Guard_devices>, Connection<Db>), Box<dyn Error>> {
+pub async fn device_get(id: String) -> Result<(Option<Guard_devices>), Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let sql: Config_sql = (&*SQL_TABLES).clone();
 
     let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created FROM {} WHERE id=?", sql.device.unwrap());
@@ -30,20 +29,20 @@ pub async fn device_get(mut db: Connection<Db>, id: String) -> Result<(Option<Gu
     let result: Vec<Guard_devices> = sql_query(query)
     .bind::<Text, _>(id)
     .load::<Guard_devices>(&mut db)
-    .await
     .expect("Something went wrong querying the DB.");
 
     if (result.len() == 0) {
         // Device not found.
-        return Ok((None, db));
+        return Ok((None));
     }
 
     let device = result[0].clone();
 
-    Ok((Some(device), db))
+    Ok((Some(device)))
 }
 
-pub async fn device_create(mut db: Connection<Db>, user_id: String, authentication_method_id: String, collateral: Option<String>, public_key: String) -> Result<(String, Connection<Db>), Box<dyn Error>> {
+pub async fn device_create(user_id: String, authentication_method_id: String, collateral: Option<String>, public_key: String) -> Result<(String), Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let device_id = generate_random_id();
 
     let sql: Config_sql = (&*SQL_TABLES).clone();
@@ -56,10 +55,9 @@ pub async fn device_create(mut db: Connection<Db>, user_id: String, authenticati
     .bind::<Text, _>(public_key.clone())
     .bind::<BigInt, _>(get_epoch())
     .execute(&mut db)
-    .await
     .expect("Something went wrong querying the DB.");
 
-    Ok((device_id, db))
+    Ok((device_id))
 }
 
 pub fn device_guard_static_auth_from_cookies(jar: &CookieJar<'_>) -> Option<String> {
@@ -76,14 +74,15 @@ pub fn device_guard_static_auth_from_cookies(jar: &CookieJar<'_>) -> Option<Stri
     return Some(signed_data);
 }
 
-pub async fn device_authentication(db: Connection<Db>, signed_data: String) -> (Option<Guard_devices>, Connection<Db>) {
+pub async fn device_authentication(signed_data: String) -> (Option<Guard_devices>) {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let unsigned_data: Static_auth_sign = serde_json::from_value(get_unsafe_noverification_jwt_payload(signed_data.clone()).expect("Failed to parse payload.")).expect("Failed to prase JWT");
     
     // TODO: Instead of things like .expect("Missing additional data"), return an actual response.
     let unsigned_data_deviceinfo: Signed_data_identifier = serde_json::from_value(unsigned_data.additional_data.expect("Missing additional data")).expect("Failed to parse identifier data.");
     
     let device_id = unsigned_data_deviceinfo.device_id;
-    let (device_wrapped, db) = device_get(db, device_id).await.expect("Failed to query for device.");
+    let (device_wrapped) = device_get(device_id).await.expect("Failed to query for device.");
     let device = device_wrapped.expect("Device not found");
 
     let output = static_auth_verify(signed_data, device.public_key.clone()).await;
@@ -92,8 +91,8 @@ pub async fn device_authentication(db: Connection<Db>, signed_data: String) -> (
     if (output.is_err() == true || output.expect("Missing result").is_none() == true) {
         // Invalid static auth.
         println!("Invalid static auth");
-        return (None, db);
+        return (None);
     }
 
-    return (Some(device), db);
+    return (Some(device));
 }

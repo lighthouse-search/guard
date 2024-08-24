@@ -52,6 +52,8 @@ WORKDIR /guard-server
 
 ENV PATH="/home/linuxbrew/.cargo/bin:${PATH}"
 
+# Update crates
+RUN cargo update
 # Build
 RUN cargo build --release
 

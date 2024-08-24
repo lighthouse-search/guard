@@ -1,8 +1,3 @@
-#[macro_use] extern crate rocket;
-#[macro_use] extern crate rocket_sync_db_pools;
-
-// #[cfg(test)] mod tests;
-
 pub struct Cors;
 
 mod diesel_mysql;
@@ -63,6 +58,22 @@ use crate::global::{validate_sql_table_inputs, get_current_valid_hostname};
 use crate::database::{check_database_environment};
 use crate::structs::*;
 use crate::responses::*;
+
+use diesel::MysqlConnection;
+use diesel::prelude::*;
+use diesel::sql_types::*;
+use diesel::r2d2::{self, ConnectionManager};
+
+// Create a type alias for the connection pool
+type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
+
+// Create a Lazy static variable for the connection pool
+static DB_POOL: Lazy<Pool> = Lazy::new(|| {
+    let manager = ConnectionManager::<MysqlConnection>::new(crate::database::get_default_database_url());
+    r2d2::Pool::builder()
+        .build(manager)
+        .expect("Failed to create pool.")
+});
 
 pub static CONFIG_VALUE: Lazy<Value> = Lazy::new(|| {
     get_config().expect("Failed to get config")

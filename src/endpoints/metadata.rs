@@ -1,16 +1,19 @@
 use rocket::response::status::Custom;
-use rocket::{http::Status, response::status, serde::json::Json};
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
+use rocket::{http::Status, response::status, serde::json::Json, get};
+
+use diesel::sql_query;
+use diesel::prelude::*;
+use diesel::sql_types::*;
+
 use serde_json::{json, Value};
 
 use crate::global::{get_hostname, get_hostname_authentication_methods};
-use crate::{error_message, AuthMethod_Public, Db, Frontend_metadata, CONFIG_VALUE};
+use crate::{error_message, AuthMethod_Public, Frontend_metadata, CONFIG_VALUE};
 
 // Endpoint root: /api/metadata
 
 #[get("/?<hostname>")]
-pub async fn metadata_get(mut db: Connection<Db>, hostname: Option<String>) -> Custom<Value> {
+pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
     let metadata_json = serde_json::to_string(&CONFIG_VALUE["frontend"]["metadata"]).expect("Failed to serialize");
     let frontend_metadata: Frontend_metadata = serde_json::from_str(&metadata_json).expect("Failed to parse");
 
@@ -68,7 +71,7 @@ pub async fn metadata_get(mut db: Connection<Db>, hostname: Option<String>) -> C
 }
 
 #[get("/get-authentication-methods?<hostname>")]
-pub async fn metadata_get_authentication_methods(mut db: Connection<Db>, hostname: Option<String>) -> Custom<Value> {
+pub async fn metadata_get_authentication_methods(hostname: Option<String>) -> Custom<Value> {
     let hostname_data = get_hostname(hostname.unwrap()).await;
     if (hostname_data.is_err() == true) {
         return status::Custom(Status::BadRequest, error_message("Invalid hostname."));

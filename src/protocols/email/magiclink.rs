@@ -1,11 +1,9 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use rocket::response::status;
 use rocket::http::Status;
-use diesel::sql_query;
 
+use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
 
@@ -19,7 +17,9 @@ use std::net::SocketAddr;
 
 use crate::{CONFIG_VALUE, SQL_TABLES};
 
-pub async fn get_magiclink(mut db: Connection<Db>, code: String) -> (Option<Magiclink>, Connection<Db>) {
+pub async fn get_magiclink(code: String) -> (Option<Magiclink>) {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
+
     let sql: Config_sql = (&*SQL_TABLES).clone();
     let magiclink_table = sql.magiclink.unwrap();
 
@@ -27,14 +27,13 @@ pub async fn get_magiclink(mut db: Connection<Db>, code: String) -> (Option<Magi
     let result: Vec<Magiclink> = sql_query(query)
     .bind::<Text, _>(code.clone())
     .load::<Magiclink>(&mut db)
-    .await
     .expect("Something went wrong querying the DB.");
 
     if (result.len() == 0) {
         // Magiclink invalid, not found.
-        return (None, db);
+        return (None);
     }
     let magiclink = result[0].clone();
 
-    return (Some(magiclink), db);
+    return (Some(magiclink));
 }

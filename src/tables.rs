@@ -5,9 +5,6 @@ use rocket::request::{self, Request, FromRequest};
 use rocket::response::{Debug, status::Created};
 use rocket::{fairing::{Fairing, Info, Kind}, State};
 
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
-
 use std::borrow::{Borrow, BorrowMut};
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};

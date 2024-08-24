@@ -1,17 +1,18 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
 
-use diesel::prelude::*;
-use diesel::sql_types::*;
+use std::collections::HashMap;
 
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use rocket::response::status::Custom;
 
 use crate::diesel_mysql::*;
 use crate::tables::*;
 
-use std::collections::HashMap;
+use diesel::prelude::*;
+use crate::tables::*;
+use diesel::r2d2::{self, ConnectionManager};
+
+type DbPool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
 // Incoming body structs
 #[derive(Clone, Debug, Deserialize)]
@@ -43,11 +44,6 @@ pub struct Device_startup_struct {
     pub rover_permissions: Vec<String>
 }
 
-// Table structs
-#[derive(Database)]
-#[database("guard_database")]
-pub struct Db(MysqlPool);
-
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
 #[diesel(table_name = guard_user)]
 pub struct Guard_user {
@@ -66,7 +62,6 @@ pub struct Magiclink {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
-#[serde(crate = "rocket::serde")]
 #[diesel(table_name = guard_devices)]
 pub struct Guard_devices {
     // #[serde(skip_deserializing)]
@@ -84,7 +79,6 @@ pub struct Essential_authenticate_request_data {
 }
 
 // #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable)]
-// #[serde(crate = "rocket::serde")]
 // #[diesel(table_name = magiclinks)]
 // pub struct Magiclink {
 //     #[serde(skip_deserializing)]
@@ -99,7 +93,6 @@ pub struct Essential_authenticate_request_data {
 pub struct Query_string(pub String);
 
 pub struct Request_authentication_output {
-    pub returned_connection: Connection<Db>,
     // #[derive(Clone, Debug, Deserialize)]
     pub user_id: String,
     pub device_id: String

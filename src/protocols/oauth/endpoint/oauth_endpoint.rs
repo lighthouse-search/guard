@@ -32,7 +32,7 @@ pub async fn oauth_exchange_code(mut authentication_method: Option<String>, code
     }
 
     let oauth_client_secret_env = auth_method.oauth_client_secret_env.clone().unwrap();
-    let client_secret: String = environment_variables::get(oauth_client_secret_env.clone()).await.expect(&format!("environment variable '{}' is missing.", oauth_client_secret_env));
+    let client_secret: String = environment_variables::get(oauth_client_secret_env.clone()).expect(&format!("environment variable '{}' is missing.", oauth_client_secret_env));
 
     let data_from_login_url = oauth_get_data_from_oauth_login_url(auth_method.login_page.clone());
     let result = oauth_code_exchange_for_access_key(

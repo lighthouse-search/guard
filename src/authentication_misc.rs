@@ -1,8 +1,9 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
 
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
+use diesel::sql_query;
+use diesel::prelude::*;
+use diesel::sql_types::*;
 
 use rocket::http::{Status, CookieJar, Cookie};
 
@@ -15,12 +16,12 @@ use crate::structs::*;
 use std::error::Error;
 use std::net::SocketAddr;
 
-pub async fn protocol_decision_to_pipeline(mut db: Connection<Db>, hostname: Guarded_Hostname, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<Value>, Connection<Db>), Box<dyn Error>> {
+pub async fn protocol_decision_to_pipeline(hostname: Guarded_Hostname, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<Value>), Box<dyn Error>> {
     let (auth_metadata_result, error_to_respond_to_client_with) = get_auth_metadata_from_cookies(jar, remote_addr.clone(), hostname.clone(), headers.clone()).await;
     if (auth_metadata_result.is_none() == true || error_to_respond_to_client_with.is_none() == false) {
         // get_auth_metadata_from_cookies failed, either missing auth_metadata_result (which is an extremely odd error) or error_to_respond_to_client_with was returned.
         println!("get_auth_metadata_from_cookies failed, either missing auth_metadata_result (which is an extremely odd error) or error_to_respond_to_client_with was returned.");
-        return Ok((false, None, None, error_to_respond_to_client_with, db));
+        return Ok((false, None, None, error_to_respond_to_client_with));
     }
 
     let auth_metadata: Guard_authentication_metadata = auth_metadata_result.unwrap();
@@ -29,26 +30,24 @@ pub async fn protocol_decision_to_pipeline(mut db: Connection<Db>, hostname: Gua
     if (authentication_method.method_type == "oauth") {
         // OAuth.
 
-        let (success, user, user_db) = oauth_pipeline(db, hostname, authentication_method, jar, remote_addr, headers).await.expect("Something went wrong during OAuth user info");
-        db = user_db;
+        let (success, user) = oauth_pipeline(hostname, authentication_method, jar, remote_addr, headers).await.expect("Something went wrong during OAuth user info");
 
         if (success == false) {
             println!("oauth_pipeline failed");
-            return Ok((false, None, None, None, db));
+            return Ok((false, None, None, None));
         }
 
-        return Ok((true, user, None, None, db));
+        return Ok((true, user, None, None));
     } else if (authentication_method.method_type == "email") {
         // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
 
-        let (success, user, device, device_db) = device_pipeline(db, hostname, jar, remote_addr, headers).await.expect("Device pipeline failed");
-        db = device_db;
+        let (success, user, device) = device_pipeline(hostname, jar, remote_addr, headers).await.expect("Device pipeline failed");
 
         let user_value: Value = serde_json::to_value(user).expect("Failed ot convert user to value");
 
         println!("email_user_value: {}", user_value);
 
-        return Ok((success, Some(user_value), device, None, db));
+        return Ok((success, Some(user_value), device, None));
     } else {
         return Err(format!("Unhandled authentication_method.method_type type '{}'", authentication_method.method_type).into());
     }

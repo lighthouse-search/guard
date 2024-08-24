@@ -1,9 +1,6 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
 
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
-
 use rocket::response::status;
 use rocket::http::{Status, CookieJar, Cookie};
 
@@ -29,7 +26,8 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 // Some authenticatiom methods, such as email require action (such as sending a magiclink) before the user can present credentials to authenticate. This is where that logic is kept.
 
-pub async fn user_get(mut db: Connection<Db>, id: Option<String>, email: Option<String>) -> Result<(Option<Guard_user>, Connection<Db>), Box<dyn Error>> {
+pub async fn user_get(id: Option<String>, email: Option<String>) -> Result<(Option<Guard_user>), Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let sql: Config_sql = (&*SQL_TABLES).clone();
 
     // SECURITY: This is inserted as RAW SQL. DO NOT, UNDER ANY CIRCUMSTANCE, MAKE 'CONDITION' THE VALUE OF A VARIABLE, THAT WOULD ALLOW SQL INJECTION. KEEP THIS TO JUST THE STRING 'id' AND 'email'.
@@ -48,22 +46,23 @@ pub async fn user_get(mut db: Connection<Db>, id: Option<String>, email: Option<
     let result: Vec<Guard_user> = sql_query(format!("SELECT id, email FROM {} WHERE {}=?", sql.user.unwrap(), condition))
     .bind::<Text, _>(value)
     .load::<Guard_user>(&mut db)
-    .await
     .expect("Something went wrong querying the DB.");
 
     println!("USER_GET RESULT: {:?}", result.clone());
 
     if (result.len() == 0) {
         // Device not found.
-        return Ok((None, db));
+        return Ok((None));
     }
 
     let user = result[0].clone();
 
-    Ok((Some(user), db))
+    Ok((Some(user)))
 }
 
-pub async fn user_create(mut db: Connection<Db>, id_input: Option<String>, email_input: Option<String>) -> Result<(User_create, Connection<Db>), Box<dyn Error>> {
+pub async fn user_create(id_input: Option<String>, email_input: Option<String>) -> Result<(User_create), Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
+
     let id: String = id_input.unwrap_or(generate_random_id());
     let email: String = email_input.clone().unwrap_or("null".to_string());
 
@@ -73,8 +72,7 @@ pub async fn user_create(mut db: Connection<Db>, id_input: Option<String>, email
     }
 
     // Check for existing ID.
-    let (exists_id, user_db)= user_get(db, Some(id.clone()), None).await.expect("Failed to get user for ID check.");
-    db = user_db;
+    let (exists_id)= user_get(Some(id.clone()), None).await.expect("Failed to get user for ID check.");
     
     // If a user was returned, the id is already in-use.
     if (exists_id.is_none() == false) {
@@ -85,10 +83,7 @@ pub async fn user_create(mut db: Connection<Db>, id_input: Option<String>, email
     // Check for existing email, provided it was originally supplied (and not default null).
     if (email_input.is_none() == false) {
         // Attempt to call a user with the email address candidate.
-        let (exists_email, user_db) = user_get(db, None, Some(email.clone())).await.expect("Failed to get user for email check.");
-        
-        // We passed the DB connection to user_get, let's bring it back.
-        db = user_db;
+        let (exists_email) = user_get(None, Some(email.clone())).await.expect("Failed to get user for email check.");
 
         // If a user was returned, it means the email is already in-use.
         if (exists_email.is_none() == false) {
@@ -105,38 +100,36 @@ pub async fn user_create(mut db: Connection<Db>, id_input: Option<String>, email
     .bind::<Text, _>(id.clone())
     .bind::<Text, _>(email.clone())
     .execute(&mut db)
-    .await
     .expect("Something went wrong querying the DB.");
 
     Ok((User_create {
         user_id: id.clone()
-    }, db))
+    }))
 }
 
-pub async fn user_authentication_pipeline(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<Value>, Connection<Db>), Box<dyn Error>> {
+pub async fn user_authentication_pipeline(jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<Value>), Box<dyn Error>> {
     let hostname_result = get_hostname(host.clone()).await;
     if (hostname_result.is_err() == true) {
         println!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
-        return Ok((false, None, None, Some(error_message("Invalid hostname")), db));
+        return Ok((false, None, None, Some(error_message("Invalid hostname"))));
     }
     let hostname = hostname_result.unwrap();
     
-    let (success, user_result, device, error_to_respond_with, user_db) = protocol_decision_to_pipeline(db, hostname.clone(), jar, remote_addr, headers).await.expect("An error occurred during protocol_decision_to_pipeline");
-    db = user_db;
+    let (success, user_result, device, error_to_respond_with) = protocol_decision_to_pipeline(hostname.clone(), jar, remote_addr, headers).await.expect("An error occurred during protocol_decision_to_pipeline");
     if (success == false) {
         println!("protocol_decision_to_pipeline failed, error message: {:?}", error_to_respond_with);
-        return Ok((false, None, None, error_to_respond_with, db));
+        return Ok((false, None, None, error_to_respond_with));
     }
 
     let user_as_value = user_result.expect("Missing user");
 
     let result = policy_authentication(get_hostname_policies(hostname, true).await, user_as_value.clone(), remote_addr.to_string()).await;
 
-    return Ok((result, Some(user_as_value), device, None, db));
+    return Ok((result, Some(user_as_value), device, None));
 }
 
 pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<User_get_id_preference_struct, Box<dyn Error>> {
-    let reference_type: String = authentication_method.user_info_reference_type.unwrap();
+    let reference_type: String = authentication_method.user_info_reference_type.unwrap_or("id".to_string()); // TODO: maybe revist this later, but this will fail any proxy authentication if not specified. I doubt it will get used in email contexts, so we'll just default to 'id'.
     let mut reference_key: String = reference_type.clone();
     if (authentication_method.user_info_reference_key.is_none() == true) {
         reference_key = reference_type.clone();
@@ -160,7 +153,7 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
             return Err(format!("'{}' is not a valid authentication_method.user_info_reference_key type. Examples of valid authentication_method.user_info_reference_key: 'id', 'email'", reference_type).into())
         }
     } else {
-        println!("user_get_id_preference: User data did not include key '{}'", reference_key.clone());
+        return Err(format!("user_get_id_preference: User data did not include key '{}'", reference_key.clone()).into())
     }
 
     let output: User_get_id_preference_struct = User_get_id_preference_struct {
@@ -172,7 +165,7 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
     return Ok(output);
 }
 
-pub async fn attempted_external_user_handling(mut db: Connection<Db>, attempted_external_user: Value, authentication_method: AuthMethod) -> Result<(Option<String>, Connection<Db>), Box<dyn Error>> {
+pub async fn attempted_external_user_handling(attempted_external_user: Value, authentication_method: AuthMethod) -> Result<(Option<String>), Box<dyn Error>> {
     // An authentication method can authentication either by an ID or email directly provided by a protocol, like OAuth. This function checks what the admin's preference for the specified authentication method is.
     let user_get_id_preference_status: User_get_id_preference_struct = user_get_id_preference(attempted_external_user, authentication_method.clone()).expect("Failed to get user_get_id_preference");
     if (user_get_id_preference_status.has_value == false) {
@@ -181,8 +174,7 @@ pub async fn attempted_external_user_handling(mut db: Connection<Db>, attempted_
         return Err(format!("User information did not return an identifier, like id or email.").into());
     }
 
-    let (user_check, user_db) = user_get(db, user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to (attempt to) get user");
-    db = user_db;
+    let (user_check) = user_get(user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to (attempt to) get user");
 
     let mut user_id: Option<String> = None;
     if (user_check.is_none() == false) {
@@ -194,19 +186,18 @@ pub async fn attempted_external_user_handling(mut db: Connection<Db>, attempted_
     if (user_check.is_none() == true) {
         if (authentication_method.clone().should_create_new_users.unwrap_or(false) == true) {
             println!("USER CREATE EMAIL: {}", user_get_id_preference_status.email.clone().unwrap());
-            let (user_create, user_create_db) = user_create(db, user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to create user.");
-            db = user_create_db;
+            let (user_create) = user_create(user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to create user.");
             user_id = Some(user_create.user_id);
         } else {
             // Authentication failed... User is not in database.
-            return Ok((None, db));
+            return Ok((None));
         }
     }
 
-    return Ok((Some(user_id.unwrap()), db));
+    return Ok((Some(user_id.unwrap())));
 }
 
-pub async fn user_get_otherwise_create(mut db: Connection<Db>, host: Guarded_Hostname, email: String, remote_addr: SocketAddr) -> Result<(Option<Guard_user>, Connection<Db>), String> {
+pub async fn user_get_otherwise_create(host: Guarded_Hostname, email: String, remote_addr: SocketAddr) -> Result<(Option<Guard_user>), String> {
     let email_user_as_value: Value = json!({
         "email": email
     });
@@ -214,22 +205,18 @@ pub async fn user_get_otherwise_create(mut db: Connection<Db>, host: Guarded_Hos
     let policy_authentication = policy_authentication(get_hostname_policies(host.clone(), true).await, email_user_as_value, remote_addr.to_string()).await;
     if (policy_authentication == false) {
         // Unauthorized user.
-        return Ok((None, db));
+        return Ok((None));
     }
 
-    let (mut user_result, user_db) = user_get(db, None, Some(email.clone())).await.expect("Failed to get user.");
-    db = user_db;
+    let (mut user_result) = user_get(None, Some(email.clone())).await.expect("Failed to get user.");
 
     if (user_result.is_none() == true) {
         // User not found, however, the user is authorized, so we need to create a user entry.
-        let (user_create_struct, user_create_db) = user_create(db, None, Some(email.clone())).await.expect("Failed to create user.");
-        db = user_create_db;
+        let (user_create_struct) = user_create(None, Some(email.clone())).await.expect("Failed to create user.");
 
-        let (after_create_user_result, user_db) = user_get(db, Some(user_create_struct.user_id), None).await.expect("Failed to get user after creation.");
+        let (after_create_user_result) = user_get(Some(user_create_struct.user_id), None).await.expect("Failed to get user after creation.");
         user_result = after_create_user_result;
-
-        db = user_db;
     }
 
-    return Ok((Some(user_result.unwrap()), db));
+    return Ok((Some(user_result.unwrap())));
 }

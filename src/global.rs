@@ -11,10 +11,12 @@ use std::env;
 use url::Url;
 
 use rand::prelude::*;
-
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use regex::Regex;
+
+use diesel::sql_query;
+use diesel::prelude::*;
+use diesel::sql_types::*;
+
 use rocket::http::HeaderMap;
 
 use lettre::message::header::ContentType;

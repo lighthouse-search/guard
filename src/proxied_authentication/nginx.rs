@@ -1,7 +1,5 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 
 use crate::responses::*;
 use crate::structs::*;

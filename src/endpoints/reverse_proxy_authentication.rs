@@ -1,8 +1,7 @@
-use rocket::http::{CookieJar, Header};
+use rocket::http::{CookieJar, Header, Status};
+use rocket::{response::status, options, get, post, put, delete, head, patch};
 use rocket::response::status::Custom;
-use rocket::{http::Status, response::status, serde::json::Json};
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
+
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 
@@ -10,10 +9,10 @@ use crate::structs::*;
 use crate::global::get_current_valid_hostname;
 use crate::users::{ user_authentication_pipeline, user_get_id_preference };
 use crate::Config_reverse_proxy_authentication_config;
-use crate::authentication_misc::{ get_auth_metadata_from_cookies };
-use crate::{CONFIG_VALUE, Headers, Db};
+use crate::authentication_misc::get_auth_metadata_from_cookies;
+use crate::{CONFIG_VALUE, Headers};
 
-async fn reverse_proxy_authentication(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
     let mut header_to_use: String = "host".to_string();
 
     // Here, we need to get the reverse_proxy_authentication.config to check if a custom header is set. For example, NGINX auth-url overrides the "host" header, and instead gives a "x-original-url" (among others) header.
@@ -32,7 +31,7 @@ async fn reverse_proxy_authentication(mut db: Connection<Db>, jar: &CookieJar<'_
     
     let host = get_current_valid_hostname(headers, Some(header_to_use)).await.expect("Invalid or missing hostname.");
 
-    let (result, user_result, device, error_to_respond_with, db) = user_authentication_pipeline(db, jar, remote_addr, host.domain_port, headers).await.expect("User authentication pipeline failed");
+    let (result, user_result, device, error_to_respond_with) = user_authentication_pipeline(jar, remote_addr, host.domain_port, headers).await.expect("User authentication pipeline failed");
 
     let (auth_metadata_result, error_to_respond_to_client_with) = get_auth_metadata_from_cookies(jar, remote_addr.clone(), host.hostname.clone(), headers.clone()).await;
     if (auth_metadata_result.is_none() == true || error_to_respond_to_client_with.is_none() == false) {
@@ -82,36 +81,36 @@ async fn reverse_proxy_authentication(mut db: Connection<Db>, jar: &CookieJar<'_
 }
 
 #[get("/authentication")]
-pub async fn reverse_proxy_authentication_get(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
-    return reverse_proxy_authentication(db, jar, remote_addr, headers).await;
-}
-
-#[put("/authentication")]
-pub async fn reverse_proxy_authentication_put(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
-    return reverse_proxy_authentication(db, jar, remote_addr, headers).await;
+pub async fn reverse_proxy_authentication_get(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[post("/authentication")]
-pub async fn reverse_proxy_authentication_post(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
-    return reverse_proxy_authentication(db, jar, remote_addr, headers).await;
+pub async fn reverse_proxy_authentication_post(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    return reverse_proxy_authentication(jar, remote_addr, headers).await;
+}
+
+#[put("/authentication")]
+pub async fn reverse_proxy_authentication_put(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[delete("/authentication")]
-pub async fn reverse_proxy_authentication_delete(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
-    return reverse_proxy_authentication(db, jar, remote_addr, headers).await;
+pub async fn reverse_proxy_authentication_delete(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[head("/authentication")]
-pub async fn reverse_proxy_authentication_head(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
-    return reverse_proxy_authentication(db, jar, remote_addr, headers).await;
+pub async fn reverse_proxy_authentication_head(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[options("/authentication")]
-pub async fn reverse_proxy_authentication_options(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
-    return reverse_proxy_authentication(db, jar, remote_addr, headers).await;
+pub async fn reverse_proxy_authentication_options(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[patch("/authentication")]
-pub async fn reverse_proxy_authentication_patch(mut db: Connection<Db>, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
-    return reverse_proxy_authentication(db, jar, remote_addr, headers).await;
+pub async fn reverse_proxy_authentication_patch(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }

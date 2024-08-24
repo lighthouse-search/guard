@@ -1,11 +1,9 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use rocket::response::status;
 use rocket::http::Status;
-use diesel::sql_query;
 
+use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
 
@@ -24,7 +22,8 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 // Some authenticatiom methods, such as email require action (such as sending a magiclink) before the user can present credentials to authenticate. This is where that logic is kept.
 
-pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magiclink_handling_data, authentication_method: AuthMethod, remote_addr: SocketAddr) -> Result<(Handling_magiclink, Connection<Db>), Box<dyn Error>> {
+pub async fn handling_email_magiclink(request_data: Magiclink_handling_data, authentication_method: AuthMethod, remote_addr: SocketAddr) -> Result<(Handling_magiclink), Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let code: String = request_data.code.unwrap();
 
     if (is_null_or_whitespace(code.clone())) {
@@ -33,15 +32,15 @@ pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magi
             magiclink: None,
             user: None,
             error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("body.request_data.code is null or whitespace.")))
-        }, db));
+        }));
     }
 
     let sql: Config_sql = (&*SQL_TABLES).clone();
     let magiclink_table = sql.magiclink.unwrap();
 
+    // TODO: This should be a function, like magiclink_get.
     let query = format!("SELECT user_id, code, ip, created, authentication_method FROM {} WHERE code=?", magiclink_table.clone());
-    let (magiclink_result, magiclink_db) = crate::protocols::email::magiclink::get_magiclink(db, code.clone()).await;
-    db = magiclink_db;
+    let (magiclink_result) = crate::protocols::email::magiclink::get_magiclink(code.clone()).await;
 
     if (magiclink_result.is_none() == true) {
         // Magiclink invalid, not found.
@@ -49,7 +48,7 @@ pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magi
             magiclink: None,
             user: None,
             error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink not found.")))
-        }, db));
+        }));
     }
 
     let magiclink = magiclink_result.unwrap();
@@ -62,7 +61,7 @@ pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magi
             magiclink: None,
             user: None,
             error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink expired.")))
-        }, db));
+        }));
     }
 
     if (magiclink.ip != remote_addr.ip().to_string()) {
@@ -71,18 +70,16 @@ pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magi
             magiclink: None,
             user: None,
             error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink invalid, mismatched IP.")))
-        }, db));
+        }));
     }
 
     let query = format!("DELETE FROM {} WHERE code=?", magiclink_table.clone());
     let result = sql_query(query)
     .bind::<Text, _>(code)
     .execute(&mut db)
-    .await
     .expect("Something went wrong querying the DB.");
 
-    let (user, user_db) = user_get(db, Some(magiclink.clone().user_id), None).await.expect("Failed to get magiclink user.");
-    db = user_db;
+    let (user) = user_get(Some(magiclink.clone().user_id), None).await.expect("Failed to get magiclink user.");
 
     user.clone().expect("Missing magiclink user.");
 
@@ -90,5 +87,5 @@ pub async fn handling_email_magiclink(mut db: Connection<Db>, request_data: Magi
         magiclink: Some(magiclink),
         user: user,
         error_to_respond_to_client_with: None
-    }, db))
+    }))
 }

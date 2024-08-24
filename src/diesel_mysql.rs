@@ -1,10 +1,8 @@
-use rocket::response::{Debug};
 use rocket::request::{self, Request, FromRequest};
-use rocket::{fairing::{Fairing, Info, Kind}, State};
+use rocket::{routes, options};
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 
-use rocket_db_pools::{Database, Connection};
 use crate::endpoints::auth::{auth_method_request, authenticate};
 use crate::endpoints::metadata::{metadata_get, metadata_get_authentication_methods};
 use crate::endpoints::reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put};
@@ -20,7 +18,7 @@ fn options_handler() -> &'static str {
 
 pub fn stage() -> AdHoc {
     AdHoc::on_ignite("Diesel SQLite Stage", |rocket| async {
-        let mut app = rocket.attach(Db::init())
+        let mut app = rocket
         .mount("/guard/frontend", FileServer::from("./frontend/_static"))
         .mount("/guard/api/metadata", routes![
             metadata_get,

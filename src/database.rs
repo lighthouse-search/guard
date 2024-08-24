@@ -13,10 +13,12 @@ use rand::prelude::*;
 use crate::globals::environment_variables;
 use crate::structs::*;
 use crate::tables::*;
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::diesel::{MysqlPool, prelude::*};
 use regex::Regex;
 use std::env;
+
+use diesel::sql_query;
+use diesel::prelude::*;
+use diesel::sql_types::*;
 
 use crate::CONFIG_VALUE;
 

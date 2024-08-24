@@ -1,6 +1,6 @@
 use std::env;
 
-pub async fn get(variable: String) -> Option<String> {
+pub fn get(variable: String) -> Option<String> {
     // # Sometimes doesn't like - for some reason?
     let mut value: Option<String> = None;
 

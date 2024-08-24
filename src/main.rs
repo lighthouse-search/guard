@@ -45,7 +45,7 @@ pub mod proxied_authentication {
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
-use rocket::{Request, Response, request, request::FromRequest};
+use rocket::{Request, Response, request, request::FromRequest, catch, catchers, launch};
 
 use once_cell::sync::Lazy;
 use toml::Value;
@@ -55,7 +55,6 @@ use std::fs;
 use std::collections::HashMap;
 
 use crate::global::{validate_sql_table_inputs, get_current_valid_hostname};
-use crate::database::{check_database_environment};
 use crate::structs::*;
 use crate::responses::*;
 
@@ -140,7 +139,6 @@ fn internal_error() -> serde_json::Value {
 async fn rocket() -> _ {
     let (unsafe_do_not_use_sql_tables, unsafe_do_not_use_raw_sql_tables) = get_sql_tables().unwrap();
     validate_sql_table_inputs(unsafe_do_not_use_raw_sql_tables).await.expect("Config validation failed.");
-    check_database_environment().await.expect("Check database environment failed.");
 
     rocket::build()
     .register("/", catchers![internal_error])

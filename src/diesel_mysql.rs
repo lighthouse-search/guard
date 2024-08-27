@@ -1,4 +1,3 @@
-use rocket::request::{self, Request, FromRequest};
 use rocket::{routes, options};
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;

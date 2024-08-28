@@ -23,7 +23,7 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: install tree
-      run: sudo apt-get install tree
+      run: sudo apt-get install tree default-mysql-server default-libmysqlclient-dev
     - name: mkdir guard
       run: mkdir guard
     - name: cd frontend && npm install && npm run build && cd ..

@@ -17,8 +17,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
+    - name: export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH" && NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install node
+      uses: export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH" && NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install node
     - name: Build
       run: cargo build --verbose --release
     - name: Run tests
@@ -27,40 +27,21 @@ jobs:
       run: apt-get update -y
     - name: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
       run: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
-
-  build-npm:
-    runs-on: ubuntu-latest
-    container:
-      image: node:bookworm
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: apt-get update -y
-        run: apt-get update -y
-      - name: apt-get install zip tree
-        run: apt-get install zip tree
-      - name: cd frontend && npm install && npm run build && cd ..
-        run: cd frontend && npm install && npm run build && cd ..
-
-      - name: cd /
-        run: cd /
-      - name: mkdir /guard
-        run: mkdir /guard
-      - name: Run tree
-        run: tree
-      - name: mkdir /guard/frontend
-        run: mkdir /guard/frontend
-      - name: pwd
-        run: pwd
-      - name: Move files.
-        run: mv /frontend/_static /guard/frontend/_static && mv /target/release/guard-server /guard/guard-server
-      - name: zip output folder.
-        run: zip -r guard.zip ./guard
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: false
-          title: Release ${{ github.ref_name }}
-          files: |
-            ./guard.zip
+    - name: mkdir guard
+      run: mkdir guard
+    - name: cd frontend && npm install && npm run build && cd ..
+      run: cd frontend && npm install && npm run build && cd ..
+    - name: Run tree
+      run: tree
+    - name: Move files.
+      run: mkdir ./guard/frontend && mv ./frontend/_static ./guard/frontend/_static && mv ./target/release/guard-server ./guard/guard-server
+    - name: Zip output folder.
+      run: zip -r guard.zip ./guard
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: false
+        title: Release ${{ github.ref_name }}
+        files: |
+          ./guard.zip

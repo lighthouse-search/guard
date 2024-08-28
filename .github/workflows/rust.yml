@@ -39,8 +39,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: apt-get update -y
         run: apt-get update -y
-      - name: apt-get install zip
-        run: apt-get install zip
+      - name: apt-get install zip tree
+        run: apt-get install zip tree
       - name: cd frontend && npm install && npm run build && cd ..
         run: cd frontend && npm install && npm run build && cd ..
       - name: Run tree

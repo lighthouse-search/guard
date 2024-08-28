@@ -39,6 +39,7 @@ jobs:
       - name: apt-get update -y
         run: apt-get update -y
       - name: apt-get install zip
+        run: apt-get install zip
       - name: cd frontend && npm install && npm run build && cd ..
         run: cd frontend && npm install && npm run build && cd ..
       - name: Run tree

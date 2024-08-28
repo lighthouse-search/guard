@@ -36,6 +36,7 @@ jobs:
       image: node:bookworm
 
     steps:
+      - uses: actions/checkout@v4
       - name: apt-get update -y
         run: apt-get update -y
       - name: apt-get install zip

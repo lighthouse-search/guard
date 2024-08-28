@@ -27,8 +27,6 @@ jobs:
       run: apt-get update -y
     - name: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
       run: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
-    - name: mkdir guard
-      run: mkdir guard
 
   build-npm:
     runs-on: ubuntu-latest
@@ -43,11 +41,16 @@ jobs:
         run: apt-get install zip tree
       - name: cd frontend && npm install && npm run build && cd ..
         run: cd frontend && npm install && npm run build && cd ..
+
+      - name: cd /
+        run: cd /
+      - name: mkdir guard
+        run: mkdir guard
       - name: Run tree
         run: tree
       - name: Move files.
-        run: mkdir ./guard/frontend && mv ./frontend/_static ./guard/frontend/_static && mv ./target/release/guard-server ./guard/guard-server
-      - name: Zip output folder.
+        run: mkdir /guard/frontend && mv /frontend/_static /guard/frontend/_static && mv /target/release/guard-server /guard/guard-server
+      - name: zip output folder.
         run: zip -r guard.zip ./guard
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:

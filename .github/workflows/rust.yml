@@ -50,6 +50,8 @@ jobs:
         run: tree
       - name: mkdir /guard/frontend
         run: mkdir /guard/frontend
+      - name: pwd
+        run: pwd
       - name: Move files.
         run: mv /frontend/_static /guard/frontend/_static && mv /target/release/guard-server /guard/guard-server
       - name: zip output folder.

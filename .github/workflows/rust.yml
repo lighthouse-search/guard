@@ -44,8 +44,8 @@ jobs:
 
       - name: cd /
         run: cd /
-      - name: mkdir guard
-        run: mkdir guard
+      - name: mkdir /guard
+        run: mkdir /guard
       - name: Run tree
         run: tree
       - name: Move files.

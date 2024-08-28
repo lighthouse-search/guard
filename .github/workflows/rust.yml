@@ -22,6 +22,8 @@ jobs:
       run: cargo build --verbose --release
     - name: Run tests
       run: cargo test --verbose
+    - name: Set homebrew
+      run: export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
     - name: install tree
       run: sudo apt-get install tree default-mysql-server default-libmysqlclient-dev && NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && brew install mysql
     - name: mkdir guard

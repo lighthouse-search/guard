@@ -672,6 +672,7 @@ dependencies = [
  "hades_auth",
  "hex-literal",
  "lettre",
+ "mysqlclient-sys",
  "once_cell",
  "rand",
  "regex",

@@ -23,8 +23,8 @@ jobs:
       run: cargo test --verbose
     - name: apt-get update -y
       run: apt-get update -y
-    - name: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
-      run: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
+    - name: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev zip -y
+      run: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev zip -y
     - name: mkdir guard
       run: mkdir guard
     - name: Install Homebrew

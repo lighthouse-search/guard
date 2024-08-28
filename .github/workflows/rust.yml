@@ -48,8 +48,10 @@ jobs:
         run: mkdir /guard
       - name: Run tree
         run: tree
+      - name: mkdir /guard/frontend
+        run: mkdir /guard/frontend
       - name: Move files.
-        run: mkdir /guard/frontend && mv /frontend/_static /guard/frontend/_static && mv /target/release/guard-server /guard/guard-server
+        run: mv /frontend/_static /guard/frontend/_static && mv /target/release/guard-server /guard/guard-server
       - name: zip output folder.
         run: zip -r guard.zip ./guard
       - uses: "marvinpinto/action-automatic-releases@latest"

@@ -11,7 +11,6 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     container:
       image: rust:bookworm
@@ -30,19 +29,29 @@ jobs:
       run: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
     - name: mkdir guard
       run: mkdir guard
-    - name: cd frontend && npm install && npm run build && cd ..
-      run: cd frontend && npm install && npm run build && cd ..
-    - name: Run tree
-      run: tree
-    - name: Move files.
-      run: mkdir ./guard/frontend && mv ./frontend/_static ./guard/frontend/_static && mv ./target/release/guard-server ./guard/guard-server
-    - name: Zip output folder.
-      run: zip -r guard.zip ./guard
-    - uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: false
-        title: Release ${{ github.ref_name }}
-        files: |
-          ./guard.zip
+
+    build-npm:
+    runs-on: ubuntu-latest
+    container:
+      image: node:bookworm
+
+    steps:
+      - name: apt-get update -y
+        run: apt-get update -y
+      - name: apt-get install zip
+      - name: cd frontend && npm install && npm run build && cd ..
+        run: cd frontend && npm install && npm run build && cd ..
+      - name: Run tree
+        run: tree
+      - name: Move files.
+        run: mkdir ./guard/frontend && mv ./frontend/_static ./guard/frontend/_static && mv ./target/release/guard-server ./guard/guard-server
+      - name: Zip output folder.
+        run: zip -r guard.zip ./guard
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: false
+          title: Release ${{ github.ref_name }}
+          files: |
+            ./guard.zip

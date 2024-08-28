@@ -201,7 +201,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     // Send the email
     match mailer.send(&email_packet) {
         Ok(_) => Ok(true),
-        Err(e) => Err("Could not send email: {e:?}".into()),
+        Err(e) => Err(format!("Could not send email: {e:?}").into()),
     }
 }
 

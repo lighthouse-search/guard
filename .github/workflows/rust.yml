@@ -21,21 +21,9 @@ jobs:
       run: |
         apt-get update -y
         apt-get install -y build-essential curl file git
-        # Install Homebrew
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        # Add Homebrew to PATH
+        # Add Homebrew to the PATH
         echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile
-        eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
-
-    - name: Verify Homebrew Installation
-      run: |
-        # Check Homebrew installation and version
-        which brew
-        brew --version
-
-    - name: Install Node.js via Homebrew
-      run: |
-        # Ensure Homebrew is properly set up
         eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
         brew install node
     - name: Build

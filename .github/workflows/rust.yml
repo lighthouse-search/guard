@@ -17,15 +17,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install Homebrew
-      run: |
-        apt-get update -y
-        apt-get install -y build-essential curl file git
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        # Add Homebrew to the PATH
-        echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile
-        eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
-        brew install node
     - name: Build
       run: cargo build --verbose --release
     - name: Run tests
@@ -36,8 +27,16 @@ jobs:
       run: apt-get install curl libcap2-bin default-mysql-client dnsutils tree default-mysql-server default-libmysqlclient-dev -y
     - name: mkdir guard
       run: mkdir guard
-    - name: cd frontend && npm install && npm run build && cd ..
-      run: cd frontend && npm install && npm run build && cd ..
+    - name: Install Homebrew
+      run: |
+        apt-get update -y
+        apt-get install -y build-essential curl file git
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        # Add Homebrew to the PATH
+        echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile
+        eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+        brew install node
+        cd frontend && npm install && npm run build && cd ..
     - name: Run tree
       run: tree
     - name: Move files.

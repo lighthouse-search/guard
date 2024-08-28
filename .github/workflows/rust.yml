@@ -30,7 +30,7 @@ jobs:
     - name: mkdir guard
       run: mkdir guard
 
-    build-npm:
+  build-npm:
     runs-on: ubuntu-latest
     container:
       image: node:bookworm

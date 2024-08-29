@@ -16,7 +16,7 @@ build:
     - cargo test --workspace --verbose
 
 release_job:
-  stage: release
+  stage: push
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
     - job: prepare_job

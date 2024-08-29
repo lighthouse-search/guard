@@ -72,6 +72,7 @@ WORKDIR /guard-server
 
 # Install libcap2-bin for setting capabilities
 RUN apt update
+RUN apt upgrade -y
 RUN apt install -y libcap2-bin default-mysql-client dnsutils
 
 # Set the capability to bind to port 80 for the cargo binary

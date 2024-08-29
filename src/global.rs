@@ -162,6 +162,8 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     let smtp_json = serde_json::to_string(&CONFIG_VALUE["smtp"]).expect("Failed to serialize");
     let smtp: Config_smtp = serde_json::from_str(&smtp_json).expect("Failed to parse");
 
+    println!("[Debug] SMTP: {:?}", smtp.host.clone());
+
     // NOTE: We're not stupid, Lettre validates the input here via .parse. It's absolutely vital .parse is here for safety.
 
     let from = format!("{} <{}>", smtp.from_alias.expect("Missing from_alias"), smtp.from_header.clone().expect("Missing from_header"));
@@ -190,13 +192,13 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
         return Err("The environment variable specified in config.smtp.password_env is missing.".into());
     }
 
-    let creds = Credentials::new(smtp.username.expect("Missing username"), password);
+    let creds = Credentials::new(smtp.username.clone().expect("Missing username"), password);
 
     // Open a remote connection to SMTP server
-    let mailer = SmtpTransport::relay(&smtp.host.expect("Missing host"))
-        .unwrap()
-        .credentials(creds)
-        .build();
+    let mailer = SmtpTransport::relay(&smtp.host.clone().expect("Missing host"))
+    .unwrap()
+    .credentials(creds)
+    .build();
 
     // Send the email
     match mailer.send(&email_packet) {

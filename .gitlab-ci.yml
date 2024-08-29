@@ -16,7 +16,9 @@ build:
     - cargo test --workspace --verbose
 
 release_job:
-  stage: release
+  stages:
+    - build
+    - push
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
     - job: prepare_job
@@ -34,6 +36,5 @@ release_job:
     assets:
       links:
         - name: 'asset2'
-          url: 'https://example.com/assets/2'
           filepath: '/target/release/guard-server' # optional
           link_type: 'other' # optional

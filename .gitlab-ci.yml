@@ -16,7 +16,7 @@ build:
     - cargo test --workspace --verbose
   artifacts:
     paths:
-      - target/release/guard-server
+      - /target/release/guard-server
 
 release_job:
   stage: push

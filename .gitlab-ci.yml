@@ -38,3 +38,4 @@ release_job:
       links:
         - name: 'asset2'
           url: 'https://gitlab.com/YOUR_PROJECT_PATH/-/raw/$CI_COMMIT_SHA/target/release/guard-server' # Replace with the correct URL
+          filepath: '/target/release/guard-server'

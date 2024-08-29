@@ -14,6 +14,9 @@ build:
   script:
     - rustc --version && cargo --version  # Print version info for debugging
     - cargo test --workspace --verbose
+  artifacts:
+    paths:
+      - target/release/guard-server
 
 release_job:
   stage: push
@@ -34,4 +37,4 @@ release_job:
     assets:
       links:
         - name: 'asset2'
-          filepath: '/target/release/guard-server' # optional
+          url: 'https://gitlab.com/YOUR_PROJECT_PATH/-/raw/$CI_COMMIT_SHA/target/release/guard-server' # Replace with the correct URL

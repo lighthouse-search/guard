@@ -35,4 +35,3 @@ release_job:
       links:
         - name: 'asset2'
           filepath: '/target/release/guard-server' # optional
-          link_type: 'other' # optional

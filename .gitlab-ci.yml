@@ -19,7 +19,7 @@ release_job:
   stage: push
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
-    - job: prepare_job
+    - job: build
       artifacts: true
   rules:
     - if: $CI_COMMIT_TAG

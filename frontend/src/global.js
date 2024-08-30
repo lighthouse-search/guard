@@ -74,7 +74,9 @@ async function handle_new_static_auth(auth_data, private_key) {
 
   let root_domain = root_domain_logic();
 
-  await cookies.set(`guard_static_auth`, result, {
+  // guard_instance_hostname (should) match guard_config.frontend.metadata.instance_hostname, though there is no specific validation check and no endpoint to get the specific URL. This is fine, there really isn't any point to change this since there is no security downside (in this particular instance).
+  const guard_instance_hostname = window.location.hostname;
+  await cookies.set(`${guard_instance_hostname}_guard_static_auth`, result, {
     domain: root_domain,
     path: "/",
     secure: false,

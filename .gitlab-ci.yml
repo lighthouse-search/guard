@@ -25,7 +25,10 @@ release_job:
     - job: build
       artifacts: true
   script:
-    - echo "running release_job for $TAG"
+    - echo "Running release_job for $TAG"
+    - |
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file /builds/oracularhades/guard/target/release/guard-server \
+      "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/guard-server/$CI_COMMIT_SHORT_SHA/guard-server"
   release:
     name: 'Release $TAG'
     description: 'Created using the release-cli $EXTRA_DESCRIPTION'  # $EXTRA_DESCRIPTION and the $TAG
@@ -33,6 +36,6 @@ release_job:
     assets:
       links:
         - name: 'asset2'
-          url: '$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/target/release/guard-server' # Replace with the correct URL
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/guard-server/$CI_COMMIT_SHORT_SHA/guard-server'  # Updated to point to GitLab Packages
           filepath: '/builds/oracularhades/guard/target/release/guard-server'
           link_type: 'other' # optional

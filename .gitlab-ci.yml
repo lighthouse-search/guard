@@ -27,7 +27,7 @@ build:
     - mv /builds/oracularhades/guard/target/release/guard-server /builds/oracularhades/release
     - mkdir /builds/oracularhades/release/frontend/
     - mv /builds/oracularhades/guard/frontend/_static /builds/oracularhades/release/frontend/_static
-    - tree /builds/oracularhades/release
+    - tree /builds
     - zip -r /builds/oracularhades/guard/guard.zip /builds/oracularhades/release
   artifacts:
     paths:

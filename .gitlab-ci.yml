@@ -14,6 +14,8 @@ build:
     - rustc --version && cargo --version  # For any future debugging.
     - cargo build --verbose --release
     - cargo test --verbose
+    - mkdir release
+    - mv /builds/oracularhades/guard/target/release/guard-server /builds/oracularhades/release
   artifacts:
     paths:
-      - /builds/oracularhades/guard/target/release/guard-server
+      - /builds/oracularhades/release

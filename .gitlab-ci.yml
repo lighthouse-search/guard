@@ -12,9 +12,10 @@ build:
     - docker:dind
   script:
     - rustc --version && cargo --version  # For any future debugging.
-    - apt update -y && apt install zip -y
+    - apt update -y && apt install zip tree -y
     - cargo build --verbose --release
     - cargo test --verbose
+    - tree /
     - mkdir /builds/oracularhades/release
     - mv /builds/oracularhades/guard/target/release/guard-server /builds/oracularhades/release
     - zip -r /builds/oracularhades/guard.zip /builds/oracularhades/release

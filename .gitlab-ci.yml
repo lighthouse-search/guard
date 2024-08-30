@@ -6,7 +6,7 @@ variables:
 
 # This job checks out the repository and builds the Docker image
 build:
-  image: debian:stable
+  image: rust:latest
   stage: build
   services:
     - docker:dind

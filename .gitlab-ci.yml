@@ -30,4 +30,4 @@ build:
     - zip -r /builds/oracularhades/guard/guard.zip /builds/oracularhades/release
   artifacts:
     paths:
-      - guard/guard.zip
+      - ./guard/guard.zip

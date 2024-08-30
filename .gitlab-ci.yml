@@ -1,7 +1,5 @@
 stages:
   - build
-  - package
-  - push
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -18,32 +16,3 @@ build:
   artifacts:
     paths:
       - /builds/oracularhades/guard/target/release/guard-server
-
-upload_package:
-  stage: package
-  script:
-    - echo "Uploading generic package..."
-    - |
-      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file /builds/oracularhades/guard/target/release/guard-server \
-      "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/guard-server/$CI_COMMIT_SHORT_SHA/guard-server"
-  only:
-    - main  # Or whichever branch you want to use
-
-release_job:
-  stage: push
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  needs:
-    - job: build
-      artifacts: true
-  script:
-    - echo "Running release_job for $TAG"
-  release:
-    name: 'Release $TAG'
-    description: 'Created using the release-cli $EXTRA_DESCRIPTION'  # $EXTRA_DESCRIPTION and the $TAG
-    tag_name: $CI_COMMIT_SHORT_SHA
-    assets:
-      links:
-        - name: 'asset2'
-          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/guard-server/$CI_COMMIT_SHORT_SHA/guard-server'  # Updated to point to GitLab Packages
-          filepath: '/builds/oracularhades/guard/target/release/guard-server'
-          link_type: 'other' # optional

@@ -33,7 +33,6 @@ release_job:
   release:
     name: 'Release $TAG'
     description: 'Created using the release-cli $EXTRA_DESCRIPTION'  # $EXTRA_DESCRIPTION and the $TAG
-    tag_name: 'latest'                                                 # variables must be defined elsewhere
     assets:
       links:
         - name: 'asset2'

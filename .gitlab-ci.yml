@@ -16,7 +16,7 @@ build:
     - cargo test --workspace --verbose
   artifacts:
     paths:
-      - /target/release/guard-server
+      - target/release/guard-server
 
 release_job:
   stage: push
@@ -38,5 +38,5 @@ release_job:
       links:
         - name: 'asset2'
           url: '$CI_PROJECT_URL/-/raw/$CI_COMMIT_SHA/target/release/guard-server' # Replace with the correct URL
-          filepath: '/target/release/guard-server'
+          filepath: 'target/release/guard-server'
           link_type: 'other' # optional

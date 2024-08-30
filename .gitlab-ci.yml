@@ -17,6 +17,7 @@ build:
     - cargo test --verbose
     - mkdir /builds/oracularhades/release
     - mv /builds/oracularhades/guard/target/release/guard-server /builds/oracularhades/release
+    - zip -r /builds/oracularhades/guard.zip /builds/oracularhades/release
   artifacts:
     paths:
-      - /builds/oracularhades/release
+      - /builds/oracularhades/guard.zip

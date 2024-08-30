@@ -18,7 +18,7 @@ build:
     - tree /
     - mkdir /builds/oracularhades/release
     - mv /builds/oracularhades/guard/target/release/guard-server /builds/oracularhades/release
-    - zip -r /builds/oracularhades/guard.zip /builds/oracularhades/release
+    - zip -r /builds/oracularhades/guard/guard.zip /builds/oracularhades/release
   artifacts:
     paths:
-      - /builds/oracularhades/guard.zip
+      - /builds/oracularhades/guard/guard.zip

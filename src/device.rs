@@ -63,8 +63,11 @@ pub async fn device_create(user_id: String, authentication_method_id: String, co
 pub fn device_guard_static_auth_from_cookies(jar: &CookieJar<'_>) -> Option<String> {
     let mut signed_data: String = String::new();
 
-    if (jar.get("guard_static_auth").is_none() == false) {
-        signed_data = jar.get("guard_static_auth").map(|c| c.value()).expect("Failed to parse signed_data.").to_string();
+    let metadata_json = serde_json::to_string(&CONFIG_VALUE["frontend"]["metadata"]).expect("Failed to serialize");
+    let frontend_metadata: Frontend_metadata = serde_json::from_str(&metadata_json).expect("Failed to parse");
+    let cookie_name = format!("{}_guard_static_auth", frontend_metadata.instance_hostname.unwrap()).to_string();
+    if (jar.get(&cookie_name.clone()).is_none() == false) {
+        signed_data = jar.get(&cookie_name.clone()).map(|c| c.value()).expect("Failed to parse signed_data.").to_string();
         println!("Signed_data cookie: {:?}", signed_data);
     } else {
         println!("Signed_data cookie: None");

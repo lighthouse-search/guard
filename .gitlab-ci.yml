@@ -3,6 +3,7 @@ stages:
 
 variables:
   DOCKER_DRIVER: overlay2
+  DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:latest
 
 # This job checks out the repository and builds the Docker image
 build_rust_binary:
@@ -44,4 +45,4 @@ build:
   script:
     - docker buildx create --use
     - docker buildx inspect --bootstrap
-    - docker buildx build --file ./Dockerfile --push --tag $DOCKER_IMAGE_NAME .
+    - docker buildx build --file ./Dockerfile --push --tag $DOCKER_IMAGE_NAME

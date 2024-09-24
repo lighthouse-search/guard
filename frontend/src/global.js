@@ -52,13 +52,18 @@ async function handle_new_authentication_metadata(metadata) {
 
   let root_domain = root_domain_logic();
 
-  await cookies.set(`guard_authentication_metadata`, JSON.stringify(metadata), {
+  await cookies.set(prepend_hostname_to_cookie("guard_authentication_metadata"), JSON.stringify(metadata), {
     domain: root_domain,
     path: "/",
     secure: false,
     expires: expirationDate,
     sameSite: "strict"
   });
+}
+
+function prepend_hostname_to_cookie(cookie_name) {
+  const guard_instance_hostname = window.location.hostname;
+  return `${guard_instance_hostname}_${cookie_name}`;
 }
 
 async function handle_new_static_auth(auth_data, private_key) {
@@ -75,8 +80,7 @@ async function handle_new_static_auth(auth_data, private_key) {
   let root_domain = root_domain_logic();
 
   // guard_instance_hostname (should) match guard_config.frontend.metadata.instance_hostname, though there is no specific validation check and no endpoint to get the specific URL. This is fine, there really isn't any point to change this since there is no security downside (in this particular instance).
-  const guard_instance_hostname = window.location.hostname;
-  await cookies.set(`${guard_instance_hostname}_guard_static_auth`, result, {
+  await cookies.set(prepend_hostname_to_cookie("guard_static_auth"), result, {
     domain: root_domain,
     path: "/",
     secure: false,
@@ -185,7 +189,7 @@ async function auth_init_params(authentication_method, window) {
 }
 
 async function is_authenticated() {
-  if (await localStorage.getItem("auth") != null || await localStorage.getItem("auth_local") != null || cookies.get("guard_authentication_metadata")) {
+  if (await localStorage.getItem("auth") != null || await localStorage.getItem("auth_local") != null || cookies.get(prepend_hostname_to_cookie("guard_authentication_metadata"))) {
     return true;
   } else {
     return false;

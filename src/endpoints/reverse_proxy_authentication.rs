@@ -76,7 +76,7 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
             "reason": error_to_respond_with
         });
 
-        return status::Custom(Status::Ok, response_body);
+        return status::Custom(Status::Unauthorized, response_body);
     }
 }
 

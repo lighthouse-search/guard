@@ -8,6 +8,7 @@ use diesel::sql_types::*;
 use rocket::http::{Status, CookieJar, Cookie};
 
 use crate::global::{generate_random_id, get_hostname, get_authentication_method, is_valid_authentication_method_for_hostname};
+use crate::hostname::prepend_hostname_to_cookie;
 use crate::protocols::misc_pipeline::device::device_pipeline;
 use crate::protocols::oauth::oauth_pipeline::oauth_pipeline;
 use crate::responses::*;
@@ -54,14 +55,16 @@ pub async fn protocol_decision_to_pipeline(hostname: Guarded_Hostname, jar: &Coo
 }
 
 pub async fn get_auth_metadata_from_cookies(jar: &CookieJar<'_>, remote_addr: SocketAddr, hostname: Guarded_Hostname, headers: &Headers) -> (Option<Guard_authentication_metadata>, Option<Value>) {
+    // This cookie is used instead of [Guard hostname]_guard_static_auth because, for example, if we're using OAuth, there isn't a [Guard hostname]_guard_static_auth cookie.
+
     let mut auth_metadata_string: String = String::new();
     if (headers.headers_map.get("guard_authentication_metadata").is_none() == false) {
         auth_metadata_string = headers.headers_map.get("guard_authentication_metadata").expect("Failed to parse header.").to_string();
-    } else if (jar.get("guard_authentication_metadata").is_none() == false) {
-        auth_metadata_string = jar.get("guard_authentication_metadata").map(|c| c.value()).expect("Failed to parse cookie.").to_string();
+    } else if (jar.get(&prepend_hostname_to_cookie("guard_authentication_metadata")).is_none() == false) {
+        auth_metadata_string = jar.get(&prepend_hostname_to_cookie("guard_authentication_metadata")).map(|c| c.value()).expect("Failed to parse cookie.").to_string();
     } else {
         println!("Auth metadata not provided by client.");
-        return (None, Some(error_message("neither cookies.authentication_method or headers.guard_authentication_metadata was provided.")));
+        return (None, Some(error_message(&format!("neither cookies.{} or headers.guard_authentication_metadata was provided.", &prepend_hostname_to_cookie("guard_authentication_metadata")))));
     }
 
     let auth_metadata: Guard_authentication_metadata_cookie = serde_json::from_str(&auth_metadata_string).expect("Failed to parse auth_metadata_string");

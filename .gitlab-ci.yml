@@ -38,7 +38,7 @@ version_bump:
     fi
     - git add Cargo.toml
     - git commit -m "Bump version to $major.$minor.$new_patch"
-    # Push the changes
+    # Push the changes.
     - git push origin main
 
 build_rust_binary:

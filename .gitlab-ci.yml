@@ -25,15 +25,16 @@ version_bump:
     # Verify the change
     - echo "Updated version in Cargo.toml to $major.$minor.$new_patch"
     # Commit the version bump
-    - if git show-ref --verify --quiet refs/heads/main; then
+    - |
+      if git show-ref --verify --quiet refs/heads/main; then
         git checkout main
       else
         echo "Branch 'main' does not exist. Attempting to check out 'master'..."
         if git show-ref --verify --quiet refs/heads/master; then
-            git checkout master
+          git checkout master
         else
-            echo "No valid branches found. Exiting."
-            exit 1
+          echo "No valid branches found. Exiting."
+          exit 1
         fi
       fi
     - git add Cargo.toml

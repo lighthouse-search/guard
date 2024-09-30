@@ -1,5 +1,4 @@
 stages:
-  - version_bump
   - build_rust_binary
   - build
 
@@ -7,34 +6,6 @@ variables:
   DOCKER_DRIVER: overlay2
   DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:latest
   GIT_STRATEGY: clone
-  GIT_API: $api_git
-
-version_bump:
-  stage: version_bump
-  image: rust:latest
-  before_script:
-    - git config --global user.email "gitlab-ci@users.noreply.gitlab.com"
-    - git config --global user.name "GitLab CI"
-  script:
-    # Extract the current version
-    - VERSION=$(grep -m1 '^version =' Cargo.toml | sed -E 's/version = "([0-9]+)\.([0-9]+)\.([0-9]+)"/\1.\2.\3/')
-    # Split the version into major, minor, patch
-    - IFS='.' read -r major minor patch <<< "$VERSION"
-    # Increment the patch version
-    - new_patch=$((patch + 1))
-    # Replace the version in Cargo.toml
-    - sed -i "s/version = \"$VERSION\"/version = \"$major.$minor.$new_patch\"/" Cargo.toml
-    # Verify the change
-    - echo "Updated version in Cargo.toml to $major.$minor.$new_patch"
-    # Commit the version bump
-    - git add Cargo.toml
-    - git commit -m "Bump version to $major.$minor.$new_patch"
-    # Push the changes.
-    - echo "Available remote branches:"
-    - git fetch --all
-    - git branch -r
-    - git remote set-url origin https://${CI_PROJECT_NAME}:${GIT_API}@gitlab.com/oracularhades/guard.git
-    - git push origin origin/main
 
 build_rust_binary:
   image: rust:latest

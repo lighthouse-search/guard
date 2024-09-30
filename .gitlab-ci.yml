@@ -35,7 +35,7 @@ version_bump:
             echo "No valid branches found. Exiting."
             exit 1
         fi
-    fi
+      fi
     - git add Cargo.toml
     - git commit -m "Bump version to $major.$minor.$new_patch"
     # Push the changes.

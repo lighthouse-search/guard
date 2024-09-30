@@ -153,7 +153,7 @@ pub async fn is_valid_authentication_method(id: String) -> Option<AuthMethod> {
     return valid;
 }
 
-pub async fn send_email(email: String, subject: String, message: String) -> Result<bool, Box<dyn Error>> {
+pub async fn send_email(email: String, subject: String, message: String) -> Result<bool, String> {
     // Set limit on email characters, in-case someone wants to have a laugh. 500 is very generous.
     if (email.len() > 500) {
         return Err("The email provided is over 500 characters.".into());
@@ -203,7 +203,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     // Send the email
     match mailer.send(&email_packet) {
         Ok(_) => Ok(true),
-        Err(e) => Err(format!("Could not send email: {e:?}").into()),
+        Err(e) => Err(e.to_string()),
     }
 }
 

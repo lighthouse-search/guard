@@ -25,6 +25,7 @@ version_bump:
     # Verify the change
     - echo "Updated version in Cargo.toml to $major.$minor.$new_patch"
     # Commit the version bump
+    - git checkout main
     - git add Cargo.toml
     - git commit -m "Bump version to $major.$minor.$new_patch"
     # Push the changes

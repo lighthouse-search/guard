@@ -26,22 +26,13 @@ version_bump:
     # Verify the change
     - echo "Updated version in Cargo.toml to $major.$minor.$new_patch"
     # Commit the version bump
-    - echo "Available remote branches:"
-    - git fetch --all
-    - git branch -r
-    - |
-      if git show-ref --verify --quiet refs/heads/main; then
-        git checkout main
-      elif git show-ref --verify --quiet refs/heads/master; then
-        git checkout master
-      else
-        echo "No valid branches found. Exiting."
-        exit 1
-      fi
     - git add Cargo.toml
     - git commit -m "Bump version to $major.$minor.$new_patch"
     # Push the changes.
-    - git push origin main
+    - echo "Available remote branches:"
+    - git fetch --all
+    - git branch -r
+    - git push origin origin/main
 
 build_rust_binary:
   image: rust:latest

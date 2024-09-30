@@ -4,8 +4,7 @@ stages:
 variables:
   DOCKER_DRIVER: overlay2
 
-# This job checks out the repository and builds the Docker image
-build:
+build_rust_binary:
   image: rust:latest
   stage: build
   services:
@@ -33,3 +32,15 @@ build:
   artifacts:
     paths:
       - /builds/oracularhades/guard/guard.zip
+
+build:
+  image: docker:cli
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker buildx create --use
+    - docker buildx inspect --bootstrap
+    - docker buildx build --file ./Dockerfile --push --tag $DOCKER_IMAGE_NAME .

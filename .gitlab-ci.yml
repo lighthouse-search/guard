@@ -26,6 +26,9 @@ version_bump:
     # Verify the change
     - echo "Updated version in Cargo.toml to $major.$minor.$new_patch"
     # Commit the version bump
+    - echo "Available remote branches:"
+    - git fetch --all
+    - git branch -r
     - |
       if git show-ref --verify --quiet refs/heads/main; then
         git checkout main

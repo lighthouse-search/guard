@@ -725,9 +725,9 @@ dependencies = [
 
 [[package]]
 name = "hades_auth"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbfd371d5f45c214c07128344c67c7b784f92c7c3a43ecd81cce91723a531935"
+checksum = "bb16d6dad6bf489523a559ddc20a511f1fa092c867dfdc578c2e09ff3ecc096a"
 dependencies = [
  "base64 0.21.7",
  "domain",

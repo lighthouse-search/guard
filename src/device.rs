@@ -89,12 +89,17 @@ pub async fn device_authentication(signed_data: String) -> (Option<Guard_devices
 
     let output = static_auth_verify(signed_data, device.public_key.clone()).await;
 
-    // We use is_none() here, because we're expecting additional data.
-    if (output.is_err() == true || output.expect("Missing result").is_none() == true) {
-        // Invalid static auth.
-        println!("Invalid static auth");
+    // Invalid static auth.
+    if (output.is_err() == true) {
+        println!("Invalid static auth (output.is_err)");
         return (None);
     }
+    // We use is_none() here, because we're expecting additional data.
+    if (output.expect("Missing result").is_none() == true) {
+        println!("Invalid static auth (missing additional data)");
+        return (None);
+    }
+    // ----
 
     return (Some(device));
 }

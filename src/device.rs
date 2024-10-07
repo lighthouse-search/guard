@@ -87,7 +87,7 @@ pub async fn device_authentication(signed_data: String) -> (Option<Guard_devices
     let (device_wrapped) = device_get(device_id).await.expect("Failed to query for device.");
     let device = device_wrapped.expect("Device not found");
 
-    let output = static_auth_verify(signed_data, device.public_key.clone()).await;
+    let output = static_auth_verify(&signed_data, &device.public_key.clone(), None).await;
 
     // Invalid static auth.
     if (output.is_err() == true) {

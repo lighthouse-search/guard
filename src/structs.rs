@@ -119,7 +119,7 @@ pub struct AuthMethod {
     pub icon: Option<String>,
     pub method_type: String,
     pub login_page: String,
-    pub applied_policies: Vec<String>,
+    // pub applied_policies: Vec<String>,
     pub ratelimit: u32,
     pub ratelimit_cooldown: u32,
     pub should_create_new_users: Option<bool>,

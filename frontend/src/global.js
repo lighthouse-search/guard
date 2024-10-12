@@ -177,15 +177,18 @@ async function auth_init_params(authentication_method, window) {
   
   const redirect_url = get_routing_host(window).href;
 
-  const confirm_metadata = {
+  const confirm_metadata_item = {
     authentication_method,
     state,
     redirect_url
   }
 
+  let confirm_metadata = await localStorage.getItem("confirm_metadata") ? JSON.parse(await localStorage.getItem("confirm_metadata")) : [];
+  confirm_metadata.push(confirm_metadata_item);
+
   await localStorage.setItem("confirm_metadata", JSON.stringify(confirm_metadata));
 
-  return confirm_metadata;
+  return confirm_metadata_item;
 }
 
 async function is_authenticated() {

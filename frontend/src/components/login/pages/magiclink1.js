@@ -15,15 +15,23 @@ export default function Magiclink1() {
   const shouldSend = useRef(true);
 
   async function send_magiclink(params) {
-    const confirm_metadata = await localStorage.getItem("confirm_metadata");
-    if (!confirm_metadata) {
+    if (!params.get("state")) {
+      set_error("Missing state param.");
+      return;
+    }
+
+    // Check confirm_state localstorage.
+    const confirm_metadata_localstorage = await localStorage.getItem("confirm_metadata");
+    if (!confirm_metadata_localstorage) {
       set_error("missing confirm_metadata. Try going to /login and starting again.");
       return;
     }
-    await localStorage.removeItem("confirm_metadata");
+    // Parse confirm_metadata array. Confirm_metadata is an array so if the user creates multiple links (e.g enters their email twice) it won't overwrite the state. If the state is overwritten and the user clicks an older link, it will fail.
+    const confirm_metadata = JSON.parse(confirm_metadata_localstorage);
 
-    let auth_init_params = JSON.parse(confirm_metadata);
-    if (!params.get("state") || params.get("state") != auth_init_params.state) {
+    // Within the array of states, we need to iterate and check if this state is valid.
+    const relevant_state = confirm_metadata.find(d => d.state === params.get("state"));
+    if (!relevant_state || params.get("state") != relevant_state.state) {
       set_error("Invalid state param.");
       return;
     }
@@ -34,7 +42,7 @@ export default function Magiclink1() {
     let redirect_url = null;
     let host = null;
     try {
-      redirect_url = new URL(auth_init_params.redirect_url);
+      redirect_url = new URL(relevant_state.redirect_url);
       host = redirect_url.host;
     } catch (error) {
       console.log(error);
@@ -78,6 +86,12 @@ export default function Magiclink1() {
       await handle_new(auth_data, auth_metadata, null);
       await handle_new_oauth_access_token(response.access_token);
     }
+
+
+    // We've handled credentials and are about to redirect, remove state from array as it's now bloat.
+    let new_confirm_metadata = confirm_metadata;
+    new_confirm_metadata.splice(new_confirm_metadata.indexOf(relevant_state), 1);
+    await localStorage.setItem("confirm_metadata", JSON.stringify(new_confirm_metadata));
 
     // If a hostname was returned, it means the host param we provided as valid. Provided redirect_uri is still in good shape up until this part of the function, we're good to redirect.
     if (hostname && redirect_url.host != new URL(window.location.href).host) {

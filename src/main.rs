@@ -88,7 +88,7 @@ fn get_config() -> Result<Value, Box<dyn Error>> {
 
     let mut config_value: String = String::new();
     if let Some(val) = env::var("guard_config").ok() {
-        println!("Value of guard_config: {}", val);
+        println!("Value of guard_config (test 0): {}", val);
 
         config_value = val;
     } else {

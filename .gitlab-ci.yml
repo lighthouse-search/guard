@@ -1,11 +1,12 @@
 stages:
+  - build_rust_binary
   - build
 
 variables:
   DOCKER_DRIVER: overlay2
   DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:latest
+  GIT_STRATEGY: clone
 
-# This job checks out the repository and builds the Docker image
 build_rust_binary:
   image: rust:latest
   stage: build
@@ -45,4 +46,4 @@ build:
   script:
     - docker buildx create --use
     - docker buildx inspect --bootstrap
-    - docker buildx build --file ./Dockerfile --push --tag $DOCKER_IMAGE_NAME .
+    - docker buildx build --file ./Dockerfile --push --tag $DOCKER_IMAGE_NAME ./

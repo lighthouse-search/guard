@@ -184,6 +184,9 @@ async function auth_init_params(authentication_method, window) {
   }
 
   let confirm_metadata = await localStorage.getItem("confirm_metadata") ? JSON.parse(await localStorage.getItem("confirm_metadata")) : [];
+  if (Array.isArray(confirm_metadata) == false) {
+    confirm_metadata = [confirm_metadata];
+  }
   confirm_metadata.push(confirm_metadata_item);
 
   await localStorage.setItem("confirm_metadata", JSON.stringify(confirm_metadata));

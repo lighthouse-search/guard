@@ -360,10 +360,10 @@ graceful-fs@^4.2.11:
   resolved "https://registry.yarnpkg.com/graceful-fs/-/graceful-fs-4.2.11.tgz#4183e4e8bf08bb6e05bbb2f7d2e0c8f712ca40e3"
   integrity sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==
 
-hades-auth@latest:
-  version "1.0.62"
-  resolved "https://registry.yarnpkg.com/hades-auth/-/hades-auth-1.0.62.tgz#25e76aaf5606f9b155dbec04af931ce6483665b0"
-  integrity sha512-sxwqJmaNX8I0rQ463dwVosmTO95C6V1O0IUbopC3EoizJ7ZPjHREqzWGCe7hJEcbLohQD+F74NLYPghffyuFqQ==
+hades-auth@^1.0.63, hades-auth@latest:
+  version "1.0.63"
+  resolved "https://registry.yarnpkg.com/hades-auth/-/hades-auth-1.0.63.tgz#3b99b8a848ba03c418909bc0d434725a5eb90b05"
+  integrity sha512-R6ZoKgXNElvv/UVlXmFeP3Lb/q9cQrTO9zL+s8K5ps5dt+ZYsko91EinWSiRTS2vqpnl6VdTbeKzDA/83ZNfBw==
   dependencies:
     "@types/jsonwebtoken" "^9.0.5"
     crypto-browserify "^3.12.0"

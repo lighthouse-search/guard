@@ -2,6 +2,7 @@ function getGuardApiURL() {
     let url = new URL(window.location.href);
     url.port = window.location.port;
     url.pathname = "/guard/api";
+    url.hash = "";
 
     if (window.location.hostname == "localhost" || window.location.hostname == "127.0.0.1") {
         if (typeof localStorage != "undefined") {
@@ -14,7 +15,7 @@ function getGuardApiURL() {
         url.protocol = "https:";
     }
 
-    url.search = '';
+    url.search = "";
 
     return url.href;
 }

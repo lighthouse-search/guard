@@ -25,7 +25,9 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
     let mut domain_placeholder: Option<String> = frontend_metadata.domain_placeholder;
     let mut username_placeholder: Option<String> = frontend_metadata.username_placeholder;
     let mut background_colour: Option<String> = frontend_metadata.background_colour;
+    let mut style: Option<String> = frontend_metadata.style;
 
+    // TODO: This should be an impl From<>.
     let hostname = get_hostname(hostname.unwrap()).await;
     if (hostname.is_ok() == true) {
         let hostname_unwrapped = hostname.unwrap();
@@ -53,6 +55,9 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
         if (hostname_unwrapped.background_colour.is_none() == false) {
             background_colour = Some(hostname_unwrapped.background_colour.unwrap());
         }
+        if (hostname_unwrapped.style.is_none() == false) {
+            style = Some(hostname_unwrapped.style.unwrap());
+        }
     }
 
     return status::Custom(Status::Ok, json!({
@@ -65,7 +70,8 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
             "motd_banner": motd_banner,
             "domain_placeholder": domain_placeholder,
             "username_placeholder": username_placeholder,
-            "background_colour": background_colour
+            "background_colour": background_colour,
+            "style": style
         }
     }));
 }

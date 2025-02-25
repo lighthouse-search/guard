@@ -24,8 +24,13 @@ export default function FormStyle_special_1(props) {
     async function get_authentication_methods() {
         let routing_host = get_routing_host(window);
 
-        const authentication_methods_v = await Guard().metadata.get_authentication_methods(routing_host.host);
-        set_authentication_methods(authentication_methods_v.data);
+        try {
+            const authentication_methods_v = await Guard().metadata.get_authentication_methods(routing_host.host);
+            set_authentication_methods(authentication_methods_v.data);
+        } catch (error) {
+            set_error(error.message);
+            return;
+        }
     }
 
     useEffect(() => {
@@ -35,15 +40,6 @@ export default function FormStyle_special_1(props) {
         get_authentication_methods();
     })
 
-    let header = props.header;
-    if (props.header) {
-        header = props.header;
-    }
-
-    let showHeader = false;
-    if (props.header) {
-        showHeader = true;
-    }
     if (magiclink == true) {
         return (
             <Magiclink email={email}/>
@@ -103,7 +99,7 @@ export default function FormStyle_special_1(props) {
         return <Check_your_email/>
     } else if (state == "show_captcha") {
         return (
-            <div className={`FormStyle_1 shade ${props.className}`} style={props.style}>
+            <div className={`FormStyle_1 outline ${props.className}`} style={props.style}>
                 <div className='FormStyle_1_div'>
                     <HCaptcha
                         sitekey="9a1a8707-24b1-48f8-aa43-5f47f2a9e8cf"
@@ -115,9 +111,12 @@ export default function FormStyle_special_1(props) {
         );
     } else {
         return (
-            <div className={`FormStyle_1 shade ${props.className}`} style={props.style}>
-                {showHeader && <h1 className='FormStyle_1_header'>{header}</h1>}
-                {props.logo && <div className='FormStyle_1_logo'>{props.logo}</div>}
+            <div className={`FormStyle_1 outline ${props.className}`} style={props.style}>
+                {(props.header || props.description || props.logo) && <div className='column row_gap_4'>
+                    {props.logo && <img className='FormStyle_1_logo' src={props.logo}/>}
+                    {props.header && <h1 className='FormStyle_1_header'>{props.header}</h1>}
+                    {props.description && <p className='FormStyle_1_description'>{props.description}</p>}
+                </div>}
 
                 {loading == false && <div className='FormStyle_1_div'>
                     {error != null && <p className='FormStyle_1_div_error'>Error: {error}</p>}

@@ -11,30 +11,28 @@ import Image_background from '@/components/image/background/image_background';
 
 export default function Login2_special(props) {
   const should_run = useRef(true);
-  const [metadata, set_metadata] = useState(undefined);
+  const [metadata, set_metadata] = useState(props.metadata);
 
+  async function run() {
+    const metadata_v = await get_metadata();
+    set_metadata(metadata_v);
+    if (props.set_metadata) {
+      props.set_metadata(metadata_v);
+    }
+  }
   useEffect(() => {
-    if (should_run.current != true) { return; }
+    if (should_run.current != true || metadata) { return; }
     should_run.current = false;
 
-    get_metadata((data) => {
-      console.log(data);
-      set_metadata(data);
-      if (props.set_metadata) {
-        props.set_metadata(data);
-      }
-    });
+    run();
   });
 
-  let header = null;
-  if (metadata) {
-    header = metadata.login_header;
-  }
-
   return (
-    <Base metadata={metadata} className="login">
+    <Base metadata={metadata} className="login2">
       {metadata && metadata.image && <Image_background src={metadata.image}/>}
-      {metadata != undefined && <FormStyle_special_1 header={header} metadata={metadata}/>}
+      {metadata != undefined && <div className="column">
+        <FormStyle_special_1 metadata={metadata} header={metadata.alias} description={metadata.public_description} logo={metadata.logo}/>
+      </div>}
     </Base>
   );
 }

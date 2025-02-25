@@ -13,8 +13,6 @@ export default function Magiclink(props) {
     // TODO: ADD STATE PARAMS TO BLOCK CLICKJACKING!
 
     return (
-        <div style={{ width: "100%", height: "100vh", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-            <Magiclink1/>
-        </div>
+        <Magiclink1/>
     )
 }

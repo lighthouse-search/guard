@@ -7,17 +7,13 @@ export default function FormStyle_1(props) {
         header = props.header;
     }
 
-    let showHeader = false;
-    if (!props.login || !props.header) {
-        showHeader = true;
-    }
-    if (props.header == false) {
-        showHeader = false;
-    }
-
     return (
-        <div className={`FormStyle_1 shade ${props.className}`} style={props.style}>
-            {showHeader && <h1 className='FormStyle_1_header'>{header}</h1>}
+        <div className={`FormStyle_1 outline ${props.className}`} style={props.style}>
+            {(props.header || props.description || props.logo) && <div className='column row_gap_4'>
+                {props.header && <h1 className='FormStyle_1_header'>{props.header}</h1>}
+                {props.description && <p className='FormStyle_1_description'>{props.description}</p>}
+                {props.logo && <div className='FormStyle_1_logo'>{props.logo}</div>}
+            </div>}
             {props.logo && <div className='FormStyle_1_logo'>{props.logo}</div>}
 
             {props.children}

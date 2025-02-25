@@ -20,4 +20,14 @@ function getGuardApiURL() {
     }
 }
 
+function remove_trailing_slash(href) {
+    if (href.endsWith("/")) {
+        const index = href.length - 1;
+        return href.slice(0, index) + href.slice(index + 1);
+    }
+    else {
+        return href;
+    }
+}
+
 export { getGuardApiURL };

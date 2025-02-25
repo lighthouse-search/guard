@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import Login1 from '../components/login/pages/login1';
 import FormStyle_1 from "@/components/login/forms/form_style1";
 import { logout } from "@/global";
+import Base from "@/components/base";
 
 export default function Access_denied(props) {
     let params = new URLSearchParams({});
@@ -37,11 +38,9 @@ export default function Access_denied(props) {
     })
 
     return (
-        <div style={{ width: "100%", height: "100vh", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-            <Login1>
-                <Access_denied/>
-                {/* <This_is_weird/> */}
-            </Login1>
-        </div>
+        <Login1>
+            <Access_denied/>
+            {/* <This_is_weird/> */}
+        </Login1>
     )
 }

@@ -5,15 +5,17 @@ import './../../global.css';
 import { credentials_object, logout } from '@/global';
 import Frame_AestheticMetadataPanel from '@/components/miscellaneous/frame_aesthetic_metadata_panel';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 
 export default function Logout1() {
+  const router = useRouter();
   const [loading, set_loading] = useState(true);
   const shouldRun = useRef(true);
 
   async function checkLoggedIn() {
     let credentials = await credentials_object();
     if (!credentials || !credentials.deviceid) {
-      window.location.href = "/login";
+      router.push("/login");
     } else {
       set_loading(false);
     }
@@ -24,7 +26,7 @@ export default function Logout1() {
     shouldRun.current = false;
 
     checkLoggedIn();
-  })
+  });
 
   return (
     <Frame_AestheticMetadataPanel>

@@ -1,3 +1,4 @@
+import { Guard } from "@oracularhades/guard";
 import { static_auth_sign } from "hades-auth";
 import { Cookies } from 'react-cookie';
 
@@ -202,4 +203,11 @@ async function is_authenticated() {
   }
 }
 
-export { generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated };
+async function get_metadata() {
+  let routing_host = get_routing_host(window);
+
+  const metadata_v = await Guard().metadata.get(routing_host.host);
+  return metadata_v.data;
+}
+
+export { generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated, get_metadata };

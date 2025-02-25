@@ -108,7 +108,25 @@ pub struct Frontend_metadata {
     pub motd_banner: Option<String>,
     pub background_colour: Option<String>,
     pub domain_placeholder: Option<String>,
-    pub username_placeholder: Option<String>
+    pub username_placeholder: Option<String>,
+    pub style: Option<String>
+}
+
+impl Default for Frontend_metadata {
+    fn default() -> Self {
+        Frontend_metadata {
+            instance_hostname: None,
+            alias: None,
+            public_description: None,
+            logo: None,
+            image: None,
+            motd_banner: None,
+            background_colour: None,
+            domain_placeholder: None,
+            username_placeholder: None,
+            style: Some("login_1".to_string()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -182,7 +200,8 @@ pub struct Guarded_Hostname {
     pub motd_banner: Option<String>,
     pub background_colour: Option<String>,
     pub domain_placeholder: Option<String>,
-    pub username_placeholder: Option<String>
+    pub username_placeholder: Option<String>,
+    pub style: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

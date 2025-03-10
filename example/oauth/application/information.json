@@ -1,0 +1,22 @@
+{
+    "client_id": "https://bsky.social/oauth/client-metadata.json",
+    "branding": {
+        "client_name": "Bluesky Social",
+        "icon_uri": "https://cdn.bsky.app/img/avatar/plain/did:plc:z72i7hdynmk6r22z27h6tvur/bafkreihagr2cmvl2jt4mgx3sppwe2it3fwolkrbtjrhcnwjk4jdijhsoze@jpeg"
+    },
+    "grant_types": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "redirect_uris": [
+        "https://app.example.com/oauth/callback"
+    ],
+    "response_types": [
+        "code"
+    ],
+    "scope": [
+        "id",
+        "email",
+        "authentication_method"
+    ]
+  }

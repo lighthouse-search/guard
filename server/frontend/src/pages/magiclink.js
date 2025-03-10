@@ -13,6 +13,8 @@ export default function Magiclink(props) {
     // TODO: ADD STATE PARAMS TO BLOCK CLICKJACKING!
 
     return (
-        <Magiclink1/>
+        <Base>
+            <Magiclink1/>
+        </Base>
     )
 }

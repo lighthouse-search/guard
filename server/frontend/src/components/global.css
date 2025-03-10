@@ -332,4 +332,29 @@ a {
   display: flex;
   flex-direction: column;
   overflow-y: scroll;
+  padding: 1px;
+}
+
+.font_size_10 {
+  font-size: 10px;
+}
+
+.font_size_12 {
+  font-size: 12px;
+}
+
+.font_size_14 {
+  font-size: 14px;
+}
+
+.font_size_16 {
+  font-size: 16px;
+}
+
+.font_size_18 {
+  font-size: 18px;
+}
+
+.font_size_20 {
+  font-size: 20px;
 }

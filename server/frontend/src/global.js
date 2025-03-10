@@ -62,6 +62,15 @@ async function handle_new_authentication_metadata(metadata) {
   });
 }
 
+async function guard_authentication_metadata() {
+  let guard_authentication_metadata = await cookies.get(prepend_hostname_to_cookie("guard_authentication_metadata"));
+  if (!guard_authentication_metadata) {
+    return null;
+  }
+
+  return guard_authentication_metadata;
+}
+
 function prepend_hostname_to_cookie(cookie_name) {
   const guard_instance_hostname = window.location.hostname;
   return `${guard_instance_hostname}_${cookie_name}`;
@@ -116,12 +125,7 @@ function root_domain_logic() {
 }
 
 async function credentials_object() {
-  let localAppend = "";
-  if (localStorage.getItem("use_prod_servers") != "true" && window.location.origin.includes("127.0.0.1")) { //window.location.origin.includes("127.0.0.1") IS DANGEROUS IF YOU DON'T CHECK FOR A DOT. IF THERE IS A DOT IN THE HOSTNAME THEN IT'S A DOMAIN AND NOT THE REAL LOCALHOST. IT'S FINE IN THIS SPECIFIC CASE THOUGH.
-    localAppend = "_local";
-  }
-
-  const authData = JSON.parse(await localStorage.getItem(`auth${localAppend}`));
+  const authData = JSON.parse(await localStorage.getItem(`auth`));
   if (!authData) {
     console.log("No auth data found.");
     return null;
@@ -154,13 +158,14 @@ function get_routing_host(window) {
   let url = new URL(window.location.href);
   let host = window.location.host;
   let href = window.location.href;
+  let redirect_url = null;
   if (url && url.searchParams.get("redirect")) {
-    let redirect_url = new URL(url.searchParams.get("redirect"));
+    redirect_url = new URL(url.searchParams.get("redirect"));
     host = redirect_url.host;
     href = redirect_url.href;
   }
 
-  return { host: host, href: href };
+  return { host: host, href: href, redirect_url: redirect_url, webpage_url: url };
 }
 
 function generateRandomID() {
@@ -210,4 +215,4 @@ async function get_metadata() {
   return metadata_v.data;
 }
 
-export { generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated, get_metadata };
+export { generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated, get_metadata, guard_authentication_metadata };

@@ -1,5 +1,17 @@
 pub mod structs;
 pub mod test;
+pub mod authentication;
+pub mod webserver {
+    pub mod server;
+    pub mod response;
+    pub mod endpoint {
+        pub mod oauth;
+    }
+}
+pub mod global {
+    pub mod credential;
+    pub mod macos;
+}
 
 use std::fs;
 use std::env;
@@ -10,9 +22,10 @@ use std::sync::Arc;
 
 use serde::{Serialize, Deserialize};
 use serde_json::json;
+use tokio::task;
 
 use test::parse_yaml;
-use tokio::task;
+use authentication::initalise;
 
 use crate::structs::*;
 
@@ -37,7 +50,7 @@ async fn main() {
                     value: value.clone()
                 });
             } else {
-                eprintln!("Error: -- requires a value.");
+                eprintln!("Guard Error: '{}' doesn't have a value.", arg);
                 return;
             }
         } else {
@@ -48,7 +61,9 @@ async fn main() {
     }
 
     if (modes == vec!["tunnel", "connect"]) {
-        test::run(arguments).await;
+        return test::run(arguments).await;
+    } else if (modes == vec!["account", "login"]) {
+        return authentication::initalise(arguments).await.expect("Failed to run authentication initalise");
     } else {
         panic!("Command not found.");
     }

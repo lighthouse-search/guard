@@ -129,7 +129,7 @@ pub async fn authenticate(mut host: Option<String>, mut body: Json<Method_reques
     let user_id: String = attempted_external_user_unwrapped.get("id").unwrap().as_str().expect("Missing attempted_external_user.id").to_string();
     
     // TODO: Collateral should be removed. Oauth isn't handled this way anymore.
-    let (device_id) = device_create(
+    let device_id = device_create(
         user_id,
         authentication_method.clone().id.unwrap(),
         Some("".to_string()),

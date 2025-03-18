@@ -9,7 +9,7 @@ use diesel::sql_types::*;
 
 use crate::global::{ is_valid_authentication_method_for_hostname, is_null_or_whitespace, get_hostname, get_epoch, is_valid_authentication_method };
 use crate::globals::environment_variables;
-use crate::protocols::oauth::oauth_client::{oauth_code_exchange_for_access_key, oauth_userinfo};
+use crate::protocols::oauth::client::{oauth_code_exchange_for_access_key, oauth_userinfo};
 use crate::responses::*;
 use crate::structs::*;
 use crate::tables::*;
@@ -26,7 +26,7 @@ pub async fn handling_email_magiclink(request_data: Magiclink_handling_data, aut
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let code: String = request_data.code.unwrap();
 
-    if (is_null_or_whitespace(code.clone())) {
+    if (is_null_or_whitespace(Some(code.clone()))) {
         // Return error.
         return Ok((Handling_magiclink {
             magiclink: None,

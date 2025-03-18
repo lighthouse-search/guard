@@ -9,10 +9,10 @@ use diesel::sql_types::*;
 
 use rocket::http::{Status, CookieJar, Cookie};
 
-use crate::protocols::oauth::oauth_client::oauth_userinfo;
+use crate::protocols::oauth::client::oauth_userinfo;
 use crate::structs::*;
 use crate::tables::*;
-use crate::device::{device_authentication, device_get, device_guard_static_auth_from_cookies};
+use crate::device::{device_signed_authentication, device_get, device_guard_static_auth_from_cookies};
 
 use std::error::Error;
 use std::net::SocketAddr;
@@ -34,7 +34,7 @@ pub async fn oauth_pipeline(hostname: Guarded_Hostname, auth_method: AuthMethod,
         return Ok((false, None));
     }
 
-    let user_info_result = oauth_userinfo(auth_method.oauth_user_info.unwrap(), bearer_token).await;
+    let user_info_result = oauth_userinfo(auth_method.oauth_client_user_info.unwrap(), bearer_token).await;
     if (user_info_result.is_err() == true) {
         println!("Failed to get user-info");
         return Ok((false, None));

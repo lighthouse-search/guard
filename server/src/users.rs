@@ -14,7 +14,7 @@ use crate::responses::*;
 use crate::structs::*;
 use crate::tables::*;
 use crate::policy::*;
-use crate::device::{device_authentication, device_get, device_guard_static_auth_from_cookies};
+use crate::device::{device_signed_authentication, device_get, device_guard_static_auth_from_cookies};
 
 use std::error::Error;
 use std::fmt::format;
@@ -107,25 +107,29 @@ pub async fn user_create(id_input: Option<String>, email_input: Option<String>) 
     }))
 }
 
-pub async fn user_authentication_pipeline(jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<Value>), Box<dyn Error>> {
+pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<AuthMethod>, Option<Value>), Box<dyn Error>> {
+    // Match incoming hostname to configuration.
     let hostname_result = get_hostname(host.clone()).await;
     if (hostname_result.is_err() == true) {
         println!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
-        return Ok((false, None, None, Some(error_message("Invalid hostname"))));
+        return Ok((false, None, None, None, Some(error_message("Invalid hostname"))));
     }
     let hostname = hostname_result.unwrap();
     
-    let (success, user_result, device, error_to_respond_with) = protocol_decision_to_pipeline(hostname.clone(), jar, remote_addr, headers).await.expect("An error occurred during protocol_decision_to_pipeline");
+    // Authenticate user for specific authentication method.
+    let (success, user_result, device, authentication_method, error_to_respond_with) = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr, headers).await.expect("An error occurred during protocol_decision_to_pipeline");
     if (success == false) {
         println!("protocol_decision_to_pipeline failed, error message: {:?}", error_to_respond_with);
-        return Ok((false, None, None, error_to_respond_with));
+        return Ok((false, None, None, None, error_to_respond_with));
     }
 
+    // Unwrap user's information.
     let user_as_value = user_result.expect("Missing user");
 
+    // Verify the user's authentication method is valid for this hostname.
     let result = policy_authentication(get_hostname_policies(hostname, true).await, user_as_value.clone(), remote_addr.to_string()).await;
 
-    return Ok((result, Some(user_as_value), device, None));
+    return Ok((result, Some(user_as_value), device, authentication_method, None));
 }
 
 pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<User_get_id_preference_struct, Box<dyn Error>> {

@@ -9,7 +9,7 @@ use diesel::sql_types::*;
 
 use crate::{global::{get_hostname, is_valid_authentication_method_for_hostname}, hostname::hostname_auth_exit_flow, structs::*};
 
-use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{oauth_client::oauth_code_exchange_for_access_key, oauth_pipeline::oauth_get_data_from_oauth_login_url}, Headers};
+use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{client::oauth_code_exchange_for_access_key, pipeline::oauth_get_data_from_oauth_login_url}, Headers};
 
 #[get("/exchange-code?<authentication_method>&<code>&<host>")]
 pub async fn oauth_exchange_code(mut authentication_method: Option<String>, code: Option<String>, host: Option<String>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
@@ -36,7 +36,7 @@ pub async fn oauth_exchange_code(mut authentication_method: Option<String>, code
 
     let data_from_login_url = oauth_get_data_from_oauth_login_url(auth_method.login_page.clone());
     let result = oauth_code_exchange_for_access_key(
-        auth_method.oauth_token_endpoint.clone().unwrap(),
+        auth_method.oauth_client_token_endpoint.clone().unwrap(),
         auth_method.oauth_client_id.clone().unwrap(),
         client_secret,
         code.unwrap(),

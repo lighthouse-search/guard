@@ -42,3 +42,16 @@ diesel::table! {
         created -> Nullable<BigInt>
     }
 }
+
+diesel::table! {
+    bearer_token (access_token_hash) {
+        access_token_hash -> Text,
+        access_token_salt -> Text,
+        refresh_token_hash -> Text,
+        refresh_token_salt -> Text,
+        user_id -> Text,
+        application_clientid -> Text,
+        nonce -> Text,
+        created -> Nullable<BigInt>
+    }
+}

@@ -42,7 +42,7 @@ pub async fn device_get(id: String) -> Result<(Option<Guard_devices>), Box<dyn E
     Ok((Some(device)))
 }
 
-pub async fn device_create(user_id: String, authentication_method_id: String, collateral: Option<String>, public_key: String) -> Result<(String), Box<dyn Error>> {
+pub async fn device_create(user_id: String, authentication_method_id: String, collateral: Option<String>, public_key: String) -> Result<String, Box<dyn Error>> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let device_id = generate_random_id();
 
@@ -58,7 +58,7 @@ pub async fn device_create(user_id: String, authentication_method_id: String, co
     .execute(&mut db)
     .expect("Something went wrong querying the DB.");
 
-    Ok((device_id))
+    Ok(device_id)
 }
 
 pub fn device_guard_static_auth_from_cookies(jar: &CookieJar<'_>) -> Option<String> {
@@ -76,14 +76,15 @@ pub fn device_guard_static_auth_from_cookies(jar: &CookieJar<'_>) -> Option<Stri
     return Some(signed_data);
 }
 
-pub async fn device_authentication(signed_data: String) -> (Option<Guard_devices>) {
+pub async fn device_signed_authentication(signed_data: String) -> Result<(Guard_devices, Option<Value>), String> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let unsigned_data: Static_auth_sign = serde_json::from_value(get_unsafe_noverification_jwt_payload(signed_data.clone()).expect("Failed to parse payload.")).expect("Failed to prase JWT");
     
     // TODO: Instead of things like .expect("Missing additional data"), return an actual response.
+    // TODO: device_id here (in Signed_data_identifier) should get moved to being a main field and not part of additional_data.
     let unsigned_data_deviceinfo: Signed_data_identifier = serde_json::from_value(unsigned_data.additional_data.expect("Missing additional data")).expect("Failed to parse identifier data.");
     
-    let device_id = unsigned_data_deviceinfo.device_id;
+    let device_id: String = unsigned_data_deviceinfo.device_id;
     let (device_wrapped) = device_get(device_id).await.expect("Failed to query for device.");
     let device = device_wrapped.expect("Device not found");
 
@@ -92,14 +93,16 @@ pub async fn device_authentication(signed_data: String) -> (Option<Guard_devices
     // Invalid static auth.
     if (output.is_err() == true) {
         println!("Invalid static auth (output.is_err)");
-        return (None);
+        return Err(String::from("Invalid static auth (output.is_err)"));
     }
+
+    let additional_data = output.expect("Missing result");
     // We use is_none() here, because we're expecting additional data.
-    if (output.expect("Missing result").is_none() == true) {
+    if (additional_data.is_none() == true) {
         println!("Invalid static auth (missing additional data)");
-        return (None);
+        return Err(String::from("Invalid static auth (missing additional data)"));
     }
     // ----
 
-    return (Some(device));
+    return Ok((device, additional_data));
 }

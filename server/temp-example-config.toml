@@ -1,0 +1,81 @@
+[features]
+reverse_proxy_authentication = true
+
+[reverse_proxy_authentication.config]
+header = "x-original-url"
+
+[frontend.metadata]
+instance_hostname = "guard.example.com"
+alias = "ACME"
+public_description = "We need to verify your identity, please login"
+image = "https://images.unsplash.com/photo-1565799557186-1abfed8a31e5?q=80&w=3087&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+motd_banner1 = "ACME is down, they're experiencing issues, use a backup authentication method."
+background_colour = "#0b040e"
+domain_placeholder="example.com"
+username_placeholder="username"
+acess_denied_header=""
+
+[database.mysql]
+username = "example-user"
+password_env = "example_user_mysql_password"
+hostname = "mariadb.internal.example.com"
+port = 3306
+database = "guard"
+
+[smtp]
+host="smtp.sendgrid.net"
+port=587
+username="apikey"
+from_alias="ACME Guard"
+from_header="noreply@paperplane.example.com"
+reply_to_address="noreply@paperplane.example.com"
+password_env="smtp_password"
+
+[authentication_methods.email]
+active = true
+method_type = "email"
+handoff = "https://example.com/handoff"
+applied_policies = ["staff_only"]
+ratelimit = 5
+ratelimit_cooldown = 200
+login_page = "https://example.com/failure"
+validation_endpoint = "https://example.com/success"
+should_create_new_users = true
+
+[authentication_methods.microsoft_entra]
+active = true
+method_type = "oauth"
+applied_policies = ["staff_only"]
+login_page = "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/v2.0/authorize?client_id=11111111-1111-1111-1111-111111111111&response_type=code&state=12345&scope=openid%20profile%20email&redirect_uri=https%3A%2F%2Fguard.example.com%2Fguard%2Ffrontend%2Fmagiclink%3Fauthentication_method%3Dmicrosoft_entra"
+should_create_new_users = true
+ratelimit = 5
+ratelimit_cooldown = 200
+alias = "Microsoft"
+icon = "https://www.microsoft.com/favicon.ico?v2"
+oauth_api = "https://graph.microsoft.com/"
+oauth_user_info = "https://graph.microsoft.com/oidc/userinfo"
+oauth_user_info_id = "sub"
+oauth_user_info_reference_type = "email"
+oauth_user_info_reference_key = "email"
+oauth_token_endpoint = "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/v2.0/token"
+oauth_client_id = "11111111-1111-1111-1111-111111111111"
+oauth_client_secret_env = "microsoft_entra_oauth_secret"
+
+[sql]
+users_table = "accounts"
+devices_table = "devices"
+magiclink_table = "magiclinks"
+
+[policies.staff_only]
+active = true
+action = "allow"
+property = "email"
+ends_with = "@example.com"
+
+[hostname.anythingyouwant]
+active = true
+hostname = "sydney.example.com"
+alias = "Sydney"
+authentication_methods = ["email", "microsoft_entra"]
+multistep_authentication_methods = false
+applied_policies = ["staff_only"]

@@ -5,7 +5,8 @@ use rocket::fs::FileServer;
 use crate::endpoints::auth::{auth_method_request, authenticate};
 use crate::endpoints::metadata::{metadata_get, metadata_get_authentication_methods};
 use crate::endpoints::reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put};
-use crate::protocols::oauth::endpoint::oauth_endpoint::oauth_exchange_code;
+use crate::protocols::oauth::endpoint::client::oauth_exchange_code;
+use crate::protocols::oauth::endpoint::server::{oauth_server_token};
 use crate::{CONFIG_VALUE, SQL_TABLES};
 use crate::structs::*;
 
@@ -43,6 +44,14 @@ pub fn stage() -> AdHoc {
                     reverse_proxy_authentication_head,
                     reverse_proxy_authentication_options,   
                     reverse_proxy_authentication_patch
+                ]);
+            }
+        }
+
+        if let Some(features) = config.get("features") {
+            if (features.get("oauth_server").is_none() == false && features["oauth_server"].to_string() == "true") {
+                app = app.mount("/guard/api/oauth/server", routes![
+                    oauth_server_token
                 ]);
             }
         }

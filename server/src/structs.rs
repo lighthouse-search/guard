@@ -73,6 +73,32 @@ pub struct Guard_devices {
     pub created: Option<i64>
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
+#[diesel(table_name = bearer_token)]
+pub struct Bearer_token {
+    pub access_token_hash: String,
+    pub access_token_salt: String,
+    pub refresh_token_hash: String,
+    pub refresh_token_salt: String,
+    pub user_id: String,
+    pub application_clientid: String,
+    pub nonce: String,
+    pub created: Option<i64>
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Verify_bearer_token_output {
+    pub user_id: String,
+    pub application_clientid: String,
+    pub scope: Vec<String>
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Verify_bearer_token_hash_output {
+    pub user_id: String,
+    pub application_clientid: String,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Essential_authenticate_request_data {
     pub public_key: String
@@ -143,10 +169,10 @@ pub struct AuthMethod {
     pub should_create_new_users: Option<bool>,
     pub user_info_reference_type: Option<String>,
     pub user_info_reference_key: Option<String>,
-    pub oauth_api: Option<String>,
-    pub oauth_user_info: Option<String>,
-    pub oauth_user_info_id: Option<String>,
-    pub oauth_token_endpoint: Option<String>,
+    pub oauth_client_api: Option<String>,
+    pub oauth_client_user_info: Option<String>,
+    pub oauth_client_user_info_id: Option<String>,
+    pub oauth_client_token_endpoint: Option<String>,
     // pub oauth_token_endpoint_redirect_uri: Option<String>,
     // pub oauth_scope: Option<String>,
     pub oauth_client_id: Option<String>,
@@ -292,7 +318,8 @@ pub struct Config_reverse_proxy_authentication_config {
 pub struct Config_sql {
     pub user: Option<String>,
     pub device: Option<String>,
-    pub magiclink: Option<String>
+    pub magiclink: Option<String>,
+    pub bearer_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -348,7 +375,7 @@ pub struct Guard_authentication_metadata_cookie {
 // The fetched Guard authentication metadata after the server receives the original cookie and gets all the relevant information.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Guard_authentication_metadata {
-    pub authentication_method: Option<AuthMethod>,
+    pub unverified_authentication_method: Option<AuthMethod>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -362,4 +389,31 @@ pub struct Get_current_valid_hostname_struct {
     pub hostname: Guarded_Hostname,
     pub domain_port: String,
     pub original_url: String
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Oauth_server_token_internals {
+    pub random: String,
+    pub scope: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Oauth_server_token_code {
+    pub client_id: Option<String>,
+    pub scope: Option<String>,
+    pub redirect_uri: Option<String>,
+    pub grant_type: Option<String>,
+    pub nonce: Option<String>
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Token_create {
+    pub hash: String,
+    pub salt: String
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct created_access_and_refresh_tokens {
+    pub access_token: Token_create,
+    pub refresh_token: Token_create
 }

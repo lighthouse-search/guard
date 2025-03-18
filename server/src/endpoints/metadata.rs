@@ -25,7 +25,7 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
     let mut domain_placeholder: Option<String> = frontend_metadata.domain_placeholder;
     let mut username_placeholder: Option<String> = frontend_metadata.username_placeholder;
     let mut background_colour: Option<String> = frontend_metadata.background_colour;
-    let mut style: Option<String> = frontend_metadata.style;
+    let mut style: String = frontend_metadata.style.unwrap_or("login_1".to_string());
 
     // TODO: This should be an impl From<>.
     let hostname = get_hostname(hostname.unwrap()).await;
@@ -56,7 +56,7 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
             background_colour = Some(hostname_unwrapped.background_colour.unwrap());
         }
         if (hostname_unwrapped.style.is_none() == false) {
-            style = Some(hostname_unwrapped.style.unwrap());
+            style = hostname_unwrapped.style.unwrap();
         }
     }
 

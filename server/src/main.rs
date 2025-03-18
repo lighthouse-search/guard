@@ -31,10 +31,14 @@ mod protocols {
         pub mod magiclink;
     }
     pub mod oauth {
-        pub mod oauth_client;
-        pub mod oauth_pipeline;
+        pub mod client;
+        pub mod pipeline;
+        pub mod server {
+            pub mod bearer_token;
+        }
         pub mod endpoint {
-            pub mod oauth_endpoint;
+            pub mod client;
+            pub mod server;
         }
     }
 }

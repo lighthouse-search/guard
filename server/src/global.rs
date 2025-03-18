@@ -23,6 +23,8 @@ use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 
+use lettre::transport::smtp::client::{Tls, TlsParameters};
+
 use crate::structs::*;
 use crate::tables::*;
 use crate::CONFIG_VALUE;
@@ -193,10 +195,13 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     }
 
     let creds = Credentials::new(smtp.username.clone().expect("Missing username"), password);
+    
+    let tls = TlsParameters::builder(smtp.host.clone().expect("Missing host"))
+    .build().unwrap();
 
-    // Open a remote connection to SMTP server
     let mailer = SmtpTransport::relay(&smtp.host.clone().expect("Missing host"))
     .unwrap()
+    .tls(Tls::Required(tls)) 
     .credentials(creds)
     .build();
 
@@ -240,7 +245,11 @@ pub fn generate_longer_random_id() -> String {
     random_string
 }
 
-pub fn is_null_or_whitespace(s: String) -> bool {
+pub fn is_null_or_whitespace(data: Option<String>) -> bool {
+    if (data.is_none()) {
+        return true;
+    }
+    let s = data.unwrap();
     match s {
         string if string == "null" || string == "undefined" => true,
         string => string.trim().is_empty(),
@@ -364,6 +373,7 @@ pub fn url_to_domain_port(host_unparsed: String) -> Result<String, Box<dyn Error
     return Ok(output_host);
 }
 
+// Bad name. But this function returns get_hostname alongside parsed URL strings (domain port) and the original_url.
 pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option<String>) -> Option<Get_current_valid_hostname_struct> {
     let mut header: String = "host".to_string();
     if (header_to_use.is_none() == false) {

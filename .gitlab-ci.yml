@@ -14,10 +14,11 @@ build_rust_binary:
     - docker:dind
   script:
     - rustc --version && cargo --version  # For any future debugging.
+    - tree /
+    - cd /builds/oracularhades/guard/server
     - apt update -y && apt install zip tree -y
     - cargo build --verbose --release
     - cargo test --verbose
-    - tree /
     - mkdir /builds/oracularhades/release
     - apt-get update -y &&
       apt-get install -y build-essential curl file git &&

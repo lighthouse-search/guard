@@ -2,8 +2,8 @@ Development
 ==============
 
 Thanks for contributing to Guard! Here's a guide to creating a local development server.
-- Dev server (Rust/Cargo)
-- Docker
+- [Dev server (Rust/Cargo)](#start-dev-server)
+- [Docker](#build-docker-container)
 
 ## Start dev server
 Intended for developing code.

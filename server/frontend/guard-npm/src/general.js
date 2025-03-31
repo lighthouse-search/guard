@@ -1,6 +1,4 @@
 import { SignJWT, importPKCS8 } from "jose";
-import permissions from './json/permissions.json' assert { type: 'json' };
-import iso_codes from './json/iso-codes.json' assert { type: 'json' };
 
 function general() {
     return {
@@ -47,33 +45,6 @@ function general() {
             }
             
             return null;
-        },
-        get_permissions: function() {
-            return permissions;
-        },
-        check_for_permission: function(current_permissions, flag) {
-            return (current_permissions & flag) !== 0;
-        },
-        get_all_permissions: async function(current_permissions) {
-            let flags = [];
-            let aliases = [];
-
-            await permissions.forEach(async (section) => {
-                await section.data.forEach((data) => {
-                    if ((current_permissions & data.permission) !== 0) {
-                        flags.push(data.permission);
-                        aliases.push(data.alias);
-                    }
-                });
-            });
-
-            return {
-                flags: flags,
-                aliases: aliases
-            }
-        },
-        get_iso_codes: function() {
-            return iso_codes;
         }
     }
 }

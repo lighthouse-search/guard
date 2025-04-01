@@ -13,7 +13,7 @@ Intended for developing code.
 
 ### Set environment variables
 ```
-export guard_config=$(cat ~/Desktop/guard-dev-config.toml) && export example_user_mysql_password='[your password]' && export elastic_username="[your username]" && export elastic_password="[your password]" && export elastic_host="https://127.0.0.1:9200" && export smtp_password="[your SMTP key]"
+export guard_config=$(cat ~/Desktop/guard-dev-config.toml) && export example_user_mysql_password='[your password]' && export smtp_password="[your SMTP key]"
 ```
 
 ### Start server
@@ -39,5 +39,5 @@ docker build -t guard .
 
 ### Run image
 ```
-docker run -e MY_VARIABLE="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e elastic_username="$elastic_username" -e "$elastic_password" -e "$elastic_host" -e smtp_password "$smtp_password" guard
+docker run -e MY_VARIABLE="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e smtp_password "$smtp_password" guard
 ```

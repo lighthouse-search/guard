@@ -21,11 +21,22 @@ export guard_config=$(cat ~/Desktop/guard-dev-config.toml) && export example_use
 cargo run
 ```
 
-## Build Docker container
+## Run Release Docker container
 
 > ⚠️ **Please note:** You still need to set environment variables, as shown above. 
 
-> ⚠️ **IF YOU ARE LOOKING FOR THE RELEASE GUARD DOCKER CONTAINER**, you don't need this! The official Guard Docker container is available at registry.gitlab.com/oracularhades/interstellar
+### Prerequisites
+[Install Docker](https://www.docker.com/) (You may need to restart your terminal for your system path to update!)
+
+```
+docker run -e MY_VARIABLE="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e smtp_password "$smtp_password" guard
+```
+
+## Build Custom Docker container
+
+> ⚠️ **Please note:** You still need to set environment variables, as shown above. 
+
+> ⚠️ **IF YOU ARE LOOKING FOR THE RELEASE GUARD DOCKER CONTAINER**, you don't need this! The official Guard Docker container is available at registry.gitlab.com/oracularhades/guard
 
 Intended for building custom Guard Docker containers. You can use this deploy Guard to test Kubernetes environments (or whatever else!).
 

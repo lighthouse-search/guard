@@ -29,7 +29,7 @@ cargo run
 [Install Docker](https://www.docker.com/) (You may need to restart your terminal for your system path to update!)
 
 ```
-docker run -e MY_VARIABLE="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e smtp_password="$smtp_password" guard
+docker run -e guard_config="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e smtp_password="$smtp_password" guard
 ```
 
 ## Build Custom Docker container
@@ -50,5 +50,5 @@ docker build -t guard .
 
 ### Run image
 ```
-docker run -e MY_VARIABLE="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e smtp_password="$smtp_password" guard
+docker run -e guard_config="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e smtp_password="$smtp_password" guard
 ```

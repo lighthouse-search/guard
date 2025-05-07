@@ -49,7 +49,7 @@ pub async fn rocket_launch() {
     let channel_waiter = task::spawn(async {
         if let Some((_, rx)) = CHANNEL.lock().await.take() {
             if let Err(_) = rx.await {
-                println!("Failed waiting for OAuth callback route, but continuing shutdown...");
+                log::info!("Failed waiting for OAuth callback route, but continuing shutdown...");
             }
         }
     });
@@ -57,12 +57,12 @@ pub async fn rocket_launch() {
     // Wait for either Rocket to finish or the OAuth listener to complete
     tokio::select! {
         _ = rocket_handle => {
-            println!("Rocket server has shut down.");
+            log::info!("Rocket server has shut down.");
         }
         _ = channel_waiter => {
-            println!("OAuth callback route signaled shutdown.");
+            log::info!("OAuth callback route signaled shutdown.");
         }
     }
 
-    println!("Should shutdown.");
+    log::info!("Should shutdown.");
 }

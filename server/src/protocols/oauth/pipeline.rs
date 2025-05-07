@@ -22,21 +22,21 @@ use std::collections::HashMap;
 
 use crate::{CONFIG_VALUE, SQL_TABLES};
 
-pub async fn oauth_pipeline(hostname: Guarded_Hostname, auth_method: AuthMethod, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Result<(bool, Option<Value>), Box<dyn Error>> {
+pub async fn oauth_pipeline(hostname: Guarded_Hostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<(bool, Option<Value>), Box<dyn Error>> {
     let mut bearer_token: String = String::new();
 
     if (headers.headers_map.get("Authorization").is_none() == false) {
         bearer_token = headers.headers_map.get("Authorization").expect("Missing Authorization header.").to_string();
     } else if (jar.get("guard_oauth_access_token").is_none() == false) {
-        bearer_token = jar.get("guard_oauth_access_token").map(|c| c.value()).expect("Failed to parse guard_oauth_access_token.").to_string();
+        bearer_token = jar.get("guard_oauth_access_token").expect("Failed to parse guard_oauth_access_token.").to_string();
     } else {
-        println!("Bearer token not provided by client.");
+        log::info!("Bearer token not provided by client.");
         return Ok((false, None));
     }
 
     let user_info_result = oauth_userinfo(auth_method.oauth_client_user_info.unwrap(), bearer_token).await;
     if (user_info_result.is_err() == true) {
-        println!("Failed to get user-info");
+        log::info!("Failed to get user-info");
         return Ok((false, None));
     }
     

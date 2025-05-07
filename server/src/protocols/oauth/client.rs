@@ -29,18 +29,18 @@ pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, 
 
     // Handle the response.
     if response.status().is_success() {
-        println!("Request successful");
+        log::info!("Request successful");
     }
 
     let text: String = response.text().await.expect(&format!("Failed to get contents of request from '{}'.", url.clone()));
 
     // Print the response text
-    println!("{}", text);
+    log::info!("{}", text);
 
     // Parse the response body as JSON
     let oauth_code_access_exchange_response: Oauth_code_access_exchange_response = serde_json::from_str(&text).expect(&format!("Failed to parse (json) response from '{}', is the response json? Response: {}", url.clone(), text.clone()));
     if (oauth_code_access_exchange_response.access_token.is_none() == true) {
-        println!("access_token not returned in 'oauth code exchange for access key' response.");
+        log::info!("access_token not returned in 'oauth code exchange for access key' response.");
         return Ok(None);
     }
 
@@ -72,7 +72,7 @@ pub async fn oauth_userinfo(url: String, access_token: String) -> Result<Value, 
     let text: String = response.text().await.expect(&format!("Failed to get contents of request from '{}'.", url.clone()));
 
     // Print the response text
-    println!("{}", text);
+    log::info!("{}", text);
 
     // Parse the response body as JSON
     let json: Value = serde_json::from_str(&text).expect(&format!("Failed to parse (json) response from '{}', is the response json?", url.clone()));

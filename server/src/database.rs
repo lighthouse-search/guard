@@ -25,7 +25,7 @@ fn validate_table_name(input: &str) -> bool {
 
 pub async fn validate_sql_table_inputs(raw_sql_tables: toml::Value) -> Result<bool, Box<dyn Error>> {
     let sql_tables = raw_sql_tables.as_table().unwrap();
-    // println!("sql_tables: {:?}", sql_tables);
+    // log::info!("sql_tables: {:?}", sql_tables);
 
     for (key, value) in sql_tables {
         if let Some(table_name) = value.as_str() {

@@ -2,4 +2,4 @@
 client/cli/.DS_Store
 /frontend/_static
 /frontend/node_modules
-/target/debug
+/target

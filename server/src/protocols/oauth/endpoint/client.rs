@@ -7,7 +7,7 @@ use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
 
-use crate::{global::{get_hostname, is_valid_authentication_method_for_hostname}, hostname::hostname_auth_exit_flow, structs::*};
+use crate::{hostname::hostname_auth_exit_flow, structs::*};
 
 use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{client::oauth_code_exchange_for_access_key, pipeline::oauth_get_data_from_oauth_login_url}, Headers};
 
@@ -45,7 +45,7 @@ pub async fn oauth_exchange_code(mut authentication_method: Option<String>, code
     ).await.expect("Failed to get oauth code exchange, something went wrong during the request");
     
     if (result.is_none() == true) {
-        println!("External authentication failed. Most likely because the client is unauthorized, or there's an issue with the application oauth information provided for this authentication-method in the config (Are your OAuth URLs, client-id, client-secret, redirect_uri and scope all valid?)");
+        log::info!("External authentication failed. Most likely because the client is unauthorized, or there's an issue with the application oauth information provided for this authentication-method in the config (Are your OAuth URLs, client-id, client-secret, redirect_uri and scope all valid?)");
         return Ok(status::Custom(Status::Unauthorized, error_message("Unauthorized, external authentication failed.")));
     }
 

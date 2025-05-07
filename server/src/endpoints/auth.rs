@@ -6,10 +6,10 @@ use crate::auth_method_handling::handling_email_magiclink;
 use crate::auth_method_request::request_email;
 use crate::device::device_create;
 use crate::global::is_valid_authentication_method;
-use crate::hostname::hostname_auth_exit_flow;
+use crate::hostname::{get_hostname, hostname_auth_exit_flow, is_valid_authentication_method_for_hostname};
 use crate::users::attempted_external_user_handling;
 use crate::{Essential_authenticate_request_data, Guard_user, Magiclink, Magiclink_handling_data, Magiclink_request_data, Method_request_body, Request_magiclink};
-use crate::{error_message, global::{get_hostname, is_null_or_whitespace, is_valid_authentication_method_for_hostname}, Headers};
+use crate::{error_message, global::is_null_or_whitespace, Headers};
 use crate::structs::*;
 
 use diesel::sql_query;
@@ -55,7 +55,7 @@ pub async fn auth_method_request(mut host: Option<String>, mut body: Json<Method
             return Ok(request_magiclink_response.error_to_respond_to_client_with.unwrap());
         }
     } else {
-        println!("authentication_method.method_type is invalid. Something went wrong in startup config validation.");
+        log::info!("authentication_method.method_type is invalid. Something went wrong in startup config validation.");
         return Err(Status::InternalServerError);
     }
 
@@ -105,22 +105,22 @@ pub async fn authenticate(mut host: Option<String>, mut body: Json<Method_reques
         attempted_external_user = Some(user_value);
         attempted_authentication_method = Some(magiclink.authentication_method);
     } else {
-        println!("authentication_method.method_type is invalid. Something went wrong in startup config validation.");
+        log::info!("authentication_method.method_type is invalid. Something went wrong in startup config validation.");
         return Err(Status::InternalServerError);
     }
 
     if (attempted_external_user.is_none() == true) {
         // Authentication method did not return user info. This should have been handled in protocol specific functions, like 'handling_email_magiclink'.
-        println!("Authentication method did not return user info.");
+        log::info!("Authentication method did not return user info.");
         return Err(Status::InternalServerError);
     }
 
     if (attempted_authentication_method.is_none() == true || attempted_authentication_method.clone().unwrap() != authentication_method.method_type.clone()) {
-        println!("Authentication method mismatch. Client specified '{}', when the trusted authentication method returned '{}'", authentication_method.method_type.clone(), attempted_authentication_method.clone().unwrap());
+        log::info!("Authentication method mismatch. Client specified '{}', when the trusted authentication method returned '{}'", authentication_method.method_type.clone(), attempted_authentication_method.clone().unwrap());
         return Err(Status::InternalServerError);
     }
 
-    println!("attempted_external_user: {:?}", attempted_external_user.clone());
+    log::info!("attempted_external_user: {:?}", attempted_external_user.clone());
 
     let essential_authenticate_request_data: Essential_authenticate_request_data = serde_json::from_value(body.request_data.clone()).unwrap();
     let public_key = essential_authenticate_request_data.public_key;

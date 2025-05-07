@@ -5,8 +5,9 @@ use rocket::response::status::Custom;
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 
+use crate::hostname::get_current_valid_hostname;
 use crate::structs::*;
-use crate::global::get_current_valid_hostname;
+use crate::global::jar_to_indexmap;
 use crate::users::{ user_authentication_pipeline, user_get_id_preference };
 use crate::Config_reverse_proxy_authentication_config;
 use crate::{CONFIG_VALUE, Headers};
@@ -30,7 +31,7 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
     
     let host = get_current_valid_hostname(headers, Some(header_to_use)).await.expect("Invalid or missing hostname.");
 
-    let (result, user_result, device, authentication_method_wrapped, error_to_respond_with) = user_authentication_pipeline(vec!["access_applications"], jar, remote_addr, host.domain_port, headers).await.expect("User authentication pipeline failed");
+    let (result, user_result, device, authentication_method_wrapped, error_to_respond_with) = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(jar), remote_addr.to_string(), host.domain_port, headers).await.expect("User authentication pipeline failed");
     // TODO: In the future athentication_method won't be returned as optional from user_authentication_pipelne (user_authentication_pipeline will be changed to from truple to Result<>). This is a temporary fix :)
     let authentication_method = authentication_method_wrapped.unwrap();
     if (result == true) {

@@ -49,12 +49,12 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
 
     if let Some(property_value) = user.get(policy.property.clone()) {
         if property_value.is_null() || property_value.as_str().map_or(false, |s| s.is_empty()) {
-            println!("The property is empty");
+            log::info!("The property is empty");
         } else {
             property = property_value.as_str().unwrap_or_default().to_string();;
         }
     } else {
-        println!("The property does not exist");
+        log::info!("The property does not exist");
     }
 
     if (property == String::new()) {

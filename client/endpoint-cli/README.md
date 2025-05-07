@@ -1,0 +1,1 @@
+The endpoint-cli **is not** the same as Guard's built-in CLI. The endpoint-cli runs on a user's computer and handles connection-related endpoint issues. For example, logging into Guard, or connecting to Guard's Wireguard integration (future).

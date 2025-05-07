@@ -7,7 +7,6 @@ LABEL org.opencontainers.image.source=https://github.com/oracularhades/guard
 COPY Cargo.lock /guard-server/Cargo.lock
 COPY Cargo.toml /guard-server/Cargo.toml
 COPY README.md /guard-server/README.md
-COPY Rocket.toml /guard-server/Rocket.toml
 COPY src /guard-server/src
 COPY frontend /guard-server/frontend
 

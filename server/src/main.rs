@@ -82,6 +82,8 @@ use diesel::prelude::*;
 use diesel::sql_types::*;
 use diesel::r2d2::{self, ConnectionManager};
 
+use rand::Rng;
+
 // Create a type alias for the connection pool
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 

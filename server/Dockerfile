@@ -57,7 +57,6 @@ RUN cargo update
 RUN cargo build --release
 
 RUN mv /guard-server/target /guard-server-built/target
-RUN mv /guard-server/Rocket.toml /guard-server-built/Rocket.toml
 
 WORKDIR /
 USER root

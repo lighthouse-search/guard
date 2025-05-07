@@ -7,7 +7,7 @@ use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
 
-use crate::global::{ is_valid_authentication_method_for_hostname, is_null_or_whitespace, get_hostname, get_epoch, is_valid_authentication_method };
+use crate::global::{ is_null_or_whitespace, get_epoch, is_valid_authentication_method };
 use crate::globals::environment_variables;
 use crate::protocols::oauth::client::{oauth_code_exchange_for_access_key, oauth_userinfo};
 use crate::responses::*;

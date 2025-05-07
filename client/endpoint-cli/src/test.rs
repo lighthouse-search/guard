@@ -29,7 +29,7 @@ pub async fn parse_yaml(arguments: HashMap<String, Command_argument>, file_path:
 
 pub async fn parse_env_from_test_yaml(arguments: HashMap<String, Command_argument>, yaml: Yaml) -> Vec<Test_env> {
     let raw_envs = yaml["jobs"]["build"]["env"].clone();
-    println!("raw_envs {:?}", raw_envs.clone());
+    log::debug!("raw_envs {:?}", raw_envs.clone());
 
     let mut envs: Vec<Test_env> = Vec::new();
     if !raw_envs.is_badvalue() {
@@ -39,7 +39,7 @@ pub async fn parse_env_from_test_yaml(arguments: HashMap<String, Command_argumen
             let key_unwrapped = key.as_str();
             let value_unwrapped = value.as_str();
             if (value_unwrapped.is_none() == true) {
-                println!("Skipping '{}' environment variable because value is null.", key_unwrapped.unwrap());
+                log::info!("Skipping '{}' environment variable because value is null.", key_unwrapped.unwrap());
             } else {
                 envs.push(Test_env {
                     key: key_unwrapped.unwrap().to_string(),
@@ -56,7 +56,7 @@ pub async fn parse_commands_from_test_yaml(arguments: HashMap<String, Command_ar
     let commands = yaml["jobs"]["build"]["commands"].clone();
     let mut test_commands: Vec<Test_command> = Vec::new();
     for command in commands {
-        // println!("command: {:?}", command);
+        // log::info!("command: {:?}", command);
         test_commands.push(Test_command {
             name: command["name"].as_str().expect("Failed to parse command.name").to_string(),
             run: command["run"].as_str().expect("Failed to parse command.run").to_string(),
@@ -71,11 +71,11 @@ pub async fn run(arguments: HashMap<String, Command_argument>) {
     let file_path: String = arguments.get("file").unwrap().value.clone();
     
     let config = parse_yaml(arguments, Some(&file_path), None).await;
-    println!("config: {:?}", config.clone());
+    log::info!("config: {:?}", config.clone());
 
     for command in config.commands.unwrap() {
-        println!("run: {:?}", command.run);
-        // println!("run: {:?}", command.env);
+        log::info!("run: {:?}", command.run);
+        // log::info!("run: {:?}", command.env);
 
         let mut envs: HashMap<String, String> = HashMap::new();
 
@@ -90,7 +90,7 @@ pub async fn run(arguments: HashMap<String, Command_argument>) {
                     let key_unwrapped = key.as_str();
                     let value_unwrapped = value.as_str();
                     if (value_unwrapped.is_none() == true) {
-                        println!("Skipping '{}' environment variable because value is null.", key_unwrapped.unwrap());
+                        log::info!("Skipping '{}' environment variable because value is null.", key_unwrapped.unwrap());
                     } else {
                         envs.insert(key_unwrapped.unwrap().to_string(), value.as_str().unwrap().to_string());
                     }
@@ -111,8 +111,8 @@ pub async fn run(arguments: HashMap<String, Command_argument>) {
         // .arg(format!("echo \"{}\"", command.run.replace('"', "\"")))
         // .output()
         // .expect("failed to execute process");
-        // println!("COMMAND: {}", String::from_utf8(cmd_readable.stdout).unwrap());
-        println!("OUTPUT: {}", String::from_utf8(cmd.stdout).unwrap_or("No output".to_string()));
+        // log::info!("COMMAND: {}", String::from_utf8(cmd_readable.stdout).unwrap());
+        log::info!("OUTPUT: {}", String::from_utf8(cmd.stdout).unwrap_or("No output".to_string()));
         if (cmd.status.success() == false) {
             panic!("Failed at: {}", command.name.clone());
         }

@@ -7,7 +7,7 @@ use diesel::sql_types::*;
 
 use serde_json::{json, Value};
 
-use crate::global::{get_hostname, get_hostname_authentication_methods};
+use crate::hostname::{get_hostname, get_hostname_authentication_methods};
 use crate::{error_message, AuthMethod_Public, Frontend_metadata, CONFIG_VALUE};
 
 // Endpoint root: /api/metadata

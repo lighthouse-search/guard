@@ -8,6 +8,7 @@ use std::fs::{File};
 use std::io::Write;
 use std::env;
 
+use indexmap::IndexMap;
 use url::Url;
 
 use rand::prelude::*;
@@ -17,7 +18,7 @@ use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
 
-use rocket::http::HeaderMap;
+use rocket::http::{CookieJar, HeaderMap};
 
 use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
@@ -38,7 +39,7 @@ fn validate_table_name(input: &str) -> bool {
 
 pub async fn validate_sql_table_inputs(raw_sql_tables: toml::Value) -> Result<bool, Box<dyn Error>> {
     let sql_tables = raw_sql_tables.as_table().unwrap();
-    // println!("sql_tables: {:?}", sql_tables);
+    // log::info!("sql_tables: {:?}", sql_tables);
 
     for (key, value) in sql_tables {
         if let Some(table_name) = value.as_str() {
@@ -63,7 +64,7 @@ pub async fn get_authentication_methods() -> HashMap<String, AuthMethod> {
         let parts: Vec<&str> = key.split('.').collect();
         if parts.len() == 1 {
             let mut method: AuthMethod = value.clone().try_into().expect("Missing authentication method.");
-            println!("METHOD: {:?}", method.clone());
+            log::info!("METHOD: {:?}", method.clone());
             method.id = Some(key.clone());
             methods.insert(key.clone(), method);
         }
@@ -164,7 +165,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     let smtp_json = serde_json::to_string(&CONFIG_VALUE["smtp"]).expect("Failed to serialize");
     let smtp: Config_smtp = serde_json::from_str(&smtp_json).expect("Failed to parse");
 
-    println!("[Debug] SMTP: {:?}", smtp.host.clone());
+    log::info!("[Debug] SMTP: {:?}", smtp.host.clone());
 
     // NOTE: We're not stupid, Lettre validates the input here via .parse. It's absolutely vital .parse is here for safety.
 
@@ -210,6 +211,11 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
         Ok(_) => Ok(true),
         Err(e) => Err(e.to_string()),
     }
+}
+
+pub fn generate_uuid() -> String {
+    let id = uuid::Uuid::new_v4();
+    return id.to_string();
 }
 
 pub fn generate_random_id() -> String {
@@ -263,150 +269,10 @@ pub fn get_epoch() -> i64 {
     .as_millis()).expect("Failed to get timestamp");
 }
 
-pub async fn list_hostnames(only_active: bool) -> Vec<Guarded_Hostname> {
-    let value = (*CONFIG_VALUE).clone();
-    let table = value.as_table().unwrap();
-    let auth_methods = table.get("hostname").unwrap().as_table().unwrap();
-
-    let mut hostnames: Vec<Guarded_Hostname> = Vec::new();
-
-    for (key, value) in auth_methods {
-        let parts: Vec<&str> = key.split('.').collect();
-        if parts.len() == 1 {
-            let mut hostname: Guarded_Hostname = value.clone().try_into().expect("lmao");
-            if (only_active == true) {
-                // We care if hostnames are active.
-                if (hostname.active == true) {
-                    // Hostname is active, we can return it.
-                    hostnames.push(hostname);
-                }
-            } else if (only_active == false) {
-                // We don't care if hostnames are active or not.
-                hostnames.push(hostname);
-            }
-        }
-    }
-
-    return hostnames;
-}
-
-pub async fn get_active_hostnames() -> Vec<Guarded_Hostname> {
-    let hostnames: Vec<Guarded_Hostname> = list_hostnames(true).await;
-    
-    let mut active_hostnames: Vec<Guarded_Hostname> = Vec::new();
-    for value in hostnames {
-        if value.active == true {
-            let method: Guarded_Hostname = value;
-            active_hostnames.push(method);
-        }
-    }
-
-    active_hostnames
-}
-
-pub async fn get_hostname_authentication_methods(hostname: Guarded_Hostname, only_active: bool) -> Vec<AuthMethod> {
-    let mut authentication_methods: Vec<AuthMethod> = Vec::new();
-
-    for authentication_method_id in hostname.authentication_methods {
-        let authentication_method = get_authentication_method(authentication_method_id.clone(), false).await.expect("Missing");
-        if (only_active == true && authentication_method.active == true) {
-            authentication_methods.push(authentication_method.clone());
-        }
-        if (only_active == false) {
-            authentication_methods.push(authentication_method.clone());
-        }
-    }
-
-    authentication_methods
-}
-
-pub async fn is_valid_authentication_method_for_hostname(hostname: Guarded_Hostname, authentication_method: AuthMethod) -> Result<bool, Box<dyn Error>> {
-    // FUTURE: In ths future. multistep_authentication_methods should be implemented.
-    let mut is_valid_hostname_authentication_method: bool = false;
-    let hostname_authentication_methods = get_hostname_authentication_methods(hostname, true).await;
-    for hostname_authentication_method in hostname_authentication_methods {
-        if (authentication_method.id == hostname_authentication_method.id) {
-            // Matches, is valid.
-            is_valid_hostname_authentication_method = true;
-        }
-    }
-
-    if (is_valid_hostname_authentication_method != true) {
-        return Err("The user is attempting to authenticate with a hostname that does not support the provided authentication method.".into());
-    }
-
-    Ok(is_valid_hostname_authentication_method)
-}
-
-pub async fn get_hostname(hostname: String) -> Result<Guarded_Hostname, String> {
-    let hostnames = get_active_hostnames().await;
-    
-    let mut hostname_output: Option<Guarded_Hostname> = None;
-    for value in hostnames {
-        println!("{} {}", value.host, hostname);
-        if value.host == hostname {
-            hostname_output = Some(value);
-        }
-    }
-
-    if (hostname_output.is_none()) {
-        return Err("Invalid hostname.".into());
-    }
-
-    return Ok(hostname_output.unwrap());
-}
-
-pub fn url_to_domain_port(host_unparsed: String) -> Result<String, Box<dyn Error>> {
-    // Parse URL through parser to get host.
-    let mut host = Url::parse(&host_unparsed).unwrap(); // Future: Handle bad value here, otherwise it will just error.
-
-    // Set the result as output_host. This streamlines the value.
-    let mut output_host = host.host_str().unwrap().to_string();
-
-    // Sometimes, the header has a port set (e.g example.com:1234, instead of example.com). Guard allows having the same hostnames with different ports, we need to add that information if the port is not 443, otherwise the hostname won't be found.
-    if (host.port().is_none() == false) {
-        if (host.port().unwrap() != 443) {
-            output_host = format!("{}:{}", host.host_str().unwrap().to_string(), host.port().unwrap())
-        }
-    }
-
-    return Ok(output_host);
-}
-
-// Bad name. But this function returns get_hostname alongside parsed URL strings (domain port) and the original_url.
-pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option<String>) -> Option<Get_current_valid_hostname_struct> {
-    let mut header: String = "host".to_string();
-    if (header_to_use.is_none() == false) {
-        header = header_to_use.unwrap();
-    }
-
-    let headers_cloned = headers.headers_map.clone();
-    if (headers_cloned.get(&header).is_none() == true) {
-        println!("Missing header: {}", header);
-        return None;
-    }
-
-    let mut host_unparsed = headers_cloned.get(&header).unwrap().to_owned();
-    // host_unparsed.contains("://") == false, could pick up something in the pathname, but this isn't for security's sake, this is for error handling sake. The URL parser validates the URL.
-    if (host_unparsed.starts_with("https://") == false && host_unparsed.starts_with("http://") == false && host_unparsed.contains("://") == false) {
-        // Add HTTPS to protocol in URL, since none was specified (which is always going to happen in "host" headers).
-        host_unparsed = format!("https://{}", host_unparsed);
-    }
-
-    let domain_port = url_to_domain_port(host_unparsed.clone()).expect("Failed to get output_host");
-    let hostname = get_hostname(domain_port.clone()).await;
-
-    if (hostname.is_ok() == true) {
-        // domain_port is a valid hostname.
-        return Some(Get_current_valid_hostname_struct {
-            hostname: hostname.unwrap(),
-            domain_port: domain_port,
-            original_url: host_unparsed
-        });
-    } else {
-        println!("Invalid hostname");
-        return None;
-    }
+pub fn jar_to_indexmap(jar: &CookieJar) -> IndexMap<String, String> {
+    jar.iter()
+        .map(|c| (c.name().to_owned(), c.value().to_owned()))
+        .collect()
 }
 
 // pub async fn check_against_policy(user: Guard_user, policy: Guard_Policy, request: Value) -> bool {

@@ -61,15 +61,15 @@ pub async fn device_create(user_id: String, authentication_method_id: String, co
     Ok(device_id)
 }
 
-pub fn device_guard_static_auth_from_cookies(jar: &CookieJar<'_>) -> Option<String> {
+pub fn device_guard_static_auth_from_cookies(jar: &indexmap::IndexMap<String, String>) -> Option<String> {
     let mut signed_data: String = String::new();
 
     let cookie_name = prepend_hostname_to_cookie("guard_static_auth");
     if (jar.get(&cookie_name.clone()).is_none() == false) {
-        signed_data = jar.get(&cookie_name.clone()).map(|c| c.value()).expect("Failed to parse signed_data.").to_string();
-        println!("Signed_data cookie: {:?}", signed_data);
+        signed_data = jar.get(&cookie_name.clone()).expect("Failed to parse signed_data.").to_string();
+        log::debug!("Signed_data cookie: {:?}", signed_data);
     } else {
-        println!("Signed_data cookie: None");
+        log::debug!("Signed_data cookie: None");
         return None;
     }
 
@@ -92,14 +92,14 @@ pub async fn device_signed_authentication(signed_data: String) -> Result<(Guard_
 
     // Invalid static auth.
     if (output.is_err() == true) {
-        println!("Invalid static auth (output.is_err)");
+        log::info!("Invalid static auth (output.is_err)");
         return Err(String::from("Invalid static auth (output.is_err)"));
     }
 
     let additional_data = output.expect("Missing result");
     // We use is_none() here, because we're expecting additional data.
     if (additional_data.is_none() == true) {
-        println!("Invalid static auth (missing additional data)");
+        log::info!("Invalid static auth (missing additional data)");
         return Err(String::from("Invalid static auth (missing additional data)"));
     }
     // ----

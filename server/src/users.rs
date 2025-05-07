@@ -9,7 +9,8 @@ use diesel::sql_types::*;
 use diesel::sql_query;
 
 use crate::authentication_misc::protocol_decision_to_pipeline;
-use crate::global::{generate_random_id, get_hostname, get_authentication_method, is_valid_authentication_method_for_hostname};
+use crate::global::{generate_random_id, generate_uuid, get_authentication_method};
+use crate::hostname::get_hostname;
 use crate::responses::*;
 use crate::structs::*;
 use crate::tables::*;
@@ -19,6 +20,8 @@ use crate::device::{device_signed_authentication, device_get, device_guard_stati
 use std::error::Error;
 use std::fmt::format;
 use std::net::SocketAddr;
+
+use std::collections::HashMap;
 
 use hades_auth::*;
 
@@ -48,7 +51,7 @@ pub async fn user_get(id: Option<String>, email: Option<String>) -> Result<(Opti
     .load::<Guard_user>(&mut db)
     .expect("Something went wrong querying the DB.");
 
-    println!("USER_GET RESULT: {:?}", result.clone());
+    log::info!("USER_GET RESULT: {:?}", result.clone());
 
     if (result.len() == 0) {
         // Device not found.
@@ -60,10 +63,10 @@ pub async fn user_get(id: Option<String>, email: Option<String>) -> Result<(Opti
     Ok((Some(user)))
 }
 
-pub async fn user_create(id_input: Option<String>, email_input: Option<String>) -> Result<(User_create), Box<dyn Error>> {
+pub async fn user_create(id_input: Option<String>, email_input: Option<String>) -> Result<User_create, String> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
-    let id: String = id_input.unwrap_or(generate_random_id());
+    let id: String = id_input.unwrap_or(generate_uuid());
     let email: String = email_input.clone().unwrap_or("null".to_string());
 
     // Set limit on email characters, in-case someone wants to have a laugh. 500 is very generous.
@@ -102,24 +105,24 @@ pub async fn user_create(id_input: Option<String>, email_input: Option<String>) 
     .execute(&mut db)
     .expect("Something went wrong querying the DB.");
 
-    Ok((User_create {
+    Ok(User_create {
         user_id: id.clone()
-    }))
+    })
 }
 
-pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &CookieJar<'_>, remote_addr: SocketAddr, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<AuthMethod>, Option<Value>), Box<dyn Error>> {
+pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<AuthMethod>, Option<Value>), Box<dyn Error>> {
     // Match incoming hostname to configuration.
     let hostname_result = get_hostname(host.clone()).await;
     if (hostname_result.is_err() == true) {
-        println!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
+        log::info!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
         return Ok((false, None, None, None, Some(error_message("Invalid hostname"))));
     }
     let hostname = hostname_result.unwrap();
     
     // Authenticate user for specific authentication method.
-    let (success, user_result, device, authentication_method, error_to_respond_with) = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr, headers).await.expect("An error occurred during protocol_decision_to_pipeline");
+    let (success, user_result, device, authentication_method, error_to_respond_with) = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers).await.expect("An error occurred during protocol_decision_to_pipeline");
     if (success == false) {
-        println!("protocol_decision_to_pipeline failed, error message: {:?}", error_to_respond_with);
+        log::info!("protocol_decision_to_pipeline failed, error message: {:?}", error_to_respond_with);
         return Ok((false, None, None, None, error_to_respond_with));
     }
 
@@ -133,6 +136,8 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &Cook
 }
 
 pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<User_get_id_preference_struct, Box<dyn Error>> {
+    // TODO: I am not sure this is needed? We should be generating UUIDs for users. This only makes sense when there is no database - I suspect that's what this is for. I will return to this.
+
     let reference_type: String = authentication_method.user_info_reference_type.unwrap_or("id".to_string()); // TODO: maybe revist this later, but this will fail any proxy authentication if not specified. I doubt it will get used in email contexts, so we'll just default to 'id'.
     let mut reference_key: String = reference_type.clone();
     if (authentication_method.user_info_reference_key.is_none() == true) {
@@ -143,7 +148,7 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
     let mut id: Option<String> = None;
     let mut email: Option<String> = None;
 
-    println!("user_get_id_preference user_data: {}", user_data.clone());
+    log::info!("user_get_id_preference user_data: {}", user_data.clone());
 
     if (user_data.get(reference_key.clone()).is_none() == false) {
         let value: String = user_data.get(reference_key.clone()).unwrap().as_str().unwrap().to_string();
@@ -174,7 +179,7 @@ pub async fn attempted_external_user_handling(attempted_external_user: Value, au
     let user_get_id_preference_status: User_get_id_preference_struct = user_get_id_preference(attempted_external_user, authentication_method.clone()).expect("Failed to get user_get_id_preference");
     if (user_get_id_preference_status.has_value == false) {
         // User information did not return an identifier, like id or email.
-        println!("User information did not return an identifier, like id or email.");
+        log::info!("User information did not return an identifier, like id or email.");
         return Err(format!("User information did not return an identifier, like id or email.").into());
     }
 
@@ -189,8 +194,8 @@ pub async fn attempted_external_user_handling(attempted_external_user: Value, au
 
     if (user_check.is_none() == true) {
         if (authentication_method.clone().should_create_new_users.unwrap_or(false) == true) {
-            println!("USER CREATE EMAIL: {}", user_get_id_preference_status.email.clone().unwrap());
-            let (user_create) = user_create(user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to create user.");
+            log::info!("USER CREATE EMAIL: {}", user_get_id_preference_status.email.clone().unwrap());
+            let user_create = user_create(user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to create user.");
             user_id = Some(user_create.user_id);
         } else {
             // Authentication failed... User is not in database.
@@ -216,7 +221,7 @@ pub async fn user_get_otherwise_create(host: Guarded_Hostname, email: String, re
 
     if (user_result.is_none() == true) {
         // User not found, however, the user is authorized, so we need to create a user entry.
-        let (user_create_struct) = user_create(None, Some(email.clone())).await.expect("Failed to create user.");
+        let user_create_struct = user_create(None, Some(email.clone())).await.expect("Failed to create user.");
 
         let (after_create_user_result) = user_get(Some(user_create_struct.user_id), None).await.expect("Failed to get user after creation.");
         user_result = after_create_user_result;

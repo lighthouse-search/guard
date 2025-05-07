@@ -8,7 +8,7 @@ use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
 
-use crate::global::{generate_random_id, get_hostname, get_authentication_method, is_valid_authentication_method_for_hostname};
+use crate::global::{generate_random_id, get_authentication_method};
 use crate::responses::*;
 use crate::structs::*;
 use crate::tables::*;
@@ -16,8 +16,9 @@ use crate::policy::*;
 
 use crate::device::{device_signed_authentication, device_get, device_guard_static_auth_from_cookies};
 use crate::users::user_get;
-use crate::hostname::prepend_hostname_to_cookie;
+use crate::hostname::{is_valid_authentication_method_for_hostname, prepend_hostname_to_cookie};
 
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::format;
 use std::net::SocketAddr;
@@ -26,7 +27,7 @@ use hades_auth::*;
 
 use crate::{CONFIG_VALUE, SQL_TABLES};
 
-pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: Guarded_Hostname, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Result<(bool, Option<Guard_user>, Option<Guard_devices>, Option<AuthMethod>), String> {
+pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: Guarded_Hostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<(bool, Option<Guard_user>, Option<Guard_devices>, Option<AuthMethod>), String> {
     // Check the Authroization header starts with ("Bearer "), consistent with OAuth standard.
     if (headers.headers_map.get("Authorization").expect("Missing Authorization header.").clone().starts_with("Bearer ") == false) {
         return Err(String::from("Authorization header does not start with 'Bearer '.").into());
@@ -63,11 +64,11 @@ pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: 
     return Ok((true, Some(user), None, Some(using_authentication_method)));
 }
 
-pub async fn device_pipeline_static_auth(required_scopes: Vec<&str>, hostname: Guarded_Hostname, jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Result<(bool, Option<Guard_user>, Option<Guard_devices>, Option<AuthMethod>), String> {
+pub async fn device_pipeline_static_auth(required_scopes: Vec<&str>, hostname: Guarded_Hostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<(bool, Option<Guard_user>, Option<Guard_devices>, Option<AuthMethod>), String> {
     // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
     let signed_data = device_guard_static_auth_from_cookies(jar);
     if (signed_data.is_none() == true) {
-        println!("missing {}", prepend_hostname_to_cookie("guard_static_auth"));
+        log::info!("missing {}", prepend_hostname_to_cookie("guard_static_auth"));
         return Err(format!("missing {}", prepend_hostname_to_cookie("guard_static_auth")));
     }
 

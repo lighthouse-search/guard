@@ -50,12 +50,12 @@ async fn main() {
                     value: value.clone()
                 });
             } else {
-                eprintln!("Guard Error: '{}' doesn't have a value.", arg);
+                log::error!("Guard Error: '{}' doesn't have a value.", arg);
                 return;
             }
         } else {
             // Any argument that doesn't have "--" oin it. e.g. in "interstellar upload --url example.com", "upload" would get caught here.
-            println!("arg COOL: {}", arg);
+            log::debug!("arg COOL: {}", arg);
             modes.push(arg);
         }
     }
@@ -68,5 +68,5 @@ async fn main() {
         panic!("Command not found.");
     }
 
-    println!("Finished.");
+    log::debug!("Finished.");
 }

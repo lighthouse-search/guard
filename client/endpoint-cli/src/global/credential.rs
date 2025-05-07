@@ -19,10 +19,10 @@ pub struct States {
 pub fn credentials_get() -> Credential {
     let mut output: Option<Credential> = None;
     if let Some(retrieved_password) = retrieve_password(SERVICE, "credential") {
-        // println!("Retrieved password: {}", retrieved_password);
+        // log::info!("Retrieved password: {}", retrieved_password);
         output = Some(serde_json::from_str(&retrieved_password).expect("Failed to parse string"));
     } else {
-        println!("Failed to retrieve password.");
+        log::info!("Failed to retrieve password.");
     }
 
     return output.expect("Failed to get credentials");
@@ -43,10 +43,10 @@ pub fn credentials_set(host: String, access_token: String, refresh_token: String
 pub fn state_list() -> Vec<String> {
     let mut output: Option<States> = None;
     if let Some(retrieved_password) = retrieve_password(SERVICE, "oauth_state") {
-        // println!("Retrieved password: {}", retrieved_password);
+        // log::info!("Retrieved password: {}", retrieved_password);
         output = Some(serde_json::from_str(&retrieved_password).expect("Failed to parse string"));
     } else {
-        println!("Failed to retrieve password.");
+        log::info!("Failed to retrieve password.");
     }
 
     return output.expect("Failed to get state").state;

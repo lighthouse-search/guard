@@ -13,7 +13,6 @@ mod device;
 mod database;
 mod authentication_misc;
 mod hostname;
-mod files;
 
 pub mod endpoints {
     pub mod auth;
@@ -45,20 +44,36 @@ mod protocols {
 pub mod proxied_authentication {
     pub mod general;
     pub mod nginx;
+    pub mod files;
+}
+pub mod cli {
+    pub mod index;
+    pub mod cli_structs;
+    pub mod internal {
+        pub mod validation {
+            pub mod argument;
+        }
+    }
+    pub mod mode {
+        pub mod user;
+        pub mod authenticate;
+    }
 }
 
+use diesel_mysql::internal_error;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
+use rocket::{Build, Rocket};
 use rocket::{Request, Response, request, request::FromRequest, catch, catchers, launch};
 
 use once_cell::sync::Lazy;
 use toml::Value;
 
 use std::error::Error;
-use std::fs;
+use std::{env, fs};
 use std::collections::HashMap;
 
-use crate::global::{validate_sql_table_inputs, get_current_valid_hostname};
+use crate::global::validate_sql_table_inputs;
 use crate::structs::*;
 use crate::responses::*;
 
@@ -87,12 +102,16 @@ pub static SQL_TABLES: Lazy<Config_sql> = Lazy::new(|| {
     sql_tables
 });
 
+pub static ARGUMENTS: Lazy<crate::cli::cli_structs::Args_to_hashmap> = Lazy::new(|| {
+    crate::cli::index::args_to_hashmap(env::args().collect())
+});
+
 fn get_config() -> Result<Value, Box<dyn Error>> {
     use std::env;
 
     let mut config_value: String = String::new();
     if let Some(val) = env::var("guard_config").ok() {
-        println!("Value of guard_config (test 0): {}", val);
+        log::info!("Value of guard_config (test 0): {}", val);
 
         config_value = val;
     } else {
@@ -134,85 +153,37 @@ fn get_sql_tables() -> Result<(Config_sql, Value), String> {
     return Ok((sql, config_value_sql_tables.unwrap().clone()));
 }
 
-#[catch(500)]
-fn internal_error() -> serde_json::Value {
-    error_message("Internal server error")
+#[tokio::main]
+async fn main() {
+    env_logger::init();
+    if (ARGUMENTS.modes.len() > 0) {
+        // We're using CLI mode.
+        log::info!("Using CLI mode - argument modes were specified.");
+        crate::cli::index::parse().await;
+    } else {
+        log::info!("Using Web mode - zero arguments specified. Starting Rocket server.");
+        rocket().await.launch().await.expect("Failed to start web server");
+    }
 }
 
-#[launch]
-async fn rocket() -> _ {
+async fn rocket() -> Rocket<Build> {
     let (unsafe_do_not_use_sql_tables, unsafe_do_not_use_raw_sql_tables) = get_sql_tables().unwrap();
     validate_sql_table_inputs(unsafe_do_not_use_raw_sql_tables).await.expect("Config validation failed.");
 
-    rocket::build()
+    let mut rng = rand::thread_rng();
+    let mut guard_port: u32 = rng.gen_range(4000..65535);
+    
+    if (ARGUMENTS.args.get("port").is_none() == false && ARGUMENTS.args.get("port").clone().unwrap().value.is_none() == false) {
+        guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");
+    }
+
+    let figment = rocket::Config::figment()
+    .merge(("port", guard_port))
+    .merge(("address", "0.0.0.0"));
+
+    // We're using Web mode.
+    rocket::custom(figment)
     .register("/", catchers![internal_error])
     // .attach(Cors)
     .attach(diesel_mysql::stage())
-}
-
-#[rocket::async_trait]
-impl Fairing for Cors {
-    fn info(&self) -> Info {
-        Info {
-            name: "Cross-Origin-Resource-Sharing Fairing",
-            kind: Kind::Response,
-        }
-    }
-
-    // TODO: Cors shouldn't be everything.
-
-    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
-        // TODO: Finish this (CORS, 'server' and 'x-guard' is not updating).
-        
-        let value = _request.headers().iter()
-        .map(|header| (header.name.to_string(), header.value.to_string()))
-        .collect::<HashMap<String, String>>();
-
-        let headers = Headers { headers_map: value };
-
-        let get_current_valid_hostname = get_current_valid_hostname(&headers, None).await.expect("Invalid hostname");
-
-        response.set_header(Header::new("Access-Control-Allow-Origin", get_current_valid_hostname.domain_port));
-        response.set_header(Header::new(
-            "Access-Control-Allow-Methods",
-            "POST, PATCH, PUT, DELETE, HEAD, OPTIONS, GET",
-        ));
-        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
-        response.set_header(Header::new("x-guard", "https://github.com/oracularhades/guard"));
-        response.remove_header("server");
-    }
-}
-
-// Returns the current request's ID, assigning one only as necessary.
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for &'r Query_string {
-    type Error = ();
-
-    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
-        // The closure passed to `local_cache` will be executed at most once per
-        // request: the first time the `RequestId` guard is used. If it is
-        // requested again, `local_cache` will return the same value.
-
-        request::Outcome::Success(request.local_cache(|| {
-            let query_params = request.uri().query().map(|query| query.as_str().to_owned()).unwrap_or_else(|| String::new());
-
-            Query_string(query_params)
-        }))
-    }
-}
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for &'r Headers {
-    type Error = ();
-
-    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
-        request::Outcome::Success(request.local_cache(|| {
-            let value = request.headers().iter()
-                .map(|header| (header.name.to_string(), header.value.to_string()))
-                .collect::<HashMap<String, String>>();
-
-            Headers { headers_map: value }
-        }))
-    }
 }

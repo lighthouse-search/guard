@@ -1,0 +1,67 @@
+[features]
+reverse_proxy_authentication = true
+
+[reverse_proxy_authentication.config]
+header = "host"
+
+[frontend.metadata]
+instance_hostname = "127.0.0.1:4080"
+alias = ""
+public_description = ""
+image = "https://gitlab.com/oracularhades/image-repo/-/raw/main/chloe-CnTy3jnhS1I-unsplash.jpg"
+background_colour = "#0b040e"
+domain_placeholder="example.com"
+username_placeholder="username"
+acess_denied_header=""
+
+[database.mysql]
+username = "example-user"
+password_env = "example_user_mysql_password"
+hostname = "127.0.0.1"
+port = 3306
+database = "guard"
+
+[sql.tables]
+user = "account"
+device = "device"
+magiclink = "magiclink"
+
+[smtp]
+host="smtp.sendgrid.net"
+port=587
+username="apikey"
+from_alias="Health"
+from_header="noreply@paperplane.motionfans.com"
+reply_to_address="noreply@paperplane.motionfans.com"
+password_env="smtp_password"
+
+[captcha.hcaptcha.login_page]
+site_key = ""
+hcaptcha_secret_env = "login_page_hcaptcha_secret"
+size = "normal"
+
+[authentication_methods.email]
+active = true
+method_type = "email"
+handoff = "https://example.com/handoff"
+applied_policies = ["staff_only"]
+login_page = "https://example.com/failure"
+validation_endpoint = "https://example.com/success"
+should_create_new_users = true
+ratelimit = 5
+ratelimit_cooldown = 200
+user_info_reference_type = "email"
+user_info_reference_key = "email"
+
+[policies.specific_users]
+active = true
+action = "allow"
+property = "email"
+ends_with = ""
+
+[hostname.anythingyouwant]
+active = true
+host = "127.0.0.1:4080"
+applied_policies = ["specific_users"]
+authentication_methods = ["email"]
+multistep_authentication_methods = false

@@ -10,7 +10,7 @@ use diesel::sql_types::*;
 use crate::{hostname::hostname_auth_exit_flow, structs::*};
 use crate::protocols::oauth::{client::oauth_code_exchange_for_access_key, pipeline::oauth_get_data_from_oauth_login_url};
 use crate::{error_message, Headers};
-use crate::global::{get_hostname, is_null_or_whitespace, is_valid_authentication_method_for_hostname};
+use crate::global::is_null_or_whitespace;
 use crate::device::device_signed_authentication;
 use crate::protocols::oauth::server::bearer_token::create_access_and_refresh_tokens;
 use rocket::form::Form;

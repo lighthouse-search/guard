@@ -24,9 +24,23 @@ pub struct Cors;
 
 pub fn stage() -> AdHoc {
     AdHoc::on_ignite("Diesel SQLite Stage", |rocket| async {
-        let mut frontend_path: PathBuf = env::current_dir().expect("Failed to get current directory");
-        frontend_path.push("frontend");
-        frontend_path.push("_static");
+        let mut frontend_path: PathBuf = env::current_exe().expect("Failed to get current directory");
+
+        if cfg!(debug_assertions) {
+            // Program is debug (cargo run).
+            // guard/server/frontend/_static
+            frontend_path.pop();
+            frontend_path.pop();
+            frontend_path.pop();
+            frontend_path.push("frontend");
+            frontend_path.push("_static");
+        } else {
+            // Program is release (cargo build)
+            // guard/frontend/_static (use packaged assets)
+            frontend_path.pop();
+            frontend_path.push("frontend");
+            frontend_path.push("_static");
+        }
 
         let mut app = rocket
         .mount("/guard/frontend", FileServer::from(frontend_path.display().to_string()))

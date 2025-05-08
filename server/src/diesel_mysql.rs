@@ -17,13 +17,19 @@ use crate::structs::*;
 use crate::responses::*;
 
 use std::collections::HashMap;
+use std::env;
+use std::path::PathBuf;
 
 pub struct Cors;
 
 pub fn stage() -> AdHoc {
     AdHoc::on_ignite("Diesel SQLite Stage", |rocket| async {
+        let mut frontend_path: PathBuf = env::current_dir().expect("Failed to get current directory");
+        frontend_path.push("frontend");
+        frontend_path.push("_static");
+
         let mut app = rocket
-        .mount("/guard/frontend", FileServer::from("./frontend/_static"))
+        .mount("/guard/frontend", FileServer::from(frontend_path.display().to_string()))
         .mount("/guard/api/metadata", routes![
             metadata_get,
             metadata_get_authentication_methods,

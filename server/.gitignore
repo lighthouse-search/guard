@@ -2,3 +2,4 @@
 target
 frontend/_static
 frontend/guard-npm/node_modules
+NGINX

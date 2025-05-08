@@ -41,11 +41,6 @@ mod protocols {
         }
     }
 }
-pub mod proxied_authentication {
-    pub mod general;
-    pub mod nginx;
-    pub mod files;
-}
 pub mod cli {
     pub mod index;
     pub mod cli_structs;

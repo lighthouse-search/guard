@@ -12,7 +12,100 @@ use diesel::prelude::*;
 use crate::tables::*;
 use diesel::r2d2::{self, ConnectionManager};
 
-type DbPool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config {
+    pub features: Option<Config_features>,
+    pub reverse_proxy_authentication: Option<Config_reverse_proxy_authentication>,
+    pub tls: Option<HashMap<String, TlsHost>>,
+    pub frontend: Option<Config_frontend>,
+    pub database: Option<Config_database>,
+    pub sql: Option<Config_sql>,
+    pub smtp: Option<Config_smtp>,
+    pub captcha: Option<Config_captcha>,
+    pub authentication_methods: Option<HashMap<String, AuthMethod>>,
+    pub policies: Option<HashMap<String, Guard_Policy>>,
+    pub hostname: Option<HashMap<String, Guarded_Hostname>>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_features {
+    pub reverse_proxy_authentication: Option<bool>,
+    pub oauth_server: Option<bool>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_reverse_proxy_authentication {
+    pub config: Option<Config_reverse_proxy_authentication_config>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_reverse_proxy_authentication_config {
+    pub header: Option<String>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_frontend {
+    pub metadata: Option<Frontend_metadata>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_database {
+    pub mysql: Option<Config_database_mysql>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_database_mysql {
+    pub username: Option<String>,
+    pub password_env: Option<String>,
+    pub hostname: Option<String>,
+    pub port: Option<u16>,
+    pub database: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_sql {
+    pub tables: Option<Value>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_sql_tables {
+    pub user: Option<String>,
+    pub device: Option<String>,
+    pub magiclink: Option<String>,
+    pub bearer_token: Option<String>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_smtp {
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub username: Option<String>,
+    pub from_alias: Option<String>,
+    pub from_header: Option<String>,
+    pub reply_to_address: Option<String>,
+    pub password_env: Option<String>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_captcha {
+    pub hcaptcha: Option<HashMap<String, Config_captcha_hcaptcha>>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config_captcha_hcaptcha {
+    pub site_key: Option<String>,
+    pub hcaptcha_secret_env: Option<String>,
+    pub size: Option<String>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TlsHost {
+    pub certificate: String,
+    pub hostname: String,
+
+    #[serde(rename = "private-key")]
+    pub private_key: String,
+}
 
 // Incoming body structs
 #[derive(Clone, Debug, Deserialize)]
@@ -307,39 +400,6 @@ pub struct OAuth_authentication_data {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Oauth_handling_data {
     pub authorization_code: Option<String>
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Config_reverse_proxy_authentication_config {
-    pub header: Option<String>
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Config_sql {
-    pub user: Option<String>,
-    pub device: Option<String>,
-    pub magiclink: Option<String>,
-    pub bearer_token: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Config_database_mysql {
-    pub username: Option<String>,
-    pub password_env: Option<String>,
-    pub hostname: Option<String>,
-    pub port: Option<i64>,
-    pub database: Option<String>
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Config_smtp {
-    pub host: Option<String>,
-    pub port: Option<i64>,
-    pub username: Option<String>,
-    pub from_alias: Option<String>,
-    pub from_header: Option<String>,
-    pub reply_to_address: Option<String>,
-    pub password_env: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

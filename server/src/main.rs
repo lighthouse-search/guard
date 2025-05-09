@@ -90,69 +90,42 @@ static DB_POOL: Lazy<Pool> = Lazy::new(|| {
         .expect("Failed to create pool.")
 });
 
-pub static CONFIG_VALUE: Lazy<Value> = Lazy::new(|| {
+pub static CONFIG_VALUE: Lazy<Config> = Lazy::new(|| {
     get_config().expect("Failed to get config")
 });
 
-pub static SQL_TABLES: Lazy<Config_sql> = Lazy::new(|| {
-    let (sql_tables, raw_sql_tables) = get_sql_tables().expect("failed to get_sql_tables()");
-    sql_tables
+pub static SQL_TABLES: Lazy<Config_sql_tables> = Lazy::new(|| {
+    let config_sql_tables: Config_sql_tables = serde_json::from_value(CONFIG_VALUE.sql.clone().expect("Missing config.sql").tables.expect("mssing config.sql.tables")).expect("Failed to convert config.sql.tables from value to struct");
+    config_sql_tables
 });
 
 pub static ARGUMENTS: Lazy<crate::cli::cli_structs::Args_to_hashmap> = Lazy::new(|| {
     crate::cli::index::args_to_hashmap(env::args().collect())
 });
 
-fn get_config() -> Result<Value, Box<dyn Error>> {
-    use std::env;
+fn get_config() -> Result<Config, String> {
+    let environment_variable = "guard_config";
+    let mut config_str: String = String::new();
+    if let Some(val) = env::var(environment_variable).ok() {
+        println!("Value of {}: {}", environment_variable, val);
 
-    let mut config_value: String = String::new();
-    if let Some(val) = env::var("guard_config").ok() {
-        log::info!("Value of guard_config (test 0): {}", val);
-
-        config_value = val;
+        config_str = val;
     } else {
-        return Err("Missing \"guard_config\" environment variable".into());
+        return Err(format!("Missing \"{}\" environment variable", environment_variable).into());
     }
 
-    // let contents = fs::read_to_string("./config.toml")
-    //     .expect("Should have been able to read the file");
-
-    let config: Value = toml::from_str(&config_value).unwrap();
-
-    // let value = contents.parse::<toml::Value>().expect("lmao");
-    // let table = value.as_table().unwrap();
-    // let auth_methods = table.get("authentication_methods").unwrap().as_table().unwrap();
-
-    // let mut valid: Option<AuthMethod> = None;
-    // for (key, value) in auth_methods {
-    //     if (key.to_string() == id) {
-    //         valid = Some(serde_json::from_str(&value.to_string()).expect(&format!("Failed to parse authentication method: {}", key)));
-    //     }
-    // }
+    let config_value: Value = toml::from_str(&config_str).unwrap();
+    let config: Config = serde_json::from_value(serde_json::to_value(config_value).expect("Failed to convert config value from toml to serde::json")).expect("Failed to parse config");
 
     Ok(config)
-}
-
-fn get_sql_tables() -> Result<(Config_sql, Value), String> {
-    let config_value_sql = CONFIG_VALUE.get("sql");
-    if (config_value_sql.is_none() == true) {
-        return Err("Missing config.sql".into());
-    }
-    let config_value_sql_tables = config_value_sql.unwrap().get("tables");
-    if (config_value_sql_tables.is_none() == true) {
-        return Err("Missing config.sql.tables".into());
-    }
-
-    let sql_json = serde_json::to_string(&config_value_sql_tables).expect("Failed to serialize");
-    let sql: Config_sql = serde_json::from_str(&sql_json).expect("Failed to parse");
-
-    return Ok((sql, config_value_sql_tables.unwrap().clone()));
 }
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
+
+    validate_sql_table_inputs(CONFIG_VALUE.sql.clone().expect("Missing config.sql").tables.expect("mssing config.sql.tables")).await.expect("Config validation failed.");
+
     if (ARGUMENTS.modes.len() > 0) {
         // We're using CLI mode.
         log::info!("Using CLI mode - argument modes were specified.");
@@ -164,9 +137,6 @@ async fn main() {
 }
 
 async fn rocket() -> Rocket<Build> {
-    let (unsafe_do_not_use_sql_tables, unsafe_do_not_use_raw_sql_tables) = get_sql_tables().unwrap();
-    validate_sql_table_inputs(unsafe_do_not_use_raw_sql_tables).await.expect("Config validation failed.");
-
     let mut rng = rand::thread_rng();
     let mut guard_port: u32 = rng.gen_range(4000..65535);
     

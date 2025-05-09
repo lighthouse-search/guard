@@ -39,13 +39,12 @@ pub async fn validate_sql_table_inputs(raw_sql_tables: toml::Value) -> Result<bo
     Ok(true)
 }
 
-pub fn create_database_url(username: String, password: String, hostname: String, port: i64, database: String) -> String {
+pub fn create_database_url(username: String, password: String, hostname: String, port: u16, database: String) -> String {
     return format!("mysql://{}:{}@{}:{}/{}", username, password, hostname, port, database);
 }
 
 pub fn get_default_database_url() -> String {
-    let sql_json = serde_json::to_string(&CONFIG_VALUE["database"]["mysql"]).expect("Failed to serialize");
-    let sql: Config_database_mysql = serde_json::from_str(&sql_json).expect("Failed to parse");
+    let sql: Config_database_mysql = CONFIG_VALUE.database.clone().and_then(|d| d.mysql).expect("missing config.database.mysql");
 
     let password_env = environment_variables::get(sql.password_env.clone().expect("config.sql.password_env is missing.")).expect(&format!("The environment variable specified in config.sql.password_env ('{:?}') is missing.", sql.password_env.clone()));
 

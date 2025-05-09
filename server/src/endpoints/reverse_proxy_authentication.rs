@@ -17,14 +17,10 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
 
     // Here, we need to get the reverse_proxy_authentication.config to check if a custom header is set. For example, NGINX auth-url overrides the "host" header, and instead gives a "x-original-url" (among others) header.
     // Check the output was ok, because there may not be a config for reverse_proxy_authentication.
-    if let Some(reverse_proxy_authentication_config_value) = CONFIG_VALUE.get("reverse_proxy_authentication").and_then(|value| value.get("config")) {
-        // The value we got is toml::Value, it needs to be converted to a json string.
-        let reverse_proxy_authentication_config_json = serde_json::to_string(reverse_proxy_authentication_config_value).expect("Failed to serialize");
-        // Parse json string we got to get config as struct.
-        let reverse_proxy_authentication_config: Config_reverse_proxy_authentication_config = serde_json::from_str(&reverse_proxy_authentication_config_json).expect("Failed to parse");
+    if let Some(reverse_proxy_authentication_config) = CONFIG_VALUE.reverse_proxy_authentication.clone().and_then(|value| value.config) {
         // We've found a config, but we need to make sure the header is actually set.
         if (reverse_proxy_authentication_config.header.is_none() == false) {
-            // Set header as the header we should use.
+            // Set configured header as the header we should use.
             header_to_use = reverse_proxy_authentication_config.header.unwrap();
         }
     }

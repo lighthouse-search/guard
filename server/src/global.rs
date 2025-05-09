@@ -37,11 +37,14 @@ fn validate_table_name(input: &str) -> bool {
     re.is_match(input)
 }
 
-pub async fn validate_sql_table_inputs(raw_sql_tables: toml::Value) -> Result<bool, Box<dyn Error>> {
-    let sql_tables = raw_sql_tables.as_table().unwrap();
+pub async fn validate_sql_table_inputs(sql_tables: serde_json::Value) -> Result<bool, Box<dyn Error>> {
     // log::info!("sql_tables: {:?}", sql_tables);
 
-    for (key, value) in sql_tables {
+    let map: &serde_json::Map<String, serde_json::Value> = sql_tables
+        .as_object()
+        .ok_or("expected a JSON object at top level")?;
+
+    for (key, value) in map {
         if let Some(table_name) = value.as_str() {
             let output = validate_table_name(table_name);
             if (output != true) {
@@ -54,9 +57,7 @@ pub async fn validate_sql_table_inputs(raw_sql_tables: toml::Value) -> Result<bo
 }
 
 pub async fn get_authentication_methods() -> HashMap<String, AuthMethod> {
-    let value = (*CONFIG_VALUE).clone();
-    let table = value.as_table().unwrap();
-    let auth_methods = table.get("authentication_methods").unwrap().as_table().unwrap();
+    let auth_methods = (*CONFIG_VALUE).clone().authentication_methods.unwrap();
 
     let mut methods: HashMap<String, AuthMethod> = HashMap::new();
 
@@ -97,13 +98,11 @@ pub async fn get_authentication_method(id: String, only_active: bool) -> Option<
 }
 
 pub async fn get_policies() -> HashMap<String, Guard_Policy> {
-    let value = (*CONFIG_VALUE).clone();
-    let table = value.as_table().unwrap();
-    let auth_methods = table.get("policies").unwrap().as_table().unwrap();
+    let policies = (*CONFIG_VALUE).clone().policies.unwrap();
 
     let mut methods: HashMap<String, Guard_Policy> = HashMap::new();
 
-    for (key, value) in auth_methods {
+    for (key, value) in policies {
         let parts: Vec<&str> = key.split('.').collect();
         if parts.len() == 1 {
             let mut method: Guard_Policy = value.clone().try_into().expect(&format!("Failed to parse policy in '{}'", key));
@@ -162,8 +161,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
         return Err("The email provided is over 500 characters.".into());
     }
 
-    let smtp_json = serde_json::to_string(&CONFIG_VALUE["smtp"]).expect("Failed to serialize");
-    let smtp: Config_smtp = serde_json::from_str(&smtp_json).expect("Failed to parse");
+    let smtp: Config_smtp = CONFIG_VALUE.smtp.clone().unwrap();
 
     log::info!("[Debug] SMTP: {:?}", smtp.host.clone());
 

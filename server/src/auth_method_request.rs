@@ -24,8 +24,8 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 // Some authenticatiom methods, such as email, require action before the user can present credentials to authenticate. This is where that logic is kept.
 
 pub async fn request_email(email: String, authentication_method: AuthMethod, request_data: Magiclink_request_data, remote_addr: SocketAddr, host: Guarded_Hostname) -> Result<(Request_magiclink), Box<dyn Error>> {
-    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let mut db: diesel::r2d2::PooledConnection<diesel::r2d2::ConnectionManager<MysqlConnection>> = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
 
     // Here, we're checking the email is authorized. If the email is authorized but no user account exists, this function will automatically create a user.
     let (user_result) = user_get_otherwise_create(host.clone(), email.clone(), remote_addr.clone()).await.expect("Failed to get or otherwise create user.");
@@ -54,8 +54,7 @@ pub async fn request_email(email: String, authentication_method: AuthMethod, req
 
     let output_params = serde_urlencoded::to_string(params).expect("Failed to encode URL parameters");
 
-    let metadata_json = serde_json::to_string(&CONFIG_VALUE["frontend"]["metadata"]).expect("Failed to serialize");
-    let frontend_metadata: Frontend_metadata = serde_json::from_str(&metadata_json).expect("Failed to parse");
+    let frontend_metadata: Frontend_metadata = CONFIG_VALUE.clone().frontend.and_then(|f| f.metadata).expect("Failed to parse");
 
     let mut url = Url::parse(&format!("https://example.com/guard/frontend/magiclink?{}", output_params)).unwrap();
     // Update the hostname

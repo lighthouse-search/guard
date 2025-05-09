@@ -40,7 +40,7 @@ fn validate_table_name(input: &str) -> bool {
 pub async fn validate_sql_table_inputs(sql_tables: serde_json::Value) -> Result<bool, Box<dyn Error>> {
     // log::info!("sql_tables: {:?}", sql_tables);
 
-    let map: &serde_json::Map<String, serde_json::Value> = sql_tables
+    let sql_tables_map: &serde_json::Map<String, serde_json::Value> = sql_tables
         .as_object()
         .ok_or("expected a JSON object at top level")?;
 

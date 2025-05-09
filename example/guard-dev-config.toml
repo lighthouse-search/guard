@@ -1,9 +1,3 @@
-[features]
-reverse_proxy_authentication = true
-
-[reverse_proxy_authentication.config]
-header = "host"
-
 [frontend.metadata]
 instance_hostname = "127.0.0.1:4080"
 alias = ""
@@ -20,6 +14,17 @@ password_env = "example_user_mysql_password"
 hostname = "127.0.0.1"
 port = 3306
 database = "guard"
+
+[features]
+reverse_proxy_authentication = true
+
+[reverse_proxy_authentication.config]
+header = "host"
+
+[tls.my_hostname]
+hostname = "guard.example.com"
+certificate = "/cert.pem"
+private-key = "/private-key.pem"
 
 [sql.tables]
 user = "account"

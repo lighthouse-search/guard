@@ -53,7 +53,7 @@ pub fn generate_token_string(scope: Vec<String>) -> Token_create {
 
 pub async fn insert_token(user_id: &str, access_token: Token_create, refresh_token: Token_create, application_clientid: &str, nonce: &str) -> Result<(), String> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
 
     check_nonce(user_id, nonce).await.expect("Failed to check nonce.");
 
@@ -76,7 +76,7 @@ pub async fn insert_token(user_id: &str, access_token: Token_create, refresh_tok
 pub async fn check_nonce(user_id: &str, nonce: &str) -> Result<(), String> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
     let query = format!("SELECT * FROM {} WHERE user_id=? AND nonce=?", sql.bearer_token.unwrap());
     let result = sql_query(query)
     .bind::<Text, _>(user_id.clone())
@@ -94,7 +94,7 @@ pub async fn check_nonce(user_id: &str, nonce: &str) -> Result<(), String> {
 pub async fn applications_clear(user_id: &str, application_clientid: &str) -> Result<(), String> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
     let query = format!("DELETE FROM {} WHERE user_id=? AND application_clientid=?", sql.bearer_token.unwrap());
     sql_query(query)
     .bind::<Text, _>(user_id.clone())
@@ -145,7 +145,7 @@ pub async fn verify(bearer_token: &str, required_scopes: Vec<&str>) -> Result<Ve
 async fn verify_hash(bearer_token: &str) -> Result<Verify_bearer_token_hash_output, String> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
     let query = format!("SELECT * FROM {} WHERE access_token_hash=?", sql.bearer_token.unwrap());
     let result = sql_query(query)
     .bind::<Text, _>(bearer_token.clone())

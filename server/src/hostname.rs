@@ -18,20 +18,18 @@ pub async fn hostname_auth_exit_flow(host: String, authentication_method: AuthMe
 }
 
 pub fn prepend_hostname_to_cookie(cookie_name: &str) -> String {
-    let metadata_json = serde_json::to_string(&CONFIG_VALUE["frontend"]["metadata"]).expect("Failed to serialize");
-    let frontend_metadata: Frontend_metadata = serde_json::from_str(&metadata_json).expect("Failed to parse");
+    let frontend_metadata: Frontend_metadata = CONFIG_VALUE.frontend.clone().and_then(|f| f.metadata).expect("Failed to get config.frontend.metadata");
     let cookie_name = format!("{}_{}", frontend_metadata.instance_hostname.unwrap(), cookie_name).to_string();
     return cookie_name;
 }
 
 pub async fn list_hostnames(only_active: bool) -> Vec<Guarded_Hostname> {
-    let value = (*CONFIG_VALUE).clone();
-    let table = value.as_table().unwrap();
-    let auth_methods = table.get("hostname").unwrap().as_table().unwrap();
+    let hostnames_hashmap = CONFIG_VALUE.hostname.clone().unwrap();
+    
 
     let mut hostnames: Vec<Guarded_Hostname> = Vec::new();
 
-    for (key, value) in auth_methods {
+    for (key, value) in hostnames_hashmap.iter() {
         let parts: Vec<&str> = key.split('.').collect();
         if parts.len() == 1 {
             let mut hostname: Guarded_Hostname = value.clone().try_into().expect("lmao");

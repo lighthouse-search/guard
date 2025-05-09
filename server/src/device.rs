@@ -23,7 +23,7 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 pub async fn device_get(id: String) -> Result<(Option<Guard_devices>), Box<dyn Error>> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
 
     let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created FROM {} WHERE id=?", sql.device.unwrap());
 
@@ -46,7 +46,7 @@ pub async fn device_create(user_id: String, authentication_method_id: String, co
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let device_id = generate_random_id();
 
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
     let query = format!("INSERT INTO {} (id, user_id, authentication_method, collateral, public_key, created) VALUES (?, ?, ?, ?, ?, ?)", sql.device.unwrap());
     let result = sql_query(query)
     .bind::<Text, _>(device_id.clone())

@@ -20,7 +20,7 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 pub async fn get_magiclink(code: String) -> (Option<Magiclink>) {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
     let magiclink_table = sql.magiclink.unwrap();
 
     let query = format!("SELECT user_id, code, ip, created, authentication_method FROM {} WHERE code=?", magiclink_table.clone());

@@ -31,7 +31,7 @@ use crate::{CONFIG_VALUE, SQL_TABLES};
 
 pub async fn user_get(id: Option<String>, email: Option<String>) -> Result<(Option<Guard_user>), Box<dyn Error>> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
 
     // SECURITY: This is inserted as RAW SQL. DO NOT, UNDER ANY CIRCUMSTANCE, MAKE 'CONDITION' THE VALUE OF A VARIABLE, THAT WOULD ALLOW SQL INJECTION. KEEP THIS TO JUST THE STRING 'id' AND 'email'.
     let mut condition: String = String::new();
@@ -96,7 +96,7 @@ pub async fn user_create(id_input: Option<String>, email_input: Option<String>) 
     }
 
     // Get the admin's SQL tables. Config_sql is filtered to A-Za-z1-9 (may be outdated, check validate_sql_table_inputs in global.rs) and is provided in the configuration file, to prevent SQL injection attacks.
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
  
     let query = format!("INSERT INTO {} (id, email) VALUES (?, ?)", sql.user.unwrap());
     let result = sql_query(query)

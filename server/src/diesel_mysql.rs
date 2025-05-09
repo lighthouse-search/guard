@@ -57,9 +57,10 @@ pub fn stage() -> AdHoc {
         .mount("/guard/api/oauth", routes![oauth_exchange_code]);
         
         let config = (&*CONFIG_VALUE).clone();
+        
         // Attempt to extract "config.reverse_proxy_authentication"
-        if let Some(features) = config.get("features") {
-            if (features.get("reverse_proxy_authentication").is_none() == false && features["reverse_proxy_authentication"].to_string() == "true") {
+        if let Some(features) = config.features {
+            if (features.reverse_proxy_authentication.unwrap_or(false) == true) {
                 app = app.mount("/guard/api/proxy", routes![
                     reverse_proxy_authentication_get,
                     reverse_proxy_authentication_put,
@@ -70,22 +71,14 @@ pub fn stage() -> AdHoc {
                     reverse_proxy_authentication_patch
                 ]);
             }
-        }
 
-        if let Some(features) = config.get("features") {
-            if (features.get("oauth_server").is_none() == false && features["oauth_server"].to_string() == "true") {
+            if (features.oauth_server.unwrap_or(false) == true) {
                 app = app.mount("/guard/api/oauth/server", routes![
                     oauth_server_token
                 ]);
             }
         }
 
-        if let Some(features) = config.get("features") {
-            if (features.get("proxied_authentication").is_none() == false && features["proxied_authentication"].to_string() == "true") {
-                // Initialize proxied authentication
-            }
-        }
-        
         app
     })
 }

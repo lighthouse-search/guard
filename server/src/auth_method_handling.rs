@@ -35,7 +35,7 @@ pub async fn handling_email_magiclink(request_data: Magiclink_handling_data, aut
         }));
     }
 
-    let sql: Config_sql = (&*SQL_TABLES).clone();
+    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
     let magiclink_table = sql.magiclink.unwrap();
 
     // TODO: This should be a function, like magiclink_get.

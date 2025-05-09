@@ -14,8 +14,7 @@ use crate::{error_message, AuthMethod_Public, Frontend_metadata, CONFIG_VALUE};
 
 #[get("/?<hostname>")]
 pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
-    let metadata_json = serde_json::to_string(&CONFIG_VALUE["frontend"]["metadata"]).expect("Failed to serialize");
-    let frontend_metadata: Frontend_metadata = serde_json::from_str(&metadata_json).expect("Failed to parse");
+    let frontend_metadata: Frontend_metadata = CONFIG_VALUE.frontend.clone().unwrap().metadata.unwrap();
 
     let mut alias: Option<String> = frontend_metadata.alias;
     let mut public_description: Option<String> = frontend_metadata.public_description;

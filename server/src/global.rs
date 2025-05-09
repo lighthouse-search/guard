@@ -44,7 +44,7 @@ pub async fn validate_sql_table_inputs(sql_tables: serde_json::Value) -> Result<
         .as_object()
         .ok_or("expected a JSON object at top level")?;
 
-    for (key, value) in map {
+    for (key, value) in sql_tables_map {
         if let Some(table_name) = value.as_str() {
             let output = validate_table_name(table_name);
             if (output != true) {

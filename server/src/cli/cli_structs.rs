@@ -27,6 +27,7 @@ pub struct Cli_user_create_response {
     pub email: Option<String>
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Args_to_hashmap {
     pub args: HashMap<String, Command_argument>,
     pub modes: Vec<String>

@@ -22,6 +22,7 @@ pub async fn parse() {
 }
 
 pub fn args_to_hashmap(args: Vec<String>) -> Args_to_hashmap {
+    log::debug!("args: {:?}", args);
     let mut modes: Vec<String> = Vec::new();
 
     // Parse arguments and move into a hashmap.
@@ -31,23 +32,29 @@ pub fn args_to_hashmap(args: Vec<String>) -> Args_to_hashmap {
     while let Some(arg) = args_iter.next() {
         if arg.starts_with("--") {
             if let Some(value) = args_iter.next() {
+                log::debug!("New flag: {}\nNew value: {}", arg, value);
                 arguments.insert(arg.replace("--", ""), Command_argument {
                     value: Some(value.clone())
                 });
             } else {
+                log::debug!("New flag: {}\nNew value: None", arg);
                 arguments.insert(arg.replace("--", ""), Command_argument {
                     value: None
                 });
             }
         } else {
             // Any argument that doesn't have "--" on it. e.g. in "interstellar upload --url example.com", "upload" would get caught here.
-            log::info!("arg COOL: {}", arg);
+            log::debug!("New mode: {}", arg);
             modes.push(arg.to_string());
         }
     }
 
-    return Args_to_hashmap {
+    let args_to_hashmap = Args_to_hashmap {
         args: arguments,
         modes: modes
     };
+
+    log::debug!("args_to_hashmap: {:?}", args_to_hashmap);
+
+    return args_to_hashmap;
 }

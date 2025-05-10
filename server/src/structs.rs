@@ -16,7 +16,8 @@ use diesel::r2d2::{self, ConnectionManager};
 pub struct Config {
     pub features: Option<Config_features>,
     pub reverse_proxy_authentication: Option<Config_reverse_proxy_authentication>,
-    pub tls: Option<HashMap<String, TlsHost>>,
+    // pub tls: Option<HashMap<String, TlsHost>>,
+    pub tls: Option<TlsHost>,
     pub frontend: Option<Config_frontend>,
     pub database: Option<Config_database>,
     pub sql: Option<Config_sql>,
@@ -101,7 +102,7 @@ pub struct Config_captcha_hcaptcha {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TlsHost {
     pub certificate: String,
-    pub hostname: String,
+    // pub hostname: String,
 
     #[serde(rename = "private-key")]
     pub private_key: String,
@@ -476,4 +477,10 @@ pub struct Token_create {
 pub struct created_access_and_refresh_tokens {
     pub access_token: Token_create,
     pub refresh_token: Token_create
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Tls_certificate {
+    pub private_key: String,
+    pub certificate: String
 }

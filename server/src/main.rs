@@ -55,7 +55,12 @@ pub mod cli {
     }
 }
 
+pub mod misc {
+    pub mod tls;
+}
+
 use diesel_mysql::internal_error;
+use misc::tls::generate_self_signed_certificate;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Build, Rocket};
@@ -103,6 +108,12 @@ pub static ARGUMENTS: Lazy<crate::cli::cli_structs::Args_to_hashmap> = Lazy::new
     crate::cli::index::args_to_hashmap(env::args().collect())
 });
 
+pub static RUNTIME_UUID: Lazy<String> = Lazy::new(|| {
+    // For certain one time actions, like generating skeleton (self-signed) certificates so HTTPS works, we need a unique runtime ID to the current binary.
+    // E.g., Guard stores self-signed TLS certificates at /tmp/guard/{RUNTIME_UUID}/tls. If multiple Guard binaries run on the same machine, we don't want a conflict.
+    uuid::Uuid::new_v4().to_string()
+});
+
 fn get_config() -> Result<Config, String> {
     let environment_variable = "guard_config";
     let mut config_str: String = String::new();
@@ -144,9 +155,12 @@ async fn rocket() -> Rocket<Build> {
         guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");
     }
 
+    let tls = crate::misc::tls::init_tls().await.expect("Failed to initalise TLS configuration");
+
     let figment = rocket::Config::figment()
     .merge(("port", guard_port))
-    .merge(("address", "0.0.0.0"));
+    .merge(("address", "0.0.0.0"))
+    .merge(("tls", tls));
 
     // We're using Web mode.
     rocket::custom(figment)

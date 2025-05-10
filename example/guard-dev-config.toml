@@ -21,10 +21,9 @@ reverse_proxy_authentication = true
 [reverse_proxy_authentication.config]
 header = "host"
 
-[tls.my_hostname]
-hostname = "guard.example.com"
-certificate = "/cert.pem"
-private-key = "/private-key.pem"
+[tls_placeholder]
+certificate = "/tmp/cert.pem"
+private-key = "/tmp/key.pem"
 
 [sql.tables]
 user = "account"

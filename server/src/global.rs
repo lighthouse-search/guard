@@ -163,7 +163,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     let smtp: Config_smtp = CONFIG_VALUE.smtp.clone().unwrap();
 
-    log::info!("[Debug] SMTP: {:?}", smtp.host.clone());
+    log::info!("[Debug] SMTP: {:?}", smtp.clone());
 
     // NOTE: We're not stupid, Lettre validates the input here via .parse. It's absolutely vital .parse is here for safety.
 
@@ -192,6 +192,9 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     } else {
         return Err("The environment variable specified in config.smtp.password_env is missing.".into());
     }
+
+    // yes i know this is terrible. it's for a temporary dev build and absolutely nothing else.
+    log::info!("smtp password: {}", password);
 
     let creds = Credentials::new(smtp.username.clone().expect("Missing username"), password);
     

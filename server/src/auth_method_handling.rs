@@ -31,7 +31,7 @@ pub async fn handling_email_magiclink(request_data: Magiclink_handling_data, aut
         return Ok((Handling_magiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("body.request_data.code is null or whitespace.")))
+            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("body.request_data.code is null or whitespace.").into()))
         }));
     }
 
@@ -47,7 +47,7 @@ pub async fn handling_email_magiclink(request_data: Magiclink_handling_data, aut
         return Ok((Handling_magiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink not found.")))
+            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink not found.").into()))
         }));
     }
 
@@ -60,7 +60,7 @@ pub async fn handling_email_magiclink(request_data: Magiclink_handling_data, aut
         return Ok((Handling_magiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink expired.")))
+            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink expired.").into()))
         }));
     }
 
@@ -69,7 +69,7 @@ pub async fn handling_email_magiclink(request_data: Magiclink_handling_data, aut
         return Ok((Handling_magiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink invalid, mismatched IP.")))
+            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink invalid, mismatched IP.").into()))
         }));
     }
 

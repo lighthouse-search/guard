@@ -27,11 +27,19 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
     
     let host = get_current_valid_hostname(headers, Some(header_to_use)).await.expect("Invalid or missing hostname.");
 
-    let (result, user_result, device, authentication_method_wrapped, error_to_respond_with) = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(jar), remote_addr.to_string(), host.domain_port, headers).await.expect("User authentication pipeline failed");
+    // (result, user_result, device, authentication_method_wrapped, error_to_respond_with)
+
+    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(jar), remote_addr.to_string(), host.domain_port, headers).await;
+    
     // TODO: In the future athentication_method won't be returned as optional from user_authentication_pipelne (user_authentication_pipeline will be changed to from truple to Result<>). This is a temporary fix :)
-    let authentication_method = authentication_method_wrapped.unwrap();
-    if (result == true) {
+    if (user_authentication.is_ok() == true) {
+        let user_authentication_unwrapped = user_authentication.unwrap();
+        
+        let user_result = user_authentication_unwrapped.user;
+        let device = user_authentication_unwrapped.device;
+        let authentication_method_wrapped = user_authentication_unwrapped.authentication_method;
         let user = user_result.unwrap();
+        let authentication_method = authentication_method_wrapped.unwrap();
 
         let user_get_id_preference = user_get_id_preference(user.clone(), authentication_method.clone()).expect("Failed to get user_get_id_preference");
 
@@ -57,7 +65,7 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
         // Create a JSON response
         let response_body = json!({
             "success": false,
-            "reason": error_to_respond_with
+            // "reason": error_to_respond_with
         });
 
         return status::Custom(Status::Unauthorized, response_body);

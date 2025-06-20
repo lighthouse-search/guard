@@ -31,7 +31,8 @@ pub struct Config {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config_features {
     pub reverse_proxy_authentication: Option<bool>,
-    pub oauth_server: Option<bool>
+    pub oauth_server: Option<bool>,
+    pub tls: Option<bool>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -101,11 +102,11 @@ pub struct Config_captcha_hcaptcha {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TlsHost {
-    pub certificate: String,
+    pub certificate: Option<String>,
     // pub hostname: String,
 
     #[serde(rename = "private-key")]
-    pub private_key: String,
+    pub private_key: Option<String>,
 }
 
 // Incoming body structs
@@ -483,4 +484,38 @@ pub struct created_access_and_refresh_tokens {
 pub struct Tls_certificate {
     pub private_key: String,
     pub certificate: String
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Protocol_decision_to_pipeline_output {
+    pub user: Option<Value>,
+    pub device: Option<Guard_devices>,
+    pub authentication_method: Option<AuthMethod>, // The authentication method, e.g. "email", "oauth"
+    pub authentication_type: String // The underlying authentication technology, e.g. "signed_request", "static_auth", "bearer_token"
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Error_response {
+    pub error: bool,
+    pub message: String
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OAuth_pipeline_response {
+    pub external_user: Value
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Device_pipeline_static_auth_response {
+    pub user: Option<Guard_user>,
+    pub device: Option<Guard_devices>,
+    pub authentication_method: Option<AuthMethod>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct User_authentication_pipeline_response {
+    pub user: Option<Value>,
+    pub device: Option<Guard_devices>,
+    pub authentication_method: Option<AuthMethod>,
+    pub authentication_type: String
 }

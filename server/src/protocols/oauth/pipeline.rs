@@ -9,7 +9,9 @@ use diesel::sql_types::*;
 
 use rocket::http::{Status, CookieJar, Cookie};
 
+use crate::hostname::prepend_hostname_to_cookie;
 use crate::protocols::oauth::client::oauth_userinfo;
+use crate::responses::error_message;
 use crate::structs::*;
 use crate::tables::*;
 use crate::device::{device_signed_authentication, device_get, device_guard_static_auth_from_cookies};
@@ -21,28 +23,31 @@ use url::Url;
 use std::collections::HashMap;
 
 use crate::{CONFIG_VALUE, SQL_TABLES};
+use crate::structs::*;
 
-pub async fn oauth_pipeline(hostname: Guarded_Hostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<(bool, Option<Value>), Box<dyn Error>> {
+pub async fn oauth_pipeline(hostname: Guarded_Hostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<OAuth_pipeline_response, Error_response> {
     let mut bearer_token: String = String::new();
 
     if (headers.headers_map.get("Authorization").is_none() == false) {
         bearer_token = headers.headers_map.get("Authorization").expect("Missing Authorization header.").to_string();
-    } else if (jar.get("guard_oauth_access_token").is_none() == false) {
-        bearer_token = jar.get("guard_oauth_access_token").expect("Failed to parse guard_oauth_access_token.").to_string();
+    } else if (jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).is_none() == false) {
+        bearer_token = jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).expect("Failed to parse guard_oauth_access_token.").to_string();
     } else {
         log::info!("Bearer token not provided by client.");
-        return Ok((false, None));
+        return Err(error_message("Bearer token is null or whitespace - please provide a Bearer token in your request when authenticating with OAuth."));
     }
 
     let user_info_result = oauth_userinfo(auth_method.oauth_client_user_info.unwrap(), bearer_token).await;
     if (user_info_result.is_err() == true) {
         log::info!("Failed to get user-info");
-        return Ok((false, None));
+        return Err(error_message("Failed to get user information from relevant service"));
     }
     
     let attempted_external_user: Value = user_info_result.expect("Failed to get oauth userinfo.");
 
-    return Ok((true, Some(attempted_external_user)));
+    return Ok(OAuth_pipeline_response {
+        external_user: attempted_external_user
+    });
 }
 
 pub fn oauth_get_data_from_oauth_login_url(url: String) -> OAuth_login_url_information {

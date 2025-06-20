@@ -6,24 +6,30 @@ use rocket::config::{TlsConfig, CipherSuite};
 use crate::structs::Tls_certificate;
 use crate::CONFIG_VALUE;
 
-pub async fn init_tls() -> Result<TlsConfig, String> {
-    if (CONFIG_VALUE.tls.is_none() == false) {
-        // Use TLS certificates provided in Guard configuration.
-
+pub async fn init_tls() -> Option<TlsConfig> {
+    if (CONFIG_VALUE.features.clone().unwrap().tls.unwrap_or(true) == false) {
         // TODO: In the future, allow getting certificates from environment variables (e.g. to accomodate Docker).
         let config_tls = CONFIG_VALUE.clone().tls.unwrap();
-        println!("certificate {}", &config_tls.certificate);
-        println!("private_key {}", &config_tls.private_key);
+        if (config_tls.certificate.is_none() == false) {
+            // Use TLS certificates provided in Guard configuration.
 
-        log::debug!("Using TLS certificate specified in configuration (paths: certificate {}, private_key {}).", config_tls.certificate, config_tls.private_key);
+            println!("certificate {}", &config_tls.clone().certificate.expect("Missing config.tls.certificate"));
+            println!("private_key {}", &config_tls.clone().private_key.expect("Missing config.tls.private_key"));
 
-        Ok(TlsConfig::from_paths(&config_tls.certificate, &config_tls.private_key).with_ciphers(CipherSuite::TLS_V13_SET))
+            log::debug!("Using TLS certificate specified in configuration (paths: certificate {}, private_key {}).", &config_tls.certificate.clone().expect("Missing config.tls.certificate"), &config_tls.private_key.clone().expect("Missing config.tls.private_key"));
+
+            Some(TlsConfig::from_paths(&config_tls.certificate.expect("Missing config.tls.certificate"), &config_tls.private_key.expect("Missing config.tls.private_key")).with_ciphers(CipherSuite::TLS_V13_SET))
+        } else {
+            // Use one-time generated self-signed certificate.
+            
+            log::warn!("No TLS certificate specified in configuration, using self-signed certificate. Note: do not use self-signed certificates in production.");
+            let certificate = generate_self_signed_certificate().await.expect("Failed to generate self-signed certificate");
+            Some(TlsConfig::from_bytes(&certificate.certificate.into_bytes(), &certificate.private_key.into_bytes()).with_ciphers(CipherSuite::TLS_V13_SET))
+        }
     } else {
-        // Use one-time generated self-signed certificate.
-        
-        log::warn!("No TLS certificate specified in configuration, using self-signed certificate. Note: do not use self-signed certificates in production.");
-        let certificate = generate_self_signed_certificate().await.expect("Failed to generate self-signed certificate");
-        Ok(TlsConfig::from_bytes(&certificate.certificate.into_bytes(), &certificate.private_key.into_bytes()).with_ciphers(CipherSuite::TLS_V13_SET))
+        // No TLS configuration specified, return None.
+        log::warn!("config.features.tls is set to false, not using TLS.");
+        return None;
     }
 }
 

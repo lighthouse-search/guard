@@ -64,25 +64,38 @@ async fn request(arguments: HashMap<String, Command_argument>, modes: Vec<String
     let headers: HashMap<String, String> = serde_json::from_str(&get_value(&arguments, "headers").expect("Failed to get headers value")).expect("Failed to parse headers");
     let cookies: indexmap::IndexMap<String, String> = serde_json::from_str(&get_value(&arguments, "cookies").expect("Failed to get cookies value")).expect("Failed to parse cookies");
 
-    let (valid, user, device, authentication_method, error_to_respond_with) = user_authentication_pipeline(
+    // let (valid, user, device, authentication_method, error_to_respond_with)
+    let user_authentication = user_authentication_pipeline(
         vec!["access_applications"],
         &cookies,
         ip_address,
         host,
         &Headers { headers_map: headers }
-    ).await.expect("User authentication pipeline failed");
+    ).await;
 
-    if (error_to_respond_with.is_none() == false) {
-        log::error!("{}", error_to_respond_with.unwrap());
+    if (user_authentication.is_err() == false) {
+        log::error!("{:?}", user_authentication.err().unwrap());
+        // TODO: An actual error body should be returned here.
+        return Err(serde_json::to_string(&Cli_authenticate_handle_response {
+            error: false,
+            nonce: nonce.unwrap(),
+            valid: false, // The authentication failed.
+            user: None,
+            device: None,
+            authentication_method: None,
+            dev_note: "For debugging information, specify \"RUST_LOG=info ./guard\"".to_string()
+        }).unwrap());
     }
+
+    let user_authentication_unwrapped = user_authentication.unwrap();
 
     println!("{}", serde_json::to_string(&Cli_authenticate_handle_response {
         error: false,
         nonce: nonce.unwrap(),
-        valid: valid,
-        user: user,
-        device: device,
-        authentication_method: authentication_method,
+        valid: true, // The authentication was successful.
+        user: Some(user_authentication_unwrapped.user.unwrap()),
+        device: Some(user_authentication_unwrapped.device.unwrap()),
+        authentication_method: Some(user_authentication_unwrapped.authentication_method.unwrap()),
         dev_note: "For debugging information, specify \"RUST_LOG=info ./guard\"".to_string()
     }).unwrap());
 

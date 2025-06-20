@@ -143,7 +143,7 @@ async fn main() {
 
 async fn rocket() -> Rocket<Build> {
     let mut rng = rand::thread_rng();
-    let mut guard_port: u32 = rng.gen_range(4000..65535);
+    let mut guard_port: u32 = 443; // rng.gen_range(4000..65535)
     
     if (ARGUMENTS.args.get("port").is_none() == false && ARGUMENTS.args.get("port").clone().unwrap().value.is_none() == false) {
         guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");

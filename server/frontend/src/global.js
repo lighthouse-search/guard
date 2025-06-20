@@ -105,7 +105,7 @@ async function handle_new_oauth_access_token(access_token) {
 
   let root_domain = root_domain_logic();
 
-  await cookies.set(`guard_oauth_access_token`, access_token, {
+  await cookies.set(prepend_hostname_to_cookie(`guard_oauth_access_token`), access_token, {
     domain: root_domain,
     path: "/",
     secure: false,

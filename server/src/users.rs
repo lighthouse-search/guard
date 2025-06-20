@@ -110,32 +110,44 @@ pub async fn user_create(id_input: Option<String>, email_input: Option<String>) 
     })
 }
 
-pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &Headers) -> Result<(bool, Option<Value>, Option<Guard_devices>, Option<AuthMethod>, Option<Value>), Box<dyn Error>> {
+pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &Headers) -> Result<User_authentication_pipeline_response, Error_response> {
     // Match incoming hostname to configuration.
     let hostname_result = get_hostname(host.clone()).await;
     if (hostname_result.is_err() == true) {
         log::info!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
-        return Ok((false, None, None, None, Some(error_message("Invalid hostname"))));
+        return Err(error_message("Invalid hostname").into())
     }
     let hostname = hostname_result.unwrap();
     
     // Authenticate user for specific authentication method.
-    let (success, user_result, device, authentication_method, error_to_respond_with) = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers).await.expect("An error occurred during protocol_decision_to_pipeline");
-    if (success == false) {
-        log::info!("protocol_decision_to_pipeline failed, error message: {:?}", error_to_respond_with);
-        return Ok((false, None, None, None, error_to_respond_with));
+    let protocol_decision_status = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers).await;
+    // Check pipeline for response error.
+    if (protocol_decision_status.is_err() == true) {
+        // TODO: This looks like it could potentially return unsafe error data? Will need to test. It's not directly against a web endpoint so should be fine for now.
+        return Err(protocol_decision_status.err().unwrap());
     }
+    let protocol_decision = protocol_decision_status.expect("Failed to unwrap protocol decision");
 
     // Unwrap user's information.
-    let user_as_value = user_result.expect("Missing user");
+    let user_as_value = protocol_decision.user.expect("Missing user");
 
     // Verify the user's authentication method is valid for this hostname.
     let result = policy_authentication(get_hostname_policies(hostname, true).await, user_as_value.clone(), remote_addr.to_string()).await;
 
-    return Ok((result, Some(user_as_value), device, authentication_method, None));
+    if (result != true) {
+        log::debug!("policy_authentication returned {}", result);
+        return Err(error_message("Unauthorized (due to policy)").into());
+    }
+
+    return Ok(User_authentication_pipeline_response {
+        user: Some(user_as_value),
+        device: protocol_decision.device,
+        authentication_method: protocol_decision.authentication_method,
+        authentication_type: protocol_decision.authentication_type
+    });
 }
 
-pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<User_get_id_preference_struct, Box<dyn Error>> {
+pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<User_get_id_preference_struct, String> {
     // TODO: I am not sure this is needed? We should be generating UUIDs for users. This only makes sense when there is no database - I suspect that's what this is for. I will return to this.
 
     let reference_type: String = authentication_method.user_info_reference_type.unwrap_or("id".to_string()); // TODO: maybe revist this later, but this will fail any proxy authentication if not specified. I doubt it will get used in email contexts, so we'll just default to 'id'.
@@ -159,10 +171,10 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
         } else if (reference_type == "email") {
             email = Some(value);
         } else {
-            return Err(format!("'{}' is not a valid authentication_method.user_info_reference_key type. Examples of valid authentication_method.user_info_reference_key: 'id', 'email'", reference_type).into())
+            return Err(format!("'{}' is not a valid authentication_method.user_info_reference_key type. Examples of valid authentication_method.user_info_reference_key: 'id', 'email'", reference_type));
         }
     } else {
-        return Err(format!("user_get_id_preference: User data did not include key '{}'", reference_key.clone()).into())
+        return Err(format!("user_get_id_preference: User data did not include key '{}'", reference_key.clone()))
     }
 
     let output: User_get_id_preference_struct = User_get_id_preference_struct {
@@ -174,7 +186,9 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
     return Ok(output);
 }
 
-pub async fn attempted_external_user_handling(attempted_external_user: Value, authentication_method: AuthMethod) -> Result<(Option<String>), Box<dyn Error>> {
+// TODO: Clean (Option<String>)
+// TODO: I can't find where this function was last used? It's been deprecated without documentaion.
+pub async fn attempted_external_user_handling(attempted_external_user: Value, authentication_method: AuthMethod) -> Result<(Option<String>), String> {
     // An authentication method can authentication either by an ID or email directly provided by a protocol, like OAuth. This function checks what the admin's preference for the specified authentication method is.
     let user_get_id_preference_status: User_get_id_preference_struct = user_get_id_preference(attempted_external_user, authentication_method.clone()).expect("Failed to get user_get_id_preference");
     if (user_get_id_preference_status.has_value == false) {

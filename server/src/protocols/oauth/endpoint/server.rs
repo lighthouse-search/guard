@@ -39,13 +39,13 @@ pub async fn oauth_server_token(auth_request: Form<AuthRequest>, remote_addr: So
     let client_secret = auth_request.client_secret.clone();
 
     if (is_null_or_whitespace(client_id.clone())) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.client_id is null or whitespace.")));
+        return Ok(status::Custom(Status::BadRequest, error_message("params.client_id is null or whitespace.").into()));
     }
     if (is_null_or_whitespace(redirect_uri.clone())) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.redirect_uri is null or whitespace.")));
+        return Ok(status::Custom(Status::BadRequest, error_message("params.redirect_uri is null or whitespace.").into()));
     }
     if (is_null_or_whitespace(code.clone())) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.code is null or whitespace.")));
+        return Ok(status::Custom(Status::BadRequest, error_message("params.code is null or whitespace.").into()));
     }
 
     let (device, additional_data) = device_signed_authentication(code.unwrap()).await.expect("Authentication failed.");

@@ -91,7 +91,7 @@ fn options_handler() -> &'static str {
 
 #[catch(500)]
 pub fn internal_error() -> serde_json::Value {
-    error_message("Internal server error")
+    error_message("Internal server error").into()
 }
 
 #[rocket::async_trait]

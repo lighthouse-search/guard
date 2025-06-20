@@ -76,7 +76,7 @@ pub fn device_guard_static_auth_from_cookies(jar: &indexmap::IndexMap<String, St
     return Some(signed_data);
 }
 
-pub async fn device_signed_authentication(signed_data: String) -> Result<(Guard_devices, Option<Value>), String> {
+pub async fn device_signed_authentication(signed_data: String) -> Result<(Guard_devices, Option<Value>), Error_response> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let unsigned_data: Static_auth_sign = serde_json::from_value(get_unsafe_noverification_jwt_payload(signed_data.clone()).expect("Failed to parse payload.")).expect("Failed to prase JWT");
     
@@ -88,19 +88,20 @@ pub async fn device_signed_authentication(signed_data: String) -> Result<(Guard_
     let (device_wrapped) = device_get(device_id).await.expect("Failed to query for device.");
     let device = device_wrapped.expect("Device not found");
 
+    // TODO: Need to make static_auth_verify (a Hades-Auth function) return error messages that can be returned to clients.
     let output = static_auth_verify(&signed_data, &device.public_key.clone(), None).await;
 
     // Invalid static auth.
     if (output.is_err() == true) {
         log::info!("Invalid static auth (output.is_err)");
-        return Err(String::from("Invalid static auth (output.is_err)"));
+        return Err(error_message("Invalid static authentication."));
     }
 
     let additional_data = output.expect("Missing result");
     // We use is_none() here, because we're expecting additional data.
     if (additional_data.is_none() == true) {
         log::info!("Invalid static auth (missing additional data)");
-        return Err(String::from("Invalid static auth (missing additional data)"));
+        return Err(error_message("Invalid static authentication (missing additional data)."));
     }
     // ----
 

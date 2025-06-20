@@ -79,7 +79,7 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
 pub async fn metadata_get_authentication_methods(hostname: Option<String>) -> Custom<Value> {
     let hostname_data = get_hostname(hostname.unwrap()).await;
     if (hostname_data.is_err() == true) {
-        return status::Custom(Status::BadRequest, error_message("Invalid hostname."));
+        return status::Custom(Status::BadRequest, error_message("Invalid hostname.").into());
     }
 
     let active_authentication_methods_data = get_hostname_authentication_methods(hostname_data.unwrap(), true).await;

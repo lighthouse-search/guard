@@ -149,12 +149,17 @@ async fn rocket() -> Rocket<Build> {
         guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");
     }
 
-    let tls = crate::misc::tls::init_tls().await.expect("Failed to initalise TLS configuration");
-
-    let figment = rocket::Config::figment()
+    let mut figment = rocket::Config::figment()
     .merge(("port", guard_port))
-    .merge(("address", "0.0.0.0"))
-    .merge(("tls", tls));
+    .merge(("address", "0.0.0.0"));
+
+    let tls = crate::misc::tls::init_tls().await;
+    if (tls.is_none() == false) {
+        log::info!("Using TLS configuration.");
+        figment = figment.merge(("tls", tls));
+    } else {
+        log::info!("Not using TLS configuration.");
+    }
 
     // We're using Web mode.
     rocket::custom(figment)

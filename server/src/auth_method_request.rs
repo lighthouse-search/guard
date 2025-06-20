@@ -33,7 +33,7 @@ pub async fn request_email(email: String, authentication_method: AuthMethod, req
     if (user_result.is_none()) {
         // Because the user_get_otherwise_create will always return a user (after all, it's creating a user if it doesn't exist), a None result means the user is unauthorized and we will not create one.
         return Ok((Request_magiclink {
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message(&format!("Access denied - '{}' is not an authorized email", email)))),
+            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message(&format!("Access denied - '{}' is not an authorized email", email)).into())),
             email: None,
         }));
     }
@@ -61,6 +61,7 @@ pub async fn request_email(email: String, authentication_method: AuthMethod, req
     url.set_host(Some(&frontend_metadata.instance_hostname.expect("Missing instance_hostname"))).unwrap();
 
     // FUTURE: Magiclink codes should be encrypted (via a public-key), so if you get access to the SQL database, it's not possible to use magiclink codes you find via the DB....but it would still be possible to update the account email address if you had access, which is why this is "future".
+    // TODO: This should be a function called "request" under misc/magicink.rs
     let query = format!("INSERT INTO {} (user_id, code, ip, authentication_method, created) VALUES (?, ?, ?, ?, ?)", sql.magiclink.unwrap());
     let result = sql_query(query)
     .bind::<Text, _>(user.id.clone())

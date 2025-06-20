@@ -21,17 +21,17 @@ pub async fn auth_method_request(mut host: Option<String>, mut body: Json<Method
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
     if (host.is_none() == true) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.host is null or whitespace.")));
+        return Ok(status::Custom(Status::BadRequest, error_message("params.host is null or whitespace.").into()));
     }
     let hostname_result = get_hostname(host.unwrap()).await;
     if (hostname_result.is_err() == true) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.host is invalid.")));
+        return Ok(status::Custom(Status::BadRequest, error_message("params.host is invalid.").into()));
     }
     let hostname = hostname_result.unwrap();
 
     let authentication_method_result = is_valid_authentication_method(body.authentication_method.clone()).await;
     if (authentication_method_result.is_none() != false) {
-        return Ok(status::Custom(Status::BadRequest, error_message("body.authentication_method is not a valid authentication method.")));
+        return Ok(status::Custom(Status::BadRequest, error_message("body.authentication_method is not a valid authentication method.").into()));
     }
 
     let authentication_method = authentication_method_result.unwrap();
@@ -46,7 +46,7 @@ pub async fn auth_method_request(mut host: Option<String>, mut body: Json<Method
         
         if (request_data.email.is_none()) {
             // Return error.
-            return Ok(status::Custom(Status::BadRequest, error_message("body.request_data.email is null or whitespace.")));
+            return Ok(status::Custom(Status::BadRequest, error_message("body.request_data.email is null or whitespace.").into()));
         }
         let mut requested_email = request_data.email.clone().expect("Missing body.request_data.email");
 
@@ -71,13 +71,13 @@ pub async fn authenticate(mut host: Option<String>, mut body: Json<Method_reques
     // TODO: this should return 404 instead of error.
     let hostname_check = get_hostname(host.unwrap()).await;
     if (hostname_check.is_err() == true) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.host is invalid.".into())));
+        return Ok(status::Custom(Status::BadRequest, error_message("params.host is invalid.".into()).into()));
     }
     let hostname = hostname_check.unwrap();
 
     let authentication_method_result = is_valid_authentication_method(body.authentication_method.clone()).await;
     if (authentication_method_result.is_none() != false) {
-        return Ok(status::Custom(Status::BadRequest, error_message("body.authentication_method is not a valid authentication method.".into())));
+        return Ok(status::Custom(Status::BadRequest, error_message("body.authentication_method is not a valid authentication method.".into()).into()));
     }
     let authentication_method = authentication_method_result.unwrap();
 
@@ -140,7 +140,7 @@ pub async fn authenticate(mut host: Option<String>, mut body: Json<Method_reques
     
     let hostname_result = hostname_auth_exit_flow(hostname.host, authentication_method).await;
     if (hostname_result.is_none() == true) {
-        return Ok(status::Custom(Status::BadRequest, error_message("Invalid params.host")));
+        return Ok(status::Custom(Status::BadRequest, error_message("Invalid params.host").into()));
     }
 
     Ok(status::Custom(Status::Ok, json!({

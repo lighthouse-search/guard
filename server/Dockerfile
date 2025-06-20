@@ -44,9 +44,6 @@ WORKDIR /guard-server/frontend
 RUN npm install
 RUN npm run build
 
-# Remove frontend nextjs source files, they just un-necessarily take up lots of space.
-RUN mv /guard-server/frontend/_static /guard-server-built/frontend/_static
-
 WORKDIR /guard-server
 
 ENV PATH="/home/linuxbrew/.cargo/bin:${PATH}"
@@ -57,6 +54,8 @@ RUN cargo update
 RUN cargo build --release
 
 RUN mv /guard-server/target /guard-server-built/target
+# Move into target/release for process relativity.
+RUN mv /guard-server/frontend/_static /guard-server-built/target/frontend/_static
 
 WORKDIR /
 USER root

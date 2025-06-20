@@ -215,15 +215,15 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     match result {
         Ok(Ok(_)) => {
-            println!("Email sent successfully.");
+            log::error!("Email sent successfully.");
             Ok(true)
         },
         Ok(Err(e)) => {
-            println!("Error sending email: {}", e.to_string());
+            log::error!("Error sending email: {e:?}");
             Err(e.to_string())
         },
         Err(e) => {
-            println!("Task join error: {}", e.to_string());
+            log::error!("Task join error: {e:?}");
             Err("Failed to send email due to task error.".into())
         }
     }

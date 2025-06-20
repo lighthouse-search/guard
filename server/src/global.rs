@@ -198,7 +198,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     // let tls = TlsParameters::builder(smtp.host.clone().expect("Missing host"))
     // .build().unwrap();
 
-    log::info!("Sending mail...");
+    log::info!("Sending mail... {:?}", creds.clone());
 
     let mailer = SmtpTransport::starttls_relay(&smtp.host.clone().expect("Missing host"))
     .unwrap()

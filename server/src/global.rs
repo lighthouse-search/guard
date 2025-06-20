@@ -198,6 +198,8 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     let tls = TlsParameters::builder(smtp.host.clone().expect("Missing host"))
     .build().unwrap();
 
+    log::info!("Sending mail...");
+
     let mailer = SmtpTransport::relay(&smtp.host.clone().expect("Missing host"))
     .unwrap()
     .tls(Tls::Required(tls)) 
@@ -206,8 +208,8 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     // Send the email
     match mailer.send(&email_packet) {
-        Ok(_) => Ok(true),
-        Err(e) => Err(e.to_string()),
+        Ok(_) => { println!("Email sent successfully."); Ok(true) },
+        Err(e) => {println!("Error sending email: {}", e.to_string()); Err(e.to_string())},
     }
 }
 

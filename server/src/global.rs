@@ -200,7 +200,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     log::info!("Sending mail...");
 
-    let mailer = SmtpTransport::relay(&smtp.host.clone().expect("Missing host"))
+    let mailer = SmtpTransport::starttls_relay(&smtp.host.clone().expect("Missing host"))
     .unwrap()
     .tls(Tls::Required(tls)) 
     .credentials(creds)

@@ -206,11 +206,26 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     .credentials(creds)
     .build();
 
-    // Send the email
-    match mailer.send(&email_packet) {
-        Ok(_) => { println!("Email sent successfully."); Ok(true) },
-        Err(e) => {println!("Error sending email: {}", e.to_string()); Err(e.to_string())},
+    
+    let result = tokio::task::spawn_blocking(move || {
+        mailer.send(&email_packet)
+    }).await;
+
+    match result {
+        Ok(Ok(_)) => {
+            println!("Email sent successfully.");
+            Ok(true)
+        },
+        Ok(Err(e)) => {
+            println!("Error sending email: {}", e.to_string());
+            Err(e.to_string())
+        },
+        Err(e) => {
+            println!("Task join error: {}", e.to_string());
+            Err("Failed to send email due to task error.".into())
+        }
     }
+
 }
 
 pub fn generate_uuid() -> String {

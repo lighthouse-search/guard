@@ -205,9 +205,9 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     .credentials(creds)
     .build();
 
-    match mailer.send(&email) {
-        Ok(_) => println!("Email sent successfully!"),
-        Err(e) => panic!("Could not send email: {e:?}"),
+    match mailer.send(&email_packet) {
+        Ok(_) => { println!("Email sent successfully!"); return Ok(true); },
+        Err(e) => {log::error!("{}", e.to_string()); return Err("Failed to send email".to_string()) },
     }
 
 }

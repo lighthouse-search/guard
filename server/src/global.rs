@@ -195,35 +195,19 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     let creds = Credentials::new(smtp.username.clone().expect("Missing username"), password);
     
-    let tls = TlsParameters::builder(smtp.host.clone().expect("Missing host"))
-    .build().unwrap();
+    // let tls = TlsParameters::builder(smtp.host.clone().expect("Missing host"))
+    // .build().unwrap();
 
     log::info!("Sending mail...");
 
     let mailer = SmtpTransport::starttls_relay(&smtp.host.clone().expect("Missing host"))
     .unwrap()
-    .tls(Tls::Required(tls)) 
     .credentials(creds)
     .build();
 
-    
-    let result = tokio::task::spawn_blocking(move || {
-        mailer.send(&email_packet)
-    }).await;
-
-    match result {
-        Ok(Ok(_)) => {
-            println!("Email sent successfully.");
-            Ok(true)
-        },
-        Ok(Err(e)) => {
-            println!("Error sending email: {}", e.to_string());
-            Err(e.to_string())
-        },
-        Err(e) => {
-            println!("Task join error: {}", e.to_string());
-            Err("Failed to send email due to task error.".into())
-        }
+    match mailer.send(&email) {
+        Ok(_) => println!("Email sent successfully!"),
+        Err(e) => panic!("Could not send email: {e:?}"),
     }
 
 }

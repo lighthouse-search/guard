@@ -12,7 +12,7 @@ COPY frontend /guard-server/frontend
 
 RUN apt update -y
 RUN apt upgrade -y
-RUN apt install -y curl git build-essential openssl libssl-dev libcap2-bin
+RUN apt install -y curl git build-essential openssl libssl-dev libcap2-bin tree
 
 # Create a non-root user to run Homebrew
 RUN useradd -m -s /bin/bash linuxbrew && \

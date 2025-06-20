@@ -7,7 +7,7 @@ use crate::structs::Tls_certificate;
 use crate::CONFIG_VALUE;
 
 pub async fn init_tls() -> Option<TlsConfig> {
-    if (CONFIG_VALUE.features.clone().unwrap().tls.unwrap_or(true) == false) {
+    if (CONFIG_VALUE.features.clone().unwrap().tls.unwrap_or(true) == true) {
         // TODO: In the future, allow getting certificates from environment variables (e.g. to accomodate Docker).
         let config_tls = CONFIG_VALUE.clone().tls.unwrap();
         if (config_tls.certificate.is_none() == false) {

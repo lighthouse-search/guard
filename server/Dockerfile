@@ -55,8 +55,8 @@ RUN cargo build --release
 
 RUN mv /guard-server/target /guard-server-built/target
 # Move into target/release for process relativity.
-RUN tree /
 RUN mv /guard-server/frontend/_static /guard-server-built/target/release/frontend/_static
+RUN tree /guard-server-built
 
 WORKDIR /
 USER root

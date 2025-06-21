@@ -1,0 +1,1 @@
+``information.json`` is used when an OAuth app is requesting information from Guard (NOT used with outbound systems like "Login with Microsoft", "Login with Google"). The requesting OAuth app is expected to return this information when authenticating.

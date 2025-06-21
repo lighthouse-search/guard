@@ -1,0 +1,5 @@
+- reverse_proxy_authentication only supports reading JWTs from cookies (web browsers can't practically sign requests in-flight). I need to make a dedicated endpoint that allows verifying signed requests.
+- Log messages need clean-up, many aren't clear. It'd be better to link to a knowledge base with more context.
+- Some functions / code structuring have gotten messy. Including code + comments. Need to clean that up.
+- Some functions need to be split into more pipelines, others need clean-up to take advantage of existing pipelines.
+- Variable naming needs to be more consistent.

@@ -1,4 +1,5 @@
-.DS_Store
-target
-frontend/_static
-frontend/guard-npm/node_modules
+/client/cli/target
+client/cli/.DS_Store
+/frontend/_static
+/frontend/node_modules
+/target

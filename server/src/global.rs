@@ -186,32 +186,34 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     .unwrap();
 
     // Check for password and get it.
-    let mut password: String = String::new();
+    let mut password: String = String::new(); // Default password, for dev builds only. Do not use in production.
     if let Some(val) = env::var(smtp.password_env.expect("Missing password_env")).ok() {
         password = val;
     } else {
         return Err("The environment variable specified in config.smtp.password_env is missing.".into());
     }
 
-    // yes i know this is terrible. it's for a temporary dev build and absolutely nothing else.
-    log::info!("smtp password: {}", password);
+    log::debug!("Sending mail...");
 
-    let creds = Credentials::new(smtp.username.clone().expect("Missing username"), password);
-    
-    // let tls = TlsParameters::builder(smtp.host.clone().expect("Missing host"))
-    // .build().unwrap();
+    let creds = Credentials::new(smtp.username.expect("Missing smtp.username"), password);
 
-    log::info!("Sending mail...");
+    log::debug!("Passed creds");
+ 
+    // Open a remote connection to gmail using STARTTLS
+    let mailer = SmtpTransport::starttls_relay(&smtp.host.expect("Missing smtp.host"))
+        .unwrap()
+        .credentials(creds)
+        .build();
 
-    let mailer = SmtpTransport::starttls_relay(&smtp.host.clone().expect("Missing host"))
-    .unwrap()
-    .credentials(creds)
-    .port(smtp.port.unwrap_or(587))
-    .build();
+    log::debug!("Passed mailer");
 
     let result = tokio::task::spawn_blocking(move || {
-        mailer.send(&email_packet)
+        let send_result = mailer.send(&email_packet);
+        log::debug!("Passed internal mail send");
+        send_result
     }).await;
+
+    log::debug!("Passed mail send");
 
     match result {
         Ok(Ok(_)) => {
@@ -227,7 +229,6 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
             Err("Failed to send email due to task error.".into())
         }
     }
-
 }
 
 pub fn generate_uuid() -> String {

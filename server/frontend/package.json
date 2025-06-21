@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --port 8484",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@hcaptcha/react-hcaptcha": "latest",
+    "@oracularhades/guard": "file:guard-npm",
+    "elliptic": "latest",
+    "hades-auth": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-cookie": "latest",
+    "react-dom": "latest"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -15,9 +15,10 @@ build_rust_binary:
   script:
     - rustc --version && cargo --version  # For any future debugging.
     - apt update -y && apt install zip tree -y
+    - tree /
+    - cd /builds/oracularhades/guard/server
     - cargo build --verbose --release
     - cargo test --verbose
-    - tree /
     - mkdir /builds/oracularhades/release
     - apt-get update -y &&
       apt-get install -y build-essential curl file git &&
@@ -26,9 +27,9 @@ build_rust_binary:
       eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv) &&
       brew install node &&
       cd frontend && npm install && npm run build && cd ..
-    - mv /builds/oracularhades/guard/target/release/guard-server /builds/oracularhades/release
+    - mv /builds/oracularhades/guard/server/target/release/guard-server /builds/oracularhades/release
     - mkdir /builds/oracularhades/release/frontend/
-    - mv /builds/oracularhades/guard/frontend/_static /builds/oracularhades/release/frontend/_static
+    - mv /builds/oracularhades/guard/server/frontend/_static /builds/oracularhades/release/frontend/_static
     - tree /builds
     - cd /builds/oracularhades/release
     - zip -r /builds/oracularhades/guard/guard.zip .
@@ -46,4 +47,4 @@ build:
   script:
     - docker buildx create --use
     - docker buildx inspect --bootstrap
-    - docker buildx build --file ./Dockerfile --push --tag $DOCKER_IMAGE_NAME ./
+    - docker buildx build --file ./server/Dockerfile --push --tag $DOCKER_IMAGE_NAME ./server

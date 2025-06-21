@@ -1,0 +1,7 @@
+.authorise .client_link {
+    text-wrap: wrap;
+    max-width: 350px;
+    word-break: normal;
+    word-wrap: break-word;
+    color: inherit;
+}

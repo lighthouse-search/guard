@@ -1,0 +1,14 @@
+.you_agree_to {
+    font-size: 11px;
+}
+
+.you_agree_to a {
+    font-weight: bold;
+}
+
+.login2 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}

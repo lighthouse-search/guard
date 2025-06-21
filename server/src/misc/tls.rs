@@ -9,16 +9,17 @@ use crate::CONFIG_VALUE;
 pub async fn init_tls() -> Option<TlsConfig> {
     if (CONFIG_VALUE.features.clone().unwrap().tls.unwrap_or(true) == true) {
         // TODO: In the future, allow getting certificates from environment variables (e.g. to accomodate Docker).
-        let config_tls = CONFIG_VALUE.clone().tls.expect("Missing config.tls");
-        if (config_tls.certificate.is_none() == false) {
+        let config_tls = CONFIG_VALUE.clone().tls;
+        if (config_tls.is_none() == false) {
             // Use TLS certificates provided in Guard configuration.
+            let config_tls_unwrapped = config_tls.clone().unwrap();
 
-            println!("certificate {}", &config_tls.clone().certificate.expect("Missing config.tls.certificate"));
-            println!("private_key {}", &config_tls.clone().private_key.expect("Missing config.tls.private_key"));
+            println!("certificate {}", &config_tls_unwrapped.clone().certificate.expect("Missing config.tls.certificate"));
+            println!("private_key {}", &config_tls_unwrapped.clone().private_key.expect("Missing config.tls.private_key"));
 
-            log::debug!("Using TLS certificate specified in configuration (paths: certificate {}, private_key {}).", &config_tls.certificate.clone().expect("Missing config.tls.certificate"), &config_tls.private_key.clone().expect("Missing config.tls.private_key"));
+            log::debug!("Using TLS certificate specified in configuration (paths: certificate {}, private_key {}).", &config_tls_unwrapped.certificate.clone().expect("Missing config.tls.certificate"), &config_tls_unwrapped.private_key.clone().expect("Missing config.tls.private_key"));
 
-            Some(TlsConfig::from_paths(&config_tls.certificate.expect("Missing config.tls.certificate"), &config_tls.private_key.expect("Missing config.tls.private_key")).with_ciphers(CipherSuite::TLS_V13_SET))
+            Some(TlsConfig::from_paths(&config_tls_unwrapped.certificate.expect("Missing config.tls.certificate"), &config_tls_unwrapped.private_key.expect("Missing config.tls.private_key")).with_ciphers(CipherSuite::TLS_V13_SET))
         } else {
             // Use one-time generated self-signed certificate.
             

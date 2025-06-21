@@ -1,5 +1,6 @@
-/client/cli/target
-client/cli/.DS_Store
-/frontend/_static
-/frontend/node_modules
-/target
+/client/endpoint-cli/target
+/client/library/target
+
+/server/frontend/_static
+/server/frontend/node_modules
+/server/target

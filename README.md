@@ -71,7 +71,7 @@ multistep_authentication_methods = false
 applied_policies = ["staff_only"]
 ```
 
-# NGINX:
+# Integration example: Guard + NGINX:
 ```
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -87,31 +87,6 @@ spec:
   - hosts:
     - guard.example.com
     secretName: guard-example-com-tls
-```
-
-# Database schema (You will not have to use a database in future versions, and can just reply on OAuth providers, if you'd like):
-```
-users {
-    id: String,
-    email: String
-}
-
-magiclink {
-    user_id: String,
-    code: String,
-    ip: String,
-    authentication_method: String,
-    created: Option<i64>
-}
-
-devices {
-    id: String,
-    user_id: String,
-    authentication_method: String,
-    collateral: Option<String>,
-    public_key: String,
-    created: Option<i64>
-}
 ```
 
 # Known issues

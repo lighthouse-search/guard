@@ -1,4 +1,4 @@
-*Guard is in alpha release, please see [TODO](#whats-on-the-todo-list) to see what's happening before beta*
+*Guard is in alpha release, please visit [TODO](#whats-on-the-todo-list) to see what's happening before beta*
 
 # Why
 Reverse-proxy authentication sucks. It's usually some NGINX configuration snippet that redirects out to OAuth/Saml, with some hack-job HTML, and an if statement if this person is authorized. Or having to program authentication into individual authentication APIs. It sucks to maintain, not to mention with proper security (such as not using bearer tokens).

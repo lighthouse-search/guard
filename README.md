@@ -71,7 +71,8 @@ multistep_authentication_methods = false
 applied_policies = ["staff_only"]
 ```
 
-# Integration example: Guard + NGINX:
+# Integration examples
+### Guard + NGINX:
 ```
 apiVersion: networking.k8s.io/v1
 kind: Ingress

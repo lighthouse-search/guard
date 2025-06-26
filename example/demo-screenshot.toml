@@ -1,6 +1,5 @@
 [features]
 reverse_proxy_authentication = true
-oauth_server = true
 
 [frontend.metadata]
 instance_hostname = "127.0.0.1"

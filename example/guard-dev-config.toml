@@ -1,12 +1,8 @@
 [features]
 reverse_proxy_authentication = true
-oauth_server = true
-
-[reverse_proxy_authentication.config]
-header = "host"
 
 [frontend.metadata]
-instance_hostname = "127.0.0.1"
+instance_hostname = "127.0.0.1:4080"
 alias = "Guard development instance"
 public_description = "This server is using a development configuration."
 image = "https://images.unsplash.com/photo-1739609579483-00b49437cc45?q=80&w=2942&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
@@ -14,33 +10,6 @@ background_colour = "#0b040e"
 domain_placeholder="example.com"
 username_placeholder="username"
 acess_denied_header=""
-style="login_1"
-
-[database.mysql]
-username = "example-user"
-password_env = "example_user_mysql_password"
-hostname = "127.0.0.1"
-port = 3306
-database = "guard"
-
-[sql.tables]
-user = "account"
-device = "device"
-magiclink = "magiclink"
-
-[smtp]
-host="smtp.sendgrid.net"
-port=465
-username="apikey"
-from_alias="Guard"
-from_header="noreply@paperplane.example.com"
-reply_to_address="noreply@paperplane.example.com"
-password_env="smtp_password"
-
-[captcha.hcaptcha.login_page]
-site_key = ""
-hcaptcha_secret_env = "login_page_hcaptcha_secret"
-size = "normal"
 
 [authentication_methods.email]
 active = true
@@ -55,70 +24,43 @@ ratelimit_cooldown = 200
 user_info_reference_type = "email"
 user_info_reference_key = "email"
 
-[authentication_methods.microsoft_entra]
-active = true
-method_type = "oauth"
-applied_policies = ["staff_only"]
-login_page = "https://login.microsoftonline.com/680e4b74-1b4d-4565-9a12-3a6c94c91a52/oauth2/v2.0/authorize?client_id=b4fffebe-a413-43e4-b0d3-77979634380f&response_type=code&state=12345&scope=openid%20profile%20email&redirect_uri=https%3A%2F%2F127.0.0.1:8000%2Ffrontend%2Fmagiclink%3Fauthentication_method%3Dmicrosoft_entra"
-should_create_new_users = true
-ratelimit = 5
-ratelimit_cooldown = 200
-user_info_reference_type = "email"
-user_info_reference_key = "email"
-alias = "Microsoft"
-icon = "https://www.microsoft.com/favicon.ico?v2"
-oauth_client_api = "https://graph.microsoft.com/"
-oauth_client_user_info = "https://graph.microsoft.com/oidc/userinfo"
-oauth_client_user_info_id = "sub"
-oauth_client_token_endpoint = "https://login.microsoftonline.com/680e4b74-1b4d-4565-9a12-3a6c94c91a52/oauth2/v2.0/token"
-oauth_client_token_endpoint_redirect_uri = "https://127.0.0.1:8000/frontend/magiclink?authentication_method=microsoft_entra"
-oauth_client_scope = "openid profile email"
-oauth_client_id = "b4fffebe-a413-43e4-b0d3-77979634380f"
-oauth_client_secret_env = "microsoft_entra_oauth_secret"
-
-[authentication_methods.discord]
-active = true
-method_type = "oauth"
-applied_policies = ["staff_only"]
-login_page = "https://discord.com/oauth2/authorize?client_id=1246505108133515345&response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Fguard%2Ffrontend%2Fmagiclink%3Fauthentication_method%3Ddiscord&scope=identify+email&authentication_method=discord"
-should_create_new_users = true
-ratelimit = 5
-ratelimit_cooldown = 200
-user_info_reference_type = "email"
-user_info_reference_key = "email"
-alias = "Discord"
-icon = "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/6266bc493fb42d4e27bb8393_847541504914fd33810e70a0ea73177e.ico"
-oauth_api = "https://discord.com/api/v10"
-oauth_user_info = "https://discord.com/api/v10/users/@me"
-oauth_user_info_id = "id"
-oauth_token_endpoint = "https://discord.com/api/v10/oauth2/token"
-oauth_client_id = "1246505108133515345"
-oauth_client_secret_env = "discord_oauth_secret"
-
-[policies.staff_only]
+[policies.specific_users]
 active = true
 action = "allow"
 property = "email"
-ends_with = "@example.com"
-and = ["email_verified"]
-
-[policies.email_verified]
-active = true
-action = "allow"
-property = "email_verified"
-is = ["true"]
+ends_with = ""
 
 [hostname.anythingyouwant]
 active = true
-host = "127.0.0.1:8009"
-applied_policies = ["staff_only"]
-authentication_methods = ["email", "microsoft_entra", "discord"]
+host = "127.0.0.1:4080"
+applied_policies = ["specific_users"]
+authentication_methods = ["email"]
 multistep_authentication_methods = false
 
-[hostname.anythingyouwant2]
-active = true
-host = "127.0.0.1:8010"
-applied_policies = ["staff_only"]
-authentication_methods = ["email", "microsoft_entra", "discord"]
-multistep_authentication_methods = false
-style = "login_1"
+[database.mysql]
+username = "example-user"
+password_env = "example_user_mysql_password"
+hostname = "127.0.0.1"
+port = 3306
+database = "guard"
+
+[reverse_proxy_authentication.config]
+header = "host"
+
+[tls_placeholder]
+certificate = "/tmp/cert.pem"
+private-key = "/tmp/key.pem"
+
+[sql.tables]
+user = "account"
+device = "device"
+magiclink = "magiclink"
+
+[smtp]
+host="smtp.sendgrid.net"
+port=587
+username="apikey"
+from_alias="Health"
+from_header="noreply@paperplane.motionfans.com"
+reply_to_address="noreply@paperplane.motionfans.com"
+password_env="smtp_password"

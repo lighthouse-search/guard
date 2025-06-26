@@ -1,7 +1,15 @@
 *Guard is in alpha release, please visit [TODO](#whats-on-the-todo-list) to see what's happening before beta*
 
 # Why
-Reverse-proxy authentication sucks. It's usually some NGINX configuration snippet that redirects out to OAuth/Saml, with some hack-job HTML, and an if statement if this person is authorized. Or having to program authentication into individual authentication APIs. It sucks to maintain, not to mention with proper security (such as not using bearer tokens).
+Before Guard, when I built apps, I had a Node.JS script handle [Subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/) requests from NGINX. As I deployed more apps, IF statements enforcing authentication policy became more complex, new authentication protocols needed to get integrated per-project, login pages needed new code and designs to support different projects - all of this creates potential security gaps and is overall a pain.
+I built Guard to streamline this process and make it available for everyone.
+Also I'm concerned how a handful of companies like Microsoft, Google and Okta/Auth0 control large portions of the internet's authentication, including authentication to sensntive dashboards. If any of those services were breached, or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data), the internet's independence would be severely undermined.
+
+Guard's core mission is being able to:
+- Run anywhere, including with or without a database.
+- Act as an authentication server for all major authentication protocols (OAuth, SAML, Kerberos)
+- Act as an app's authentication (e.g. library support in major programming languages, or reverse-proxying requests to an app's webserver to insert user information in request information)
+- Authenticate reverse proxies (e.g. [Guard + NGINX](#guard--nginx))
 
 # Example
 Guard allows you to create great, styled, authentication with a simple configuration.

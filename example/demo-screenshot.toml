@@ -4,7 +4,7 @@ reverse_proxy_authentication = true
 [frontend.metadata]
 instance_hostname = "127.0.0.1"
 alias = "ACME"
-public_description = "You're accessing sensitive information. Please login"
+public_description = "You're accessing sensitive information. Please login."
 image = "https://images.unsplash.com/photo-1565799557186-1abfed8a31e5?q=80&w=3087&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
 background_colour = "#0b040e"
 domain_placeholder="example.com"
@@ -29,7 +29,7 @@ user_info_reference_key = "email"
 active = true
 method_type = "oauth"
 applied_policies = ["staff_only"]
-login_page = "https://login.microsoftonline.com/680e4b74-1b4d-4565-9a12-3a6c94c91a52/oauth2/v2.0/authorize?client_id=[YOUR CLIENT ID]&response_type=code&state=12345&scope=openid%20profile%20email&redirect_uri=https%3A%2F%2F127.0.0.1:8000%2Ffrontend%2Fmagiclink%3Fauthentication_method%3Dmicrosoft_entra"
+login_page = "https://login.microsoftonline.com/[YOUR TENANT ID]/oauth2/v2.0/authorize?client_id=[YOUR CLIENT ID]&response_type=code&scope=[YOUR SCOPES]&redirect_uri=[YOUR REDIRECT URI]"
 should_create_new_users = true
 ratelimit = 5
 ratelimit_cooldown = 200
@@ -41,7 +41,7 @@ oauth_client_api = "https://graph.microsoft.com/"
 oauth_client_user_info = "https://graph.microsoft.com/oidc/userinfo"
 oauth_client_user_info_id = "sub"
 oauth_client_token_endpoint = "https://login.microsoftonline.com/[YOUR TENANT ID]/oauth2/v2.0/token"
-oauth_client_token_endpoint_redirect_uri = "https://127.0.0.1:8000/frontend/magiclink?authentication_method=microsoft_entra"
+oauth_client_token_endpoint_redirect_uri = "https://127.0.0.1:8000/frontend/magiclink?authentication_method=[YOUR AUTHENTICATION METHOD ID]"
 oauth_client_scope = "openid profile email"
 oauth_client_id = "[YOUR CLIENT ID]"
 oauth_client_secret_env = "microsoft_entra_oauth_secret"
@@ -63,14 +63,14 @@ is = ["true"]
 active = true
 host = "127.0.0.1:8009"
 applied_policies = ["staff_only"]
-authentication_methods = ["email", "microsoft_entra", "discord"]
+authentication_methods = ["email", "microsoft_entra"]
 multistep_authentication_methods = false
 
 [hostname.anythingyouwant2]
 active = true
 host = "127.0.0.1:8010"
 applied_policies = ["staff_only"]
-authentication_methods = ["email", "microsoft_entra", "discord"]
+authentication_methods = ["email", "microsoft_entra"]
 multistep_authentication_methods = false
 style = "login_1"
 

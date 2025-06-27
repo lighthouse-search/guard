@@ -71,10 +71,6 @@ RUN apt update
 RUN apt upgrade -y
 RUN apt install -y libcap2-bin default-mysql-client dnsutils
 
-RUN which cargo
-# Set the capability to bind to port 80 for the cargo binary
-# RUN setcap 'cap_net_bind_service=+ep' /usr/local/cargo/bin/cargo
-
 # Add a non-root user kube with restricted shell
 RUN adduser kube --disabled-login
 RUN usermod -s /bin/rbash kube

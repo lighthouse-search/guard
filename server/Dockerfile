@@ -9,7 +9,7 @@ COPY frontend /guard-server/frontend
 
 RUN apt update -y
 RUN apt upgrade -y
-RUN apt install -y curl git build-essential openssl libssl-dev libcap2-bin tree
+RUN apt install -y curl git build-essential openssl libssl-dev libcap2-bin tree ca-certificates
 
 # Create a non-root user to run Homebrew
 RUN useradd -m -s /bin/bash linuxbrew && \
@@ -69,7 +69,7 @@ WORKDIR /guard-server
 # Install libcap2-bin for setting capabilities
 RUN apt update
 RUN apt upgrade -y
-RUN apt install -y libcap2-bin default-mysql-client dnsutils
+RUN apt install -y libcap2-bin default-mysql-client dnsutils ca-certificates
 
 # Add a non-root user kube with restricted shell
 RUN adduser kube --disabled-login

@@ -2,8 +2,6 @@
 FROM --platform=linux/amd64 rust:latest as build-stage
 WORKDIR /guard-server
 
-LABEL org.opencontainers.image.source=https://github.com/oracularhades/guard
-
 COPY Cargo.lock /guard-server/Cargo.lock
 COPY Cargo.toml /guard-server/Cargo.toml
 COPY README.md /guard-server/README.md
@@ -66,7 +64,7 @@ RUN mv /guard-server-built /guard-server
 WORKDIR /guard-server
 USER linuxbrew
 
-FROM --platform=linux/amd64 rust:latest as production-stage
+FROM --platform=linux/amd64 debian:stable as production-stage
 WORKDIR /guard-server
 
 # Install libcap2-bin for setting capabilities

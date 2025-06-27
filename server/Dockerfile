@@ -4,7 +4,6 @@ WORKDIR /guard-server
 
 COPY Cargo.lock /guard-server/Cargo.lock
 COPY Cargo.toml /guard-server/Cargo.toml
-COPY README.md /guard-server/README.md
 COPY src /guard-server/src
 COPY frontend /guard-server/frontend
 

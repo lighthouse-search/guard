@@ -98,9 +98,10 @@ Guard uses [hades-auth](https://github.com/oracularhades/hades-auth) static_auth
 *Note: Yes, [hades-auth](https://github.com/oracularhades/hades-auth) is all about completely signed requests, but that can't be done with Guard, because the static_auth key has to be stored in cookies.*
 
 # Known issues
-If you run into an issue, please check https://github.com/oracularhades/guard/issues - and when you do that, (nicely) prod me to fix the issue. If the bug isn't listed, please make a Github issue and I'll fix it.
+If you run into an issue, please check https://github.com/oracularhades/guard/issues.
 
 # What's on the TODO list?
+Before beta:
 - SSO/SAML authentication. Guard being able to authentication users via those protocols, and be able to be the identity provider for those protocols. Such as if you want to authentication someone on a NAS/router via guard.
 - Better error handling in requests.
 - Some syntax improvements.
@@ -111,11 +112,6 @@ If you run into an issue, please check https://github.com/oracularhades/guard/is
 - Magiclink codes need to be hashed / encrypted in the DB.
 - Adjustable magiclink expiry.
 - Showing account email / ID on access-denied page. Which requires the /user/@me endpoints.
-
-# Feature requests:
-I'm happy to add what people need. However, Guard avoids clutter and removes barely used features. It's important to minimize the attack surface. Code we have, is code we have to maintain. Guard aims to be efficient and secure.
-
-https://github.com/oracularhades/guard/discussions/categories/feature-request
 
 # Code guidelines
 - Keep functions to <50 lines of code, with small exceptions, excluding code comments. If you go over 50 lines, you should consider if you're doing too much. Read-able code is very important.

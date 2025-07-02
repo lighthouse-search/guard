@@ -13,7 +13,7 @@ Intended for developing code.
 
 ### Set environment variables
 ```
-export guard_config=$(cat ~/Desktop/guard-dev-config.toml) && export example_user_mysql_password='[your password]' && export smtp_password="[your SMTP key]"
+export guard_config=$(cat ../example/guard-dev-config.toml) && export example_user_mysql_password='[your password]' && export smtp_password="[your SMTP key]"
 ```
 
 ### Start server

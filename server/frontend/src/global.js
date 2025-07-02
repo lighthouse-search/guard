@@ -163,6 +163,8 @@ function get_routing_host(window) {
     redirect_url = new URL(url.searchParams.get("redirect"));
     host = redirect_url.host;
     href = redirect_url.href;
+  } else {
+    throw "Missing params.redirect.";
   }
 
   return { host: host, href: href, redirect_url: redirect_url, webpage_url: url };

@@ -25,6 +25,8 @@ pub fn args_to_hashmap(args: Vec<String>) -> Args_to_hashmap {
     log::debug!("args: {:?}", args);
     let mut modes: Vec<String> = Vec::new();
 
+    // TODO: For security reasons, this CLI parsing needs to be handed off to a dedicated CLI parsing library.
+
     // Parse arguments and move into a hashmap.
     let mut arguments: HashMap<String, Command_argument> = HashMap::new();
     let mut args_iter = args.iter();

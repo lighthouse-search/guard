@@ -60,7 +60,7 @@ pub mod misc {
 }
 
 use diesel_mysql::internal_error;
-use misc::tls::generate_self_signed_certificate;
+
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Build, Rocket};

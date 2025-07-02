@@ -37,6 +37,7 @@ pub async fn oauth_pipeline(hostname: Guarded_Hostname, auth_method: AuthMethod,
         return Err(error_message("Bearer token is null or whitespace - please provide a Bearer token in your request when authenticating with OAuth."));
     }
 
+    // TODO: Somehow this unwrap might not catch an empty (completely unspecified) oauth_client_user_info?
     let user_info_result = oauth_userinfo(auth_method.oauth_client_user_info.unwrap(), bearer_token).await;
     if (user_info_result.is_err() == true) {
         log::info!("Failed to get user-info");

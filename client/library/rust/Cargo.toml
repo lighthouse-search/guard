@@ -1,6 +1,13 @@
 [package]
-name = "rust"
+name = "guard_auth"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+reqwest = "0.12.20"
+rocket = { version = "0.5.1", features = ["json"] }
+url = "2.5.0"
+
+[lib]
+name = "guard_auth"
+path = "src/lib.rs"

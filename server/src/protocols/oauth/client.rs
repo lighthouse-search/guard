@@ -13,6 +13,9 @@ pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, 
         "redirect_uri": redirect_uri,
         "grant_type": "authorization_code"
     });
+    
+    log::debug!("oauth_code_exchange_for_access_key: params: {:?}", params);
+
     let output_body = serde_urlencoded::to_string(json!(params)).expect("Failed to encode URL parameters");
     
     // Build the client.
@@ -27,10 +30,8 @@ pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, 
         .send()
         .await.expect("Failed to send request.");
 
-    // Handle the response.
-    if response.status().is_success() {
-        log::info!("Request successful");
-    }
+    // if response.status().is_success() {
+    // }
 
     let text: String = response.text().await.expect(&format!("Failed to get contents of request from '{}'.", url.clone()));
 
@@ -56,7 +57,8 @@ pub async fn oauth_userinfo(url: String, access_token: String) -> Result<Value, 
     let client = reqwest::Client::builder()
         .user_agent("Guard/1.0")
         .default_headers(headers)
-        .build().expect("Failed to build client.");
+        .build()
+        .expect("Failed to build client.");
 
     // Execute the request.
     let response = client.get(url.clone()).send().await.expect("Failed to send request.");

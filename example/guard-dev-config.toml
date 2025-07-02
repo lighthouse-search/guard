@@ -1,5 +1,10 @@
 [features]
 reverse_proxy_authentication = true
+oauth_server = true
+tls = false
+
+[reverse_proxy_authentication.config]
+header = "host"
 
 [frontend.metadata]
 instance_hostname = "127.0.0.1:4080"
@@ -24,7 +29,47 @@ ratelimit_cooldown = 200
 user_info_reference_type = "email"
 user_info_reference_key = "email"
 
-[policies.specific_users]
+[authentication_methods.microsoft_entra]
+active = true
+method_type = "oauth"
+applied_policies = ["staff_only"]
+login_page = "https://login.microsoftonline.com/680e4b74-1b4d-4565-9a12-3a6c94c91a52/oauth2/v2.0/authorize?client_id=b4fffebe-a413-43e4-b0d3-77979634380f&response_type=code&state=12345&scope=openid%20profile%20email&redirect_uri=https%3A%2F%2F127.0.0.1:8000%2Ffrontend%2Fmagiclink%3Fauthentication_method%3Dmicrosoft_entra"
+should_create_new_users = true
+ratelimit = 5
+ratelimit_cooldown = 200
+user_info_reference_type = "email"
+user_info_reference_key = "email"
+alias = "Microsoft"
+icon = "https://www.microsoft.com/favicon.ico?v2"
+oauth_client_api = "https://graph.microsoft.com/"
+oauth_client_user_info = "https://graph.microsoft.com/oidc/userinfo"
+oauth_client_user_info_id = "sub"
+oauth_client_token_endpoint = "https://login.microsoftonline.com/680e4b74-1b4d-4565-9a12-3a6c94c91a52/oauth2/v2.0/token"
+oauth_client_token_endpoint_redirect_uri = "https://127.0.0.1:8000/frontend/magiclink?authentication_method=microsoft_entra"
+oauth_client_scope = "openid profile email"
+oauth_client_id = "b4fffebe-a413-43e4-b0d3-77979634380f"
+oauth_client_secret_env = "microsoft_entra_oauth_secret"
+
+[authentication_methods.discord]
+active = true
+method_type = "oauth"
+applied_policies = ["staff_only"]
+login_page = "https://discord.com/oauth2/authorize?client_id=1246505108133515345&response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Fguard%2Ffrontend%2Fmagiclink%3Fauthentication_method%3Ddiscord&scope=identify+email&authentication_method=discord"
+should_create_new_users = true
+ratelimit = 5
+ratelimit_cooldown = 200
+user_info_reference_type = "email"
+user_info_reference_key = "email"
+alias = "Discord"
+icon = "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/6266bc493fb42d4e27bb8393_847541504914fd33810e70a0ea73177e.ico"
+oauth_client_api = "https://discord.com/api/v10"
+oauth_client_user_info = "https://discord.com/api/v10/users/@me"
+oauth_client_user_info_id = "id"
+oauth_client_token_endpoint = "https://discord.com/api/v10/oauth2/token"
+oauth_client_id = "1246505108133515345"
+oauth_client_secret_env = "discord_oauth_secret"
+
+[policies.staff_only]
 active = true
 action = "allow"
 property = "email"

@@ -1,6 +1,3 @@
-/client/endpoint-cli/target
-/client/library/target
-
-/server/frontend/_static
-/server/frontend/node_modules
-/server/target
+target/
+_static/
+node_modules/

@@ -63,7 +63,8 @@ async fn request(arguments: HashMap<String, Command_argument>, modes: Vec<String
     let ip_address = get_value(&arguments, "ip-address").expect("Failed to get IP address value");
     let headers: HashMap<String, String> = serde_json::from_str(&get_value(&arguments, "headers").expect("Failed to get headers value")).expect("Failed to parse headers");
     let cookies: indexmap::IndexMap<String, String> = serde_json::from_str(&get_value(&arguments, "cookies").expect("Failed to get cookies value")).expect("Failed to parse cookies");
-
+    // TODO: This needs to include request body.
+    
     // let (valid, user, device, authentication_method, error_to_respond_with)
     let user_authentication = user_authentication_pipeline(
         vec!["access_applications"],

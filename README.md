@@ -81,9 +81,9 @@ kind: Ingress
 metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-method: POST
-    nginx.ingress.kubernetes.io/auth-url: http://guard-service.guard.svc.cluster.local/api/proxy/authentication
-    nginx.ingress.kubernetes.io/error-page: https://guard.example.com/frontend/access-denied
-    nginx.ingress.kubernetes.io/auth-signin: https://guard.example.com/frontend/login?redirect=$scheme://$http_host$request_uri
+    nginx.ingress.kubernetes.io/auth-url: http://guard-service.guard.svc.cluster.local/guard/api/proxy/authentication
+    nginx.ingress.kubernetes.io/error-page: https://guard.example.com/guard/frontend/access-denied
+    nginx.ingress.kubernetes.io/auth-signin: https://guard.example.com/guard/frontend/login?redirect=$scheme://$http_host$request_uri
 spec:
     [..]
   tls:

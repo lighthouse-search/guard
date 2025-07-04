@@ -2,11 +2,6 @@ FROM --platform=linux/amd64 rust:latest as build-stage
 WORKDIR /builds/oracularhades/release
 EXPOSE 8000
 
-# Remove libcap2-bin and clean up apt cache
-RUN apt remove -y libcap2-bin
-RUN apt autoremove -y
-RUN apt clean
-
 RUN adduser kube --disabled-login
 RUN usermod -s /bin/rbash kube
 

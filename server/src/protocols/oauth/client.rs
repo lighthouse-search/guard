@@ -38,8 +38,24 @@ pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, 
     log::info!("{}", text);
 
     // Parse the response body as JSON
-    let oauth_code_access_exchange_response: Oauth_code_access_exchange_response = serde_json::from_str(&text).expect(&format!("Failed to parse (json) response from '{}', is the response json? Response: {}", url.clone(), text.clone()));
-    if (oauth_code_access_exchange_response.access_token.is_none() == true) {
+    // Try to parse as JSON first
+    let oauth_code_access_exchange_response: Result<Oauth_code_access_exchange_response, _> =
+        serde_json::from_str(&text);
+
+    let oauth_code_access_exchange_response = match oauth_code_access_exchange_response {
+        Ok(resp) => resp,
+        Err(_) => {
+            // If JSON parsing fails, try to parse as url-encoded
+            serde_urlencoded::from_str::<Oauth_code_access_exchange_response>(&text)
+                .expect(&format!(
+                    "Failed to parse response from '{}' as JSON or url-encoded. Response: {}",
+                    url.clone(),
+                    text.clone()
+                ))
+        }
+    };
+
+    if oauth_code_access_exchange_response.access_token.is_none() {
         log::info!("access_token not returned in 'oauth code exchange for access key' response.");
         return Ok(None);
     }

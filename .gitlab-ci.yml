@@ -1,5 +1,4 @@
 stages:
-  - build_rust_binary
   - build
 
 variables:
@@ -7,12 +6,12 @@ variables:
   DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:latest
   GIT_STRATEGY: clone
 
-build_rust_binary:
+build:
   image: rust:latest
   stage: build
   services:
     - docker:dind
-  script:
+  before_script:
     - rustc --version && cargo --version  # For any future debugging.
     - apt update -y && apt install zip tree -y
     - tree /
@@ -33,18 +32,11 @@ build_rust_binary:
     - tree /builds
     - cd /builds/oracularhades/release
     - zip -r /builds/oracularhades/guard/guard.zip .
-  artifacts:
-    paths:
-      - /builds/oracularhades/guard/guard.zip
-
-build:
-  image: docker:cli
-  stage: build
-  services:
-    - docker:dind
-  before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
     - docker buildx create --use
     - docker buildx inspect --bootstrap
     - docker buildx build --file ./server/Dockerfile --push --tag $DOCKER_IMAGE_NAME ./server
+  artifacts:
+    paths:
+      - /builds/oracularhades/guard/guard.zip

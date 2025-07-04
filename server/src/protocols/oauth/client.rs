@@ -39,10 +39,7 @@ pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, 
 
     // Parse the response body as JSON
     // Try to parse as JSON first
-    let oauth_code_access_exchange_response: Result<Oauth_code_access_exchange_response, _> =
-        serde_json::from_str(&text);
-
-    let oauth_code_access_exchange_response = match oauth_code_access_exchange_response {
+    let oauth_code_access_exchange_response = match serde_json::from_str(&text) {
         Ok(resp) => resp,
         Err(_) => {
             // If JSON parsing fails, try to parse as url-encoded

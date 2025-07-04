@@ -1,3 +1,4 @@
+FROM --platform=linux/amd64 rust:latest as build-stage
 WORKDIR /builds/oracularhades/release
 EXPOSE 8000
 

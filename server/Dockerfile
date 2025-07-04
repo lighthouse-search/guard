@@ -1,6 +1,4 @@
-COPY /builds/oracularhades/release /guard-server
-
-# Expose port 80 for the web server
+WORKDIR /builds/oracularhades/release
 EXPOSE 8000
 
 # Remove libcap2-bin and clean up apt cache

@@ -9,7 +9,7 @@ variables:
 
 build_rust_binary:
   image: rust:latest
-  stage: build
+  stage: build_rust_binary
   services:
     - docker:dind
   script:
@@ -39,7 +39,7 @@ build_rust_binary:
 
 build:
   image: docker:cli
-  stage: build
+  stage: build_rust_binary
   services:
     - docker:dind
   needs:

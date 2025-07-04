@@ -39,11 +39,11 @@ build_rust_binary:
 
 build:
   image: docker:cli
-  stage: build_rust_binary
+  stage: build
   services:
     - docker:dind
   needs:
-    - job: build
+    - job: build_rust_binary
       artifacts: true
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY

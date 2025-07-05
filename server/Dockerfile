@@ -1,6 +1,6 @@
 FROM --platform=linux/amd64 rust:latest as build-stage
+COPY /builds/oracularhades/release /builds/oracularhades/release
 WORKDIR /builds/oracularhades/release
-EXPOSE 8000
 
 RUN apt update -y
 RUN apt upgrade -y
@@ -12,4 +12,5 @@ RUN usermod -s /bin/rbash kube
 
 # Run the application as kube user
 USER kube
-CMD echo "defaults\nauth on\ntls on\ntls_starttls on\n\naccount smtp\nhost $smtp_host\nport $smtp_port\nfrom $smtp_from_header\nuser $smtp_username\npassword $smtp_password\n\n# Set default\naccount default : smtp" > /home/kube/.msmtprc && chmod 600 /home/kube/.msmtprc && /builds/oracularhades/release/target/release/guard-server
+EXPOSE 8000
+CMD /builds/oracularhades/release/guard-server

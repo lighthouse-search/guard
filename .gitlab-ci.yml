@@ -51,4 +51,4 @@ build:
     - unzip -o /builds/oracularhades/guard/guard.zip -d /builds/oracularhades/release
     - docker buildx create --use
     - docker buildx inspect --bootstrap
-    - docker buildx build --file ./server/Dockerfile --push --tag $DOCKER_IMAGE_NAME ./server
+    - docker buildx build --file ./server/Dockerfile --push --tag $DOCKER_IMAGE_NAME /builds/oracularhades

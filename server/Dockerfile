@@ -1,5 +1,5 @@
 FROM --platform=linux/amd64 rust:latest as build-stage
-COPY /builds/oracularhades/release /builds/oracularhades/release
+COPY release/ /builds/oracularhades/release
 WORKDIR /builds/oracularhades/release
 
 RUN apt update -y

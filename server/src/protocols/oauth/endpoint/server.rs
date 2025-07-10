@@ -19,7 +19,7 @@ use rocket::post;
 use serde::Deserialize;
 
 #[derive(FromForm, Deserialize, Debug, Clone)]
-struct AuthRequest {
+pub struct AuthRequest {
     grant_type: Option<String>,
     code: Option<String>,
     redirect_uri: Option<String>,
@@ -29,12 +29,12 @@ struct AuthRequest {
 
 #[post("/token", data = "<auth_request>")]
 pub async fn oauth_server_token(auth_request: Form<AuthRequest>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
+    // "auth_request" = request body.
+
     let grant_type = auth_request.grant_type.clone();
     let code = auth_request.code.clone();
     let redirect_uri = auth_request.redirect_uri.clone();
 
-    // TODO: client_id and client_secret aren't validated.
-    // TODO: There's no application gating.
     let client_id = auth_request.client_id.clone();
     let client_secret = auth_request.client_secret.clone();
 

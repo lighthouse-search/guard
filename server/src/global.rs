@@ -165,8 +165,6 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     log::info!("[Debug] SMTP: {:?}", smtp.clone());
 
-    // NOTE: We're not stupid, Lettre validates the input here via .parse. It's absolutely vital .parse is here for safety.
-
     let from = format!("{} <{}>", smtp.from_alias.expect("Missing from_alias"), smtp.from_header.clone().expect("Missing from_header"));
     let mut reply_to = format!("<{}>", smtp.from_header.expect("Missing from_header"));
     let to = format!("<{}>", email);
@@ -175,7 +173,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
         reply_to = format!("<{}>", smtp.reply_to_address.expect("Missing reply_to_address"));
     }
 
-    // NOTE: IT IS ABSOLUTELY VITAL .PARSE IS HERE, ON ALL INPUTS, FOR SAFETY. Lettre validates the input here via .parse, injection is possible without .parse.
+    // NOTE: IT IS ABSOLUTELY VITAL .PARSE IS USED ON ALL INPUTS FOR SAFETY. Lettre validates the input here via .parse. Input injection isn't possible with .parse().
     let mut email_packet = Message::builder()
     .from(from.parse().unwrap())
     .reply_to(reply_to.parse().unwrap())
@@ -186,7 +184,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
     .unwrap();
 
     // Check for password and get it.
-    let mut password: String = String::new(); // Default password, for dev builds only. Do not use in production.
+    let mut password: String = String::new();
     if let Some(val) = env::var(smtp.password_env.expect("Missing password_env")).ok() {
         password = val;
     } else {
@@ -199,7 +197,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     log::debug!("Passed creds");
  
-    // Open a remote connection to gmail using STARTTLS
+    // Open a remote connection to specified SMTP host using STARTTLS
     let mailer = SmtpTransport::starttls_relay(&smtp.host.expect("Missing smtp.host"))
         .unwrap()
         .credentials(creds)

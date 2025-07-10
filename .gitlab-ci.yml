@@ -9,7 +9,7 @@ variables:
 
 build_rust_binary:
   image: rust:latest
-  stage: build
+  stage: build_rust_binary
   services:
     - docker:dind
   script:
@@ -42,9 +42,13 @@ build:
   stage: build
   services:
     - docker:dind
+  needs:
+    - job: build_rust_binary
+      artifacts: true
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
+    - unzip -o /builds/oracularhades/guard/guard.zip -d /builds/oracularhades/release
     - docker buildx create --use
     - docker buildx inspect --bootstrap
-    - docker buildx build --file ./server/Dockerfile --push --tag $DOCKER_IMAGE_NAME ./server
+    - docker buildx build --file ./server/Dockerfile --push --tag $DOCKER_IMAGE_NAME /builds/oracularhades

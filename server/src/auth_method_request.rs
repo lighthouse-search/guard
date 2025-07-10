@@ -31,7 +31,7 @@ pub async fn request_email(email: String, authentication_method: AuthMethod, req
         // Because the user_get_otherwise_create will always return a user (after all, it's creating a user if it doesn't exist), a None result means the user is unauthorized and we will not create one.
         return Ok(RequestMagiclink {
             error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message(&format!("Access denied - '{}' is not an authorized email", email)).into())),
-            email: None,
+            _email: None,
         });
     }
 
@@ -74,6 +74,6 @@ pub async fn request_email(email: String, authentication_method: AuthMethod, req
 
     Ok(RequestMagiclink {
         error_to_respond_to_client_with: None,
-        email: Some(email),
+        _email: Some(email),
     })
 }

@@ -46,6 +46,7 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
     let mut matches: bool = false;
     let mut property = String::new();
 
+    // Check if user data was provided by authentication provider, check that user data is not empty.
     if let Some(property_value) = user.get(policy.property.clone()) {
         if property_value.is_null() || property_value.as_str().map_or(false, |s| s.is_empty()) {
             log::info!("The property is empty");
@@ -82,6 +83,7 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
                 matches = true;
             }
         } else {
+            // Failed a policy stage, we cannot authorise the user.
             matches = false;
         }
     }
@@ -104,6 +106,7 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
                 matches = true;
             }
         } else {
+            // Failed a policy stage, we cannot authorise the user.
             matches = false;
         }
     }
@@ -115,6 +118,7 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
         if (property.starts_with(&starts_with)) {
             matches = true;
         } else {
+            // Failed a policy stage, we cannot authorise the user.
             matches = false;
         }
     }
@@ -126,19 +130,12 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
         if (property.ends_with(&ends_with) == true) {
             matches = true;
         } else {
+            // Failed a policy stage, we cannot authorise the user.
             matches = false;
         };
     }
 
-    // let requested_property = policy.property.to_lowercase(); // So we can always get the property as lower-case without 
-    // if (requested_property == "email") {
-    //     property = user.email;
-    // } else if (requested_property == "ip") {
-    //     property = ip;
-    // } else {
-    //     // Throw error, invalid property.
-    //     return Err("Invalid property specified for policy. This should have been caught in a config integrity check.".into());
-    // }
+    // If matches = true, the user will be authorised. This means they haven't failed any policies.
 
     Ok(matches)
 }

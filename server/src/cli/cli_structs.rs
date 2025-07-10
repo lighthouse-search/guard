@@ -15,7 +15,7 @@ pub struct Cli_authenticate_handle_response {
     pub nonce: String,
     pub valid: bool,
     pub user: Option<Value>,
-    pub device: Option<Guard_devices>,
+    pub device: Option<GuardDevices>,
     pub authentication_method: Option<AuthMethod>,
     pub dev_note: String
 }

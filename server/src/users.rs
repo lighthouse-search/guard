@@ -1,119 +1,108 @@
-use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
-
-use rocket::response::status;
-use rocket::http::{Status, CookieJar, Cookie};
 
 use diesel::prelude::*;
 use diesel::sql_types::*;
 use diesel::sql_query;
 
 use crate::authentication_misc::protocol_decision_to_pipeline;
-use crate::global::{generate_random_id, generate_uuid, get_authentication_method};
+use crate::global::generate_uuid;
 use crate::hostname::get_hostname;
 use crate::responses::*;
 use crate::structs::*;
-use crate::tables::*;
 use crate::policy::*;
-use crate::device::{device_signed_authentication, device_get, device_guard_static_auth_from_cookies};
 
 use std::error::Error;
-use std::fmt::format;
 use std::net::SocketAddr;
 
-use std::collections::HashMap;
-
-use hades_auth::*;
-
-use crate::{CONFIG_VALUE, SQL_TABLES};
+use crate::SQL_TABLES;
 
 // Some authenticatiom methods, such as email require action (such as sending a magiclink) before the user can present credentials to authenticate. This is where that logic is kept.
 
-pub async fn user_get(id: Option<String>, email: Option<String>) -> Result<(Option<Guard_user>), Box<dyn Error>> {
+pub async fn user_get(id: Option<String>, email: Option<String>) -> Result<Option<GuardUser>, Box<dyn Error>> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
-    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
 
     // SECURITY: This is inserted as RAW SQL. DO NOT, UNDER ANY CIRCUMSTANCE, MAKE 'CONDITION' THE VALUE OF A VARIABLE, THAT WOULD ALLOW SQL INJECTION. KEEP THIS TO JUST THE STRING 'id' AND 'email'.
-    let mut condition: String = String::new();
-    let mut value: String = String::new();
-    if (id.is_none() == false) {
-        value = id.unwrap();
-        condition = "id".to_string();
-    } else if (email.is_none() == false) {
-        value = email.unwrap();
-        condition = "email".to_string();
+    let mut _condition: String = String::new();
+    let mut _value: String = String::new();
+    if id.is_none() == false {
+        _value = id.unwrap();
+        _condition = "id".to_string();
+    } else if email.is_none() == false {
+        _value = email.unwrap();
+        _condition = "email".to_string();
     } else {
         return Err(format!("Both id and email are null.").into());
     }
 
-    let result: Vec<Guard_user> = sql_query(format!("SELECT id, email FROM {} WHERE {}=?", sql.user.unwrap(), condition))
-    .bind::<Text, _>(value)
-    .load::<Guard_user>(&mut db)
+    let result: Vec<GuardUser> = sql_query(format!("SELECT id, email FROM {} WHERE {}=?", sql.user.unwrap(), _condition))
+    .bind::<Text, _>(_value)
+    .load::<GuardUser>(&mut db)
     .expect("Something went wrong querying the DB.");
 
     log::info!("USER_GET RESULT: {:?}", result.clone());
 
-    if (result.len() == 0) {
+    if result.len() == 0 {
         // Device not found.
-        return Ok((None));
+        return Ok(None);
     }
 
     let user = result[0].clone();
 
-    Ok((Some(user)))
+    Ok(Some(user))
 }
 
-pub async fn user_create(id_input: Option<String>, email_input: Option<String>) -> Result<User_create, String> {
+pub async fn user_create(id_input: Option<String>, email_input: Option<String>) -> Result<UserCreate, String> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
     let id: String = id_input.unwrap_or(generate_uuid());
     let email: String = email_input.clone().unwrap_or("null".to_string());
 
     // Set limit on email characters, in-case someone wants to have a laugh. 500 is very generous.
-    if (email.len() > 500) {
+    if email.len() > 500 {
         return Err("The email provided is over 500 characters.".into());
     }
 
     // Check for existing ID.
-    let (exists_id)= user_get(Some(id.clone()), None).await.expect("Failed to get user for ID check.");
+    let exists_id= user_get(Some(id.clone()), None).await.expect("Failed to get user for ID check.");
     
     // If a user was returned, the id is already in-use.
-    if (exists_id.is_none() == false) {
+    if exists_id.is_none() == false {
         // A user with this ID already exists.
         return Err(format!("A user with the ID '{}' already exists.", id).into());
     }
 
     // Check for existing email, provided it was originally supplied (and not default null).
-    if (email_input.is_none() == false) {
+    if email_input.is_none() == false {
         // Attempt to call a user with the email address candidate.
-        let (exists_email) = user_get(None, Some(email.clone())).await.expect("Failed to get user for email check.");
+        let exists_email = user_get(None, Some(email.clone())).await.expect("Failed to get user for email check.");
 
         // If a user was returned, it means the email is already in-use.
-        if (exists_email.is_none() == false) {
+        if exists_email.is_none() == false {
             // A user with this ID already exists.
             return Err(format!("A user with the email '{}' already exists.", email).into());
         }
     }
 
-    // Get the admin's SQL tables. Config_sql is filtered to A-Za-z1-9 (may be outdated, check validate_sql_table_inputs in global.rs) and is provided in the configuration file, to prevent SQL injection attacks.
-    let sql: Config_sql_tables = (&*SQL_TABLES).clone();
+    // Get the admin's SQL tables. ConfigSql is filtered to A-Za-z1-9 (may be outdated, check validate_sql_table_inputs in global.rs) and is provided in the configuration file, to prevent SQL injection attacks.
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
  
     let query = format!("INSERT INTO {} (id, email) VALUES (?, ?)", sql.user.unwrap());
-    let result = sql_query(query)
+    sql_query(query)
     .bind::<Text, _>(id.clone())
     .bind::<Text, _>(email.clone())
     .execute(&mut db)
     .expect("Something went wrong querying the DB.");
 
-    Ok(User_create {
+    Ok(UserCreate {
         user_id: id.clone()
     })
 }
 
-pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &Headers) -> Result<User_authentication_pipeline_response, Error_response> {
+pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &Headers) -> Result<UserAuthenticationPipelineResponse, ErrorResponse> {
     // Match incoming hostname to configuration.
     let hostname_result = get_hostname(host.clone()).await;
-    if (hostname_result.is_err() == true) {
+    if hostname_result.is_err() == true {
         log::info!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
         return Err(error_message("Invalid hostname").into())
     }
@@ -122,7 +111,7 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
     // Authenticate user for specific authentication method.
     let protocol_decision_status = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers).await;
     // Check pipeline for response error.
-    if (protocol_decision_status.is_err() == true) {
+    if protocol_decision_status.is_err() == true {
         // TODO: This looks like it could potentially return unsafe error data? Will need to test. It's not directly against a web endpoint so should be fine for now.
         return Err(protocol_decision_status.err().unwrap());
     }
@@ -134,12 +123,12 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
     // Verify the user's authentication method is valid for this hostname.
     let result = policy_authentication(get_hostname_policies(hostname, true).await, user_as_value.clone(), remote_addr.to_string()).await;
 
-    if (result != true) {
+    if result != true {
         log::debug!("policy_authentication returned {}", result);
         return Err(error_message("Unauthorized (due to policy)").into());
     }
 
-    return Ok(User_authentication_pipeline_response {
+    return Ok(UserAuthenticationPipelineResponse {
         user: Some(user_as_value),
         device: protocol_decision.device,
         authentication_method: protocol_decision.authentication_method,
@@ -147,28 +136,28 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
     });
 }
 
-pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<User_get_id_preference_struct, String> {
+pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<UserGetIdPreferenceStruct, String> {
     // TODO: I am not sure this is needed? We should be generating UUIDs for users. This only makes sense when there is no database - I suspect that's what this is for. I will return to this.
 
     let reference_type: String = authentication_method.user_info_reference_type.unwrap_or("id".to_string()); // TODO: maybe revist this later, but this will fail any proxy authentication if not specified. I doubt it will get used in email contexts, so we'll just default to 'id'.
     let mut reference_key: String = reference_type.clone();
-    if (authentication_method.user_info_reference_key.is_none() == true) {
+    if authentication_method.user_info_reference_key.is_none() == true {
         reference_key = reference_type.clone();
     }
 
-    let mut has_value: bool = false;
+    let mut _has_value: bool = false;
     let mut id: Option<String> = None;
     let mut email: Option<String> = None;
 
     log::info!("user_get_id_preference user_data: {}", user_data.clone());
 
-    if (user_data.get(reference_key.clone()).is_none() == false) {
+    if user_data.get(reference_key.clone()).is_none() == false {
         let value: String = user_data.get(reference_key.clone()).unwrap().as_str().unwrap().to_string();
-        has_value = true;
+        _has_value = true;
         
-        if (reference_type == "id") {
+        if reference_type == "id" {
             id = Some(value);
-        } else if (reference_type == "email") {
+        } else if reference_type == "email" {
             email = Some(value);
         } else {
             return Err(format!("'{}' is not a valid authentication_method.user_info_reference_key type. Examples of valid authentication_method.user_info_reference_key: 'id', 'email'", reference_type));
@@ -177,8 +166,8 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
         return Err(format!("user_get_id_preference: User data did not include key '{}'", reference_key.clone()))
     }
 
-    let output: User_get_id_preference_struct = User_get_id_preference_struct {
-        has_value: has_value,
+    let output: UserGetIdPreferenceStruct = UserGetIdPreferenceStruct {
+        has_value: _has_value,
         id: id,
         email: email
     };
@@ -186,60 +175,27 @@ pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMetho
     return Ok(output);
 }
 
-// TODO: Clean (Option<String>)
-// TODO: I can't find where this function was last used? It's been deprecated without documentaion.
-pub async fn attempted_external_user_handling(attempted_external_user: Value, authentication_method: AuthMethod) -> Result<(Option<String>), String> {
-    // An authentication method can authentication either by an ID or email directly provided by a protocol, like OAuth. This function checks what the admin's preference for the specified authentication method is.
-    let user_get_id_preference_status: User_get_id_preference_struct = user_get_id_preference(attempted_external_user, authentication_method.clone()).expect("Failed to get user_get_id_preference");
-    if (user_get_id_preference_status.has_value == false) {
-        // User information did not return an identifier, like id or email.
-        log::info!("User information did not return an identifier, like id or email.");
-        return Err(format!("User information did not return an identifier, like id or email.").into());
-    }
 
-    let (user_check) = user_get(user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to (attempt to) get user");
-
-    let mut user_id: Option<String> = None;
-    if (user_check.is_none() == false) {
-        user_id = Some(user_check.clone().unwrap().id);
-    } else if (user_get_id_preference_status.id.is_none() == false) {
-        user_id = Some(user_get_id_preference_status.id.clone().unwrap());
-    }
-
-    if (user_check.is_none() == true) {
-        if (authentication_method.clone().should_create_new_users.unwrap_or(false) == true) {
-            log::info!("USER CREATE EMAIL: {}", user_get_id_preference_status.email.clone().unwrap());
-            let user_create = user_create(user_get_id_preference_status.id.clone(), user_get_id_preference_status.email.clone()).await.expect("Failed to create user.");
-            user_id = Some(user_create.user_id);
-        } else {
-            // Authentication failed... User is not in database.
-            return Ok((None));
-        }
-    }
-
-    return Ok((Some(user_id.unwrap())));
-}
-
-pub async fn user_get_otherwise_create(host: Guarded_Hostname, email: String, remote_addr: SocketAddr) -> Result<(Option<Guard_user>), String> {
+pub async fn user_get_otherwise_create(host: GuardedHostname, email: String, remote_addr: SocketAddr) -> Result<Option<GuardUser>, String> {
     let email_user_as_value: Value = json!({
         "email": email
     });
 
     let policy_authentication = policy_authentication(get_hostname_policies(host.clone(), true).await, email_user_as_value, remote_addr.to_string()).await;
-    if (policy_authentication == false) {
+    if policy_authentication == false {
         // Unauthorized user.
-        return Ok((None));
+        return Ok(None);
     }
 
-    let (mut user_result) = user_get(None, Some(email.clone())).await.expect("Failed to get user.");
+    let mut user_result = user_get(None, Some(email.clone())).await.expect("Failed to get user.");
 
-    if (user_result.is_none() == true) {
+    if user_result.is_none() == true {
         // User not found, however, the user is authorized, so we need to create a user entry.
         let user_create_struct = user_create(None, Some(email.clone())).await.expect("Failed to create user.");
 
-        let (after_create_user_result) = user_get(Some(user_create_struct.user_id), None).await.expect("Failed to get user after creation.");
+        let after_create_user_result = user_get(Some(user_create_struct.user_id), None).await.expect("Failed to get user after creation.");
         user_result = after_create_user_result;
     }
 
-    return Ok((Some(user_result.unwrap())));
+    return Ok(Some(user_result.unwrap()));
 }

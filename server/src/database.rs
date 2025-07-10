@@ -1,20 +1,8 @@
-use std::fmt::format;
-use std::process::{Command, Stdio};
 use std::error::Error;
-use std::collections::{HashMap};
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::fs;
-use std::fs::{File};
-use std::io::Write;
-use url::Url;
-
-use rand::prelude::*;
 
 use crate::globals::environment_variables;
 use crate::structs::*;
-use crate::tables::*;
 use regex::Regex;
-use std::env;
 
 use crate::CONFIG_VALUE;
 
@@ -23,14 +11,17 @@ fn validate_table_name(input: &str) -> bool {
     re.is_match(input)
 }
 
-pub async fn validate_sql_table_inputs(raw_sql_tables: toml::Value) -> Result<bool, Box<dyn Error>> {
-    let sql_tables = raw_sql_tables.as_table().unwrap();
+pub async fn validate_sql_table_inputs(sql_tables: serde_json::Value) -> Result<bool, Box<dyn Error>> {
     // log::info!("sql_tables: {:?}", sql_tables);
 
-    for (key, value) in sql_tables {
+    let sql_tables_map: &serde_json::Map<String, serde_json::Value> = sql_tables
+        .as_object()
+        .ok_or("expected a JSON object at top level")?;
+
+    for (key, value) in sql_tables_map {
         if let Some(table_name) = value.as_str() {
             let output = validate_table_name(table_name);
-            if (output != true) {
+            if output != true {
                 return Err(format!("\"{}\" does not match A-Za-z1-9. This is necessary for SQL security, as table names are not bind-able.", key).into());
             }
         }
@@ -44,7 +35,7 @@ pub fn create_database_url(username: String, password: String, hostname: String,
 }
 
 pub fn get_default_database_url() -> String {
-    let sql: Config_database_mysql = CONFIG_VALUE.database.clone().and_then(|d| d.mysql).expect("missing config.database.mysql");
+    let sql: ConfigDatabaseMysql = CONFIG_VALUE.database.clone().and_then(|d| d.mysql).expect("missing config.database.mysql");
 
     let password_env = environment_variables::get(sql.password_env.clone().expect("config.sql.password_env is missing.")).expect(&format!("The environment variable specified in config.sql.password_env ('{:?}') is missing.", sql.password_env.clone()));
 

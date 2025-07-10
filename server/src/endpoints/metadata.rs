@@ -1,20 +1,16 @@
 use rocket::response::status::Custom;
-use rocket::{http::Status, response::status, serde::json::Json, get};
-
-use diesel::sql_query;
-use diesel::prelude::*;
-use diesel::sql_types::*;
+use rocket::{http::Status, response::status, get};
 
 use serde_json::{json, Value};
 
 use crate::hostname::{get_hostname, get_hostname_authentication_methods};
-use crate::{error_message, AuthMethod_Public, Frontend_metadata, CONFIG_VALUE};
+use crate::{error_message, AuthMethodPublic, FrontendMetadata, CONFIG_VALUE};
 
 // Endpoint root: /api/metadata
 
 #[get("/?<hostname>")]
 pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
-    let frontend_metadata: Frontend_metadata = CONFIG_VALUE.frontend.clone().unwrap().metadata.unwrap();
+    let frontend_metadata: FrontendMetadata = CONFIG_VALUE.frontend.clone().unwrap().metadata.unwrap();
 
     let mut alias: Option<String> = frontend_metadata.alias;
     let mut public_description: Option<String> = frontend_metadata.public_description;
@@ -28,33 +24,33 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
 
     // TODO: This should be an impl From<>.
     let hostname = get_hostname(hostname.unwrap()).await;
-    if (hostname.is_ok() == true) {
+    if hostname.is_ok() == true {
         let hostname_unwrapped = hostname.unwrap();
-        if (hostname_unwrapped.alias.is_none() == false) {
+        if hostname_unwrapped.alias.is_none() == false {
             alias = Some(hostname_unwrapped.alias.unwrap());
         }
-        if (hostname_unwrapped.public_description.is_none() == false) {
+        if hostname_unwrapped.public_description.is_none() == false {
             public_description = Some(hostname_unwrapped.public_description.unwrap());
         }
-        if (hostname_unwrapped.logo.is_none() == false) {
+        if hostname_unwrapped.logo.is_none() == false {
             logo = Some(hostname_unwrapped.logo.unwrap());
         }
-        if (hostname_unwrapped.image.is_none() == false) {
+        if hostname_unwrapped.image.is_none() == false {
             image = Some(hostname_unwrapped.image.unwrap());
         }
-        if (hostname_unwrapped.motd_banner.is_none() == false) {
+        if hostname_unwrapped.motd_banner.is_none() == false {
             motd_banner = Some(hostname_unwrapped.motd_banner.unwrap());
         }
-        if (hostname_unwrapped.domain_placeholder.is_none() == false) {
+        if hostname_unwrapped.domain_placeholder.is_none() == false {
             domain_placeholder = Some(hostname_unwrapped.domain_placeholder.unwrap());
         }
-        if (hostname_unwrapped.username_placeholder.is_none() == false) {
+        if hostname_unwrapped.username_placeholder.is_none() == false {
             username_placeholder = Some(hostname_unwrapped.username_placeholder.unwrap());
         }
-        if (hostname_unwrapped.background_colour.is_none() == false) {
+        if hostname_unwrapped.background_colour.is_none() == false {
             background_colour = Some(hostname_unwrapped.background_colour.unwrap());
         }
-        if (hostname_unwrapped.style.is_none() == false) {
+        if hostname_unwrapped.style.is_none() == false {
             style = hostname_unwrapped.style.unwrap();
         }
     }
@@ -78,13 +74,13 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
 #[get("/get-authentication-methods?<hostname>")]
 pub async fn metadata_get_authentication_methods(hostname: Option<String>) -> Custom<Value> {
     let hostname_data = get_hostname(hostname.unwrap()).await;
-    if (hostname_data.is_err() == true) {
+    if hostname_data.is_err() == true {
         return status::Custom(Status::BadRequest, error_message("Invalid hostname.").into());
     }
 
     let active_authentication_methods_data = get_hostname_authentication_methods(hostname_data.unwrap(), true).await;
 
-    let mut auth_methods_public: Vec<AuthMethod_Public> = Vec::new();
+    let mut auth_methods_public: Vec<AuthMethodPublic> = Vec::new();
     for auth_method in &active_authentication_methods_data {
         auth_methods_public.push(auth_method.clone().into());
     }

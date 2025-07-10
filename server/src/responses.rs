@@ -1,18 +1,15 @@
 use serde_json::{Value, json};
-use rocket::response::status;
-use rocket::http::Status;
-use rocket::response::status::Custom;
 use crate::structs::*;
 
-pub fn error_message(message: &str) -> Error_response {
-    return Error_response {
+pub fn error_message(message: &str) -> ErrorResponse {
+    return ErrorResponse {
         error: true,
         message: message.to_string()
     }
 }
 
-impl From<Error_response> for Value {
-    fn from(err: Error_response) -> Self {
+impl From<ErrorResponse> for Value {
+    fn from(err: ErrorResponse) -> Self {
         json!({
             "error": err.error,
             "message": err.message,
@@ -20,17 +17,17 @@ impl From<Error_response> for Value {
     }
 }
 
-pub fn internal_server_error_generic() -> Error_response {
-    return Error_response {
+pub fn internal_server_error_generic() -> ErrorResponse {
+    return ErrorResponse {
         error: true,
         message: "Internal server error".to_string()
     }
 }
 
-pub fn not_authorized() -> Value {
-    return json!({
-        "error": true,
-        "message": "Authentication failed (you must authenticate).",
-        "unauthorized": true
-    })
-}
+// pub fn not_authorized() -> Value {
+//     return json!({
+//         "error": true,
+//         "message": "Authentication failed (you must authenticate).",
+//         "unauthorized": true
+//     })
+// }

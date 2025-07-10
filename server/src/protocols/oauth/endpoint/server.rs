@@ -1,14 +1,9 @@
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 
-use rocket::{http::Status, response::status::{self, Custom}, get};
+use rocket::{http::Status, response::status::{self, Custom}};
 
-use diesel::sql_query;
-use diesel::prelude::*;
-use diesel::sql_types::*;
-
-use crate::{hostname::hostname_auth_exit_flow, structs::*};
-use crate::protocols::oauth::{client::oauth_code_exchange_for_access_key, pipeline::oauth_get_data_from_oauth_login_url};
+use crate::structs::*;
 use crate::{error_message, Headers};
 use crate::global::is_null_or_whitespace;
 use crate::device::device_signed_authentication;
@@ -28,23 +23,23 @@ pub struct AuthRequest {
 }
 
 #[post("/token", data = "<auth_request>")]
-pub async fn oauth_server_token(auth_request: Form<AuthRequest>, remote_addr: SocketAddr, headers: &Headers) -> Result<Custom<Value>, Status> {
+pub async fn oauth_server_token(auth_request: Form<AuthRequest>, _remote_addr: SocketAddr, _headers: &Headers) -> Result<Custom<Value>, Status> {
     // "auth_request" = request body.
 
-    let grant_type = auth_request.grant_type.clone();
+    let _grant_type = auth_request.grant_type.clone();
     let code = auth_request.code.clone();
     let redirect_uri = auth_request.redirect_uri.clone();
 
     let client_id = auth_request.client_id.clone();
-    let client_secret = auth_request.client_secret.clone();
+    let _client_secret = auth_request.client_secret.clone();
 
-    if (is_null_or_whitespace(client_id.clone())) {
+    if is_null_or_whitespace(client_id.clone()) {
         return Ok(status::Custom(Status::BadRequest, error_message("params.client_id is null or whitespace.").into()));
     }
-    if (is_null_or_whitespace(redirect_uri.clone())) {
+    if is_null_or_whitespace(redirect_uri.clone()) {
         return Ok(status::Custom(Status::BadRequest, error_message("params.redirect_uri is null or whitespace.").into()));
     }
-    if (is_null_or_whitespace(code.clone())) {
+    if is_null_or_whitespace(code.clone()) {
         return Ok(status::Custom(Status::BadRequest, error_message("params.code is null or whitespace.").into()));
     }
 
@@ -52,24 +47,24 @@ pub async fn oauth_server_token(auth_request: Form<AuthRequest>, remote_addr: So
 
     let mut errors: Vec<String> = Vec::new();
 
-    let code_data: Oauth_server_token_code = serde_json::from_value(additional_data.unwrap()).expect("Failed to parse OAuth code metadata.");
-    if (code_data.client_id.is_none()) {
+    let code_data: OauthServerTokenCode = serde_json::from_value(additional_data.unwrap()).expect("Failed to parse OAuth code metadata.");
+    if code_data.client_id.is_none() {
         errors.push(String::from("params.code.client_id is null or whitespace."));
     }
-    if (code_data.scope.is_none()) {
+    if code_data.scope.is_none() {
         errors.push(String::from("params.code.scope is null or whitespace."));
     }
-    if (code_data.redirect_uri.is_none()) {
+    if code_data.redirect_uri.is_none() {
         errors.push(String::from("params.code.redirect_uri is null or whitespace."));
     }
-    if (code_data.grant_type.is_none()) {
+    if code_data.grant_type.is_none() {
         errors.push(String::from("params.code.grant_type is null or whitespace."));
     }
-    if (code_data.nonce.is_none()) {
+    if code_data.nonce.is_none() {
         errors.push(String::from("params.code.nonce is null or whitespace."));
     }
 
-    if (errors.len() > 0) {
+    if errors.len() > 0 {
         return Ok(status::Custom(Status::BadRequest, json!(
             {
                 "error": true,
@@ -83,24 +78,24 @@ pub async fn oauth_server_token(auth_request: Form<AuthRequest>, remote_addr: So
     let scope_unwrapped: Vec<String> = code_data.scope.clone().unwrap().split(" ").map(|s| s.to_string()).collect();
 
     // Verify code is signed for client_id and redirect_uri.
-    if (code_data.client_id.unwrap() != client_id_unwrapped) {
+    if code_data.client_id.unwrap() != client_id_unwrapped {
         errors.push(String::from("params.code is not signed for params.client_id"));
     }
 
-    if (code_data.redirect_uri.unwrap() != redirect_uri.unwrap()) {
+    if code_data.redirect_uri.unwrap() != redirect_uri.unwrap() {
         errors.push(String::from("params.code is not signed for params.redirect_uri"));
     }
 
     let valid_scopes: Vec<String> = vec![String::from("user_information_read"), String::from("email_read"), String::from("authentication_method_read")];
     let scopes: Vec<String> = code_data.scope.unwrap().split(' ').map(|s| s.to_string()).collect();
     for scope in scopes {
-        if (valid_scopes.contains(&scope) == false) {
+        if valid_scopes.contains(&scope) == false {
             // Invalid scope.
             errors.push(format!("\"{}\" is an invalid scope.", scope));
         }
     }
 
-    if (errors.len() > 0) {
+    if errors.len() > 0 {
         return Ok(status::Custom(Status::BadRequest, json!(
             {
                 "error": true,

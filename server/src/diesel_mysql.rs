@@ -3,14 +3,14 @@ use rocket::fs::FileServer;
 use rocket::fairing::AdHoc;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
-use rocket::{Request, Response, request, request::FromRequest, catch, catchers, launch};
+use rocket::{Request, Response, request, request::FromRequest, catch};
 
 use crate::endpoints::auth::{auth_method_request, authenticate};
 use crate::endpoints::metadata::{metadata_get, metadata_get_authentication_methods};
 use crate::endpoints::reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put};
 use crate::protocols::oauth::endpoint::client::oauth_exchange_code;
 use crate::protocols::oauth::endpoint::server::{oauth_server_token};
-use crate::{CONFIG_VALUE, SQL_TABLES};
+use crate::CONFIG_VALUE;
 
 use crate::hostname::get_current_valid_hostname;
 use crate::structs::*;
@@ -60,7 +60,7 @@ pub fn stage() -> AdHoc {
         
         // Attempt to extract "config.reverse_proxy_authentication"
         if let Some(features) = config.features {
-            if (features.reverse_proxy_authentication.unwrap_or(false) == true) {
+            if features.reverse_proxy_authentication.unwrap_or(false) == true {
                 app = app.mount("/guard/api/proxy", routes![
                     reverse_proxy_authentication_get,
                     reverse_proxy_authentication_put,
@@ -72,7 +72,7 @@ pub fn stage() -> AdHoc {
                 ]);
             }
 
-            if (features.oauth_server.unwrap_or(false) == true) {
+            if features.oauth_server.unwrap_or(false) == true {
                 app = app.mount("/guard/api/oauth/server", routes![
                     oauth_server_token
                 ]);
@@ -130,7 +130,7 @@ impl Fairing for Cors {
 
 // Returns the current request's ID, assigning one only as necessary.
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for &'r Query_string {
+impl<'r> FromRequest<'r> for &'r QueryString {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
@@ -141,7 +141,7 @@ impl<'r> FromRequest<'r> for &'r Query_string {
         request::Outcome::Success(request.local_cache(|| {
             let query_params = request.uri().query().map(|query| query.as_str().to_owned()).unwrap_or_else(|| String::new());
 
-            Query_string(query_params)
+            QueryString(query_params)
         }))
     }
 }

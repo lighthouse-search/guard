@@ -1,10 +1,9 @@
 use reqwest::header::HeaderMap;
-use serde::de::Error;
 use serde_json::Value;
 use crate::structs::*;
 use serde_json::json;
 
-pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, client_secret: String, code: String, scope: String, redirect_uri: String) -> Result<Option<Oauth_code_access_exchange_response>, String> {
+pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, client_secret: String, code: String, scope: String, redirect_uri: String) -> Result<Option<OauthCodeAccessExchangeResponse>, String> {
     let params = json!({
         "client_id": client_id,
         "client_secret": client_secret,
@@ -44,7 +43,7 @@ pub async fn oauth_code_exchange_for_access_key(url: String, client_id: String, 
         Ok(resp) => resp,
         Err(_) => {
             // If JSON parsing fails, try to parse as url-encoded
-            serde_urlencoded::from_str::<Oauth_code_access_exchange_response>(&text)
+            serde_urlencoded::from_str::<OauthCodeAccessExchangeResponse>(&text)
                 .expect(&format!(
                     "Failed to parse response from '{}' as JSON or url-encoded. Response: {}",
                     url.clone(),

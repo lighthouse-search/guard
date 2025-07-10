@@ -35,7 +35,6 @@ pub async fn policy_authentication(policies: Vec<Guard_Policy>, user: Value, ip:
     }
 
     // Check though internal policy loop. If one of the policies are block (or otherwise not allow), THEN we block the policy. We don't return the action of the last policy, because that's not representative of the main actual policy, but if the internal policies fail, then that's definitely a no go.
-
     if (action == "allow") {
         return true;
     } else {
@@ -57,8 +56,78 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
         log::info!("The property does not exist");
     }
 
+    // Check if property was provided by authentication provider.
     if (property == String::new()) {
         return Err(format!("'{}' is null or does not exist in the user data", policy.property));
+    }
+
+    // If "is" condition is supplied, check it.
+    if (policy.is.is_none() == false) {
+        // Array of possible values.
+        let is_vec = policy.is.unwrap();
+
+        // Check if property is within array of possible values.
+        if (is_vec.contains(&property)) {
+            let mut is_match: bool = false;
+            // Loop through array, try and find match.
+            for item in is_vec {
+                if (item == property) {
+                    // Property is within possible values.
+                    is_match = true;
+                }
+            }
+
+            // Update overall policy match variable accordingly.
+            if (is_match == true) {
+                matches = true;
+            }
+        } else {
+            matches = false;
+        }
+    }
+    
+    // If "not" condition is supplied, check it.
+    if (policy.not.is_none() == false) {
+        let not_vec = policy.not.unwrap();
+        if (not_vec.contains(&property)) {
+            let mut not_match: bool = false;
+            // Loop through array, check property doesn't match with an illegal value.
+            for item in not_vec {
+                if (item == property) {
+                    // Property is not an illegal value.
+                    not_match = true;
+                }
+            }
+
+            // Update overall policy match variable accordingly.
+            if (not_match == true) {
+                matches = true;
+            }
+        } else {
+            matches = false;
+        }
+    }
+
+    // If "starts_with" condition is supplied, check it.
+    if (policy.starts_with.is_none() == false) {
+        let starts_with = policy.starts_with.expect("");
+        // Check if property starts with specific value.
+        if (property.starts_with(&starts_with)) {
+            matches = true;
+        } else {
+            matches = false;
+        }
+    }
+
+    // If "ends_with" condition is supplied, check it.
+    if (policy.ends_with.is_none() == false) {
+        let ends_with = policy.ends_with.expect("");
+        // Check if property ends with specific value.
+        if (property.ends_with(&ends_with) == true) {
+            matches = true;
+        } else {
+            matches = false;
+        };
     }
 
     // let requested_property = policy.property.to_lowercase(); // So we can always get the property as lower-case without 
@@ -70,61 +139,6 @@ pub async fn matches_policy(policy: Guard_Policy, user: Value, ip: String) -> Re
     //     // Throw error, invalid property.
     //     return Err("Invalid property specified for policy. This should have been caught in a config integrity check.".into());
     // }
-
-    if (policy.is.is_none() == false) {
-        let is_vec = policy.is.unwrap();
-
-        if (is_vec.contains(&property)) {
-            let mut is_match: bool = false;
-            for item in is_vec {
-                if (item == property) {
-                    is_match = true;
-                }
-            }
-
-            if (is_match == true) {
-                matches = true;
-            }
-        } else {
-            matches = false;
-        }
-    }
-    
-    if (policy.not.is_none() == false) {
-        let not_vec = policy.not.unwrap();
-        if (not_vec.contains(&property)) {
-            let mut not_match: bool = false;
-            for item in not_vec {
-                if (item == property) {
-                    not_match = true;
-                }
-            }
-
-            if (not_match == true) {
-                matches = true;
-            }
-        } else {
-            matches = false;
-        }
-    }
-
-    if (policy.starts_with.is_none() == false) {
-        let starts_with = policy.starts_with.expect("");
-        if (property.starts_with(&starts_with)) {
-            matches = true;
-        } else {
-            matches = false;
-        }
-    }
-
-    if (policy.ends_with.is_none() == false) {
-        let ends_with = policy.ends_with.expect("");
-        if (property.ends_with(&ends_with) == true) {
-            matches = true;
-        } else {
-            matches = false;
-        };
-    }
 
     Ok(matches)
 }

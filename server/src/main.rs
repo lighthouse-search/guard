@@ -95,7 +95,7 @@ pub static SQL_TABLES: Lazy<ConfigSqlTables> = Lazy::new(|| {
     config_sql_tables
 });
 
-pub static ARGUMENTS: Lazy<crate::cli::cli_structs::Args_to_hashmap> = Lazy::new(|| {
+pub static ARGUMENTS: Lazy<crate::cli::cli_structs::ArgsToHashmap> = Lazy::new(|| {
     crate::cli::index::args_to_hashmap(env::args().collect())
 });
 

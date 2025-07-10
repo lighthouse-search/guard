@@ -1,13 +1,8 @@
 use std::collections::HashMap;
-use std::env;
-use diesel::serialize::Result;
-
-use crate::global::is_null_or_whitespace;
-use crate::structs::*;
 use crate::cli::cli_structs::*;
 
-pub fn has_no_value(arguments: &HashMap<String, Command_argument>, argument: &str) -> bool {
-    if (arguments.get(argument).is_none() == false) {
+pub fn has_no_value(arguments: &HashMap<String, CommandArgument>, argument: &str) -> bool {
+    if arguments.get(argument).is_none() == false {
         // The argument (e.g. request-authentication) had a value E.g. ./guard --request-authentication example.com
         return false;
     } else {
@@ -16,8 +11,8 @@ pub fn has_no_value(arguments: &HashMap<String, Command_argument>, argument: &st
     }
 }
 
-pub fn get_value(arguments: &HashMap<String, Command_argument>, argument: &str) -> Option<String> {
-    if (arguments.get(argument).is_none() == false) {
+pub fn get_value(arguments: &HashMap<String, CommandArgument>, argument: &str) -> Option<String> {
+    if arguments.get(argument).is_none() == false {
         // The argument (e.g. request-authentication) had a value E.g. ./guard --request-authentication example.com
         return Some(arguments.get(argument).unwrap().value.clone().unwrap());
     } else {

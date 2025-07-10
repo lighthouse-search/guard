@@ -342,7 +342,7 @@ pub struct HandlingMagiclink {
 
 pub struct RequestMagiclink {
     pub error_to_respond_to_client_with: Option<Custom<Value>>,
-    pub email: Option<String>
+    pub _email: Option<String>
 }
 
 pub struct UserCreate {

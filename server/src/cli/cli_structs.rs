@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use crate::structs::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Command_argument {
+pub struct CommandArgument {
     pub value: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Cli_authenticate_handle_response {
+pub struct CliAuthenticateHandleResponse {
     pub error: bool,
     pub nonce: String,
     pub valid: bool,
@@ -21,14 +21,14 @@ pub struct Cli_authenticate_handle_response {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Cli_user_create_response {
+pub struct CliUserCreateResponse {
     pub error: bool,
     pub id: Option<String>,
     pub email: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Args_to_hashmap {
-    pub args: HashMap<String, Command_argument>,
+pub struct ArgsToHashmap {
+    pub args: HashMap<String, CommandArgument>,
     pub modes: Vec<String>
 }

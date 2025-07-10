@@ -1,62 +1,58 @@
-use serde::{Serialize, Deserialize};
-use serde_json::{Value, json};
-
 use std::collections::HashMap;
+
+use serde::{Serialize, Deserialize};
+use serde_json::Value;
+
+use crate::tables::*;
+use diesel::prelude::*;
 
 use rocket::response::status::Custom;
 
-use crate::diesel_mysql::*;
-use crate::tables::*;
-
-use diesel::prelude::*;
-use crate::tables::*;
-use diesel::r2d2::{self, ConnectionManager};
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    pub features: Option<Config_features>,
-    pub reverse_proxy_authentication: Option<Config_reverse_proxy_authentication>,
+    pub features: Option<ConfigFeatures>,
+    pub reverse_proxy_authentication: Option<ConfigReverseProxyAuthentication>,
     // pub tls: Option<HashMap<String, TlsHost>>,
     pub tls: Option<TlsHost>,
-    pub frontend: Option<Config_frontend>,
-    pub database: Option<Config_database>,
-    pub sql: Option<Config_sql>,
-    pub smtp: Option<Config_smtp>,
-    pub captcha: Option<Config_captcha>,
+    pub frontend: Option<ConfigFrontend>,
+    pub database: Option<ConfigDatabase>,
+    pub sql: Option<ConfigSql>,
+    pub smtp: Option<ConfigSmtp>,
+    pub captcha: Option<ConfigCaptcha>,
     pub authentication_methods: Option<HashMap<String, AuthMethod>>,
-    pub policies: Option<HashMap<String, Guard_Policy>>,
-    pub hostname: Option<HashMap<String, Guarded_Hostname>>
+    pub policies: Option<HashMap<String, GuardPolicy>>,
+    pub hostname: Option<HashMap<String, GuardedHostname>>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_features {
+pub struct ConfigFeatures {
     pub reverse_proxy_authentication: Option<bool>,
     pub oauth_server: Option<bool>,
     pub tls: Option<bool>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_reverse_proxy_authentication {
-    pub config: Option<Config_reverse_proxy_authentication_config>
+pub struct ConfigReverseProxyAuthentication {
+    pub config: Option<ConfigReverseProxyAuthenticationConfig>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_reverse_proxy_authentication_config {
+pub struct ConfigReverseProxyAuthenticationConfig {
     pub header: Option<String>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_frontend {
-    pub metadata: Option<Frontend_metadata>
+pub struct ConfigFrontend {
+    pub metadata: Option<FrontendMetadata>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_database {
-    pub mysql: Option<Config_database_mysql>
+pub struct ConfigDatabase {
+    pub mysql: Option<ConfigDatabaseMysql>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_database_mysql {
+pub struct ConfigDatabaseMysql {
     pub username: Option<String>,
     pub password_env: Option<String>,
     pub hostname: Option<String>,
@@ -65,12 +61,12 @@ pub struct Config_database_mysql {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_sql {
+pub struct ConfigSql {
     pub tables: Option<Value>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_sql_tables {
+pub struct ConfigSqlTables {
     pub user: Option<String>,
     pub device: Option<String>,
     pub magiclink: Option<String>,
@@ -78,7 +74,7 @@ pub struct Config_sql_tables {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_smtp {
+pub struct ConfigSmtp {
     pub host: Option<String>,
     pub port: Option<u16>,
     pub username: Option<String>,
@@ -89,12 +85,12 @@ pub struct Config_smtp {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_captcha {
-    pub hcaptcha: Option<HashMap<String, Config_captcha_hcaptcha>>
+pub struct ConfigCaptcha {
+    pub hcaptcha: Option<HashMap<String, ConfigCaptchaHcaptcha>>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config_captcha_hcaptcha {
+pub struct ConfigCaptchaHcaptcha {
     pub site_key: Option<String>,
     pub hcaptcha_secret_env: Option<String>,
     pub size: Option<String>
@@ -111,37 +107,14 @@ pub struct TlsHost {
 
 // Incoming body structs
 #[derive(Clone, Debug, Deserialize)]
-pub struct Method_request_body {
+pub struct MethodRequestBody {
     pub authentication_method: String,
     pub request_data: Value
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct Authenticate_Body {
-    pub attempt_id: String,
-    pub code: Option<i64>,
-    pub public_key: String
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct System_users {
-    pub username: String,
-    pub is_admin: bool,
-    pub permissions: String
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Device_startup_struct {
-    pub os_type: String,
-    pub os_version: Option<i64>,
-    pub alias: Option<i64>,
-    pub users: Vec<System_users>,
-    pub rover_permissions: Vec<String>
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
 #[diesel(table_name = guard_user)]
-pub struct Guard_user {
+pub struct GuardUser {
     pub id: String,
     pub email: String
 }
@@ -158,7 +131,7 @@ pub struct Magiclink {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
 #[diesel(table_name = guard_devices)]
-pub struct Guard_devices {
+pub struct GuardDevices {
     // #[serde(skip_deserializing)]
     pub id: String,
     pub user_id: String,
@@ -170,7 +143,7 @@ pub struct Guard_devices {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]
 #[diesel(table_name = bearer_token)]
-pub struct Bearer_token {
+pub struct BearerToken {
     pub access_token_hash: String,
     pub access_token_salt: String,
     pub refresh_token_hash: String,
@@ -182,20 +155,20 @@ pub struct Bearer_token {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Verify_bearer_token_output {
+pub struct VerifyBearerTokenOutput {
     pub user_id: String,
     pub application_clientid: String,
     pub scope: Vec<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Verify_bearer_token_hash_output {
+pub struct VerifyBearerTokenHashOutput {
     pub user_id: String,
     pub application_clientid: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Essential_authenticate_request_data {
+pub struct EssentialAuthenticateRequestData {
     pub public_key: String
 }
 
@@ -211,16 +184,10 @@ pub struct Essential_authenticate_request_data {
 
 // Internal structs
 #[derive(Debug)]
-pub struct Query_string(pub String);
-
-pub struct Request_authentication_output {
-    // #[derive(Clone, Debug, Deserialize)]
-    pub user_id: String,
-    pub device_id: String
-}
+pub struct QueryString(pub String);
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Frontend_metadata {
+pub struct FrontendMetadata {
     pub instance_hostname: Option<String>,
     pub alias: Option<String>,
     pub public_description: Option<String>,
@@ -233,9 +200,9 @@ pub struct Frontend_metadata {
     pub style: Option<String>
 }
 
-impl Default for Frontend_metadata {
+impl Default for FrontendMetadata {
     fn default() -> Self {
-        Frontend_metadata {
+        FrontendMetadata {
             instance_hostname: None,
             alias: None,
             public_description: None,
@@ -275,7 +242,7 @@ pub struct AuthMethod {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AuthMethod_Public {
+pub struct AuthMethodPublic {
     pub active: bool,
     pub id: Option<String>,
     pub alias: Option<String>,
@@ -284,9 +251,9 @@ pub struct AuthMethod_Public {
     pub login_page: String
 }
 
-impl From<AuthMethod> for AuthMethod_Public {
+impl From<AuthMethod> for AuthMethodPublic {
     fn from(auth_method: AuthMethod) -> Self {
-        AuthMethod_Public {
+        AuthMethodPublic {
             active: auth_method.active,
             id: auth_method.id,
             alias: auth_method.alias,
@@ -298,7 +265,7 @@ impl From<AuthMethod> for AuthMethod_Public {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Oauth_code_access_exchange_response {
+pub struct OauthCodeAccessExchangeResponse {
     pub access_token: Option<String>,
     pub token_type: Option<String>,
     pub expires_in: Option<i64>,
@@ -308,7 +275,7 @@ pub struct Oauth_code_access_exchange_response {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Guarded_Hostname {
+pub struct GuardedHostname {
     pub active: bool,
     pub host: String,
     pub authentication_methods: Vec<String>,
@@ -326,7 +293,7 @@ pub struct Guarded_Hostname {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Guarded_Hostname_Pub {
+pub struct GuardedHostnamePub {
     pub host: String,
     pub alias: Option<String>,
     pub public_description: Option<String>,
@@ -338,9 +305,9 @@ pub struct Guarded_Hostname_Pub {
     pub username_placeholder: Option<String>
 }
 
-impl From<Guarded_Hostname> for Guarded_Hostname_Pub {
-    fn from(hostname: Guarded_Hostname) -> Self {
-        Guarded_Hostname_Pub {
+impl From<GuardedHostname> for GuardedHostnamePub {
+    fn from(hostname: GuardedHostname) -> Self {
+        GuardedHostnamePub {
             host: hostname.host,
             alias: hostname.alias,
             public_description: hostname.public_description,
@@ -355,7 +322,7 @@ impl From<Guarded_Hostname> for Guarded_Hostname_Pub {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Guard_Policy {
+pub struct GuardPolicy {
     pub active: bool,
     pub id: Option<String>,
     pub action: String,
@@ -367,45 +334,45 @@ pub struct Guard_Policy {
     pub is: Option<Vec<String>>,
 }
 
-pub struct Handling_magiclink {
+pub struct HandlingMagiclink {
     pub error_to_respond_to_client_with: Option<Custom<Value>>,
     pub magiclink: Option<Magiclink>,
-    pub user: Option<Guard_user>
+    pub user: Option<GuardUser>
 }
 
-pub struct Request_magiclink {
+pub struct RequestMagiclink {
     pub error_to_respond_to_client_with: Option<Custom<Value>>,
     pub email: Option<String>
 }
 
-pub struct User_create {
+pub struct UserCreate {
     pub user_id: String
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Magiclink_request_data {
+pub struct MagiclinkRequestData {
     pub email: Option<String>,
     pub state: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Magiclink_handling_data {
+pub struct MagiclinkHandlingData {
     pub code: Option<String>,
     pub referer: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct OAuth_authentication_data {
+pub struct OauthAuthenticationData {
     pub bearer_token: String
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Oauth_handling_data {
+pub struct OauthHandlingData {
     pub authorization_code: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AuthMethod_sql {
+pub struct AuthMethodSql {
     pub table: Option<String>
     // pub column: Option<String>
 }
@@ -415,7 +382,7 @@ pub struct Headers {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct User_get_id_preference_struct {
+pub struct UserGetIdPreferenceStruct {
     pub has_value: bool,
     pub id: Option<String>,
     pub email: Option<String>
@@ -430,37 +397,37 @@ pub struct User_get_id_preference_struct {
 
 // The cookie data the user provides.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Guard_authentication_metadata_cookie {
+pub struct GuardAuthenticationMetadataCookie {
     pub authentication_method: Option<String>,
 }
 
 // The fetched Guard authentication metadata after the server receives the original cookie and gets all the relevant information.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Guard_authentication_metadata {
+pub struct GuardAuthenticationMetadata {
     pub unverified_authentication_method: Option<AuthMethod>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct OAuth_login_url_information {
+pub struct OauthLoginUrlInformation {
     pub redirect_uri: Option<String>,
     pub scope: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Get_current_valid_hostname_struct {
-    pub hostname: Guarded_Hostname,
+pub struct GetCurrentValidHostnameStruct {
+    pub hostname: GuardedHostname,
     pub domain_port: String,
     pub original_url: String
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Oauth_server_token_internals {
+pub struct OauthServerTokenInternals {
     pub random: String,
     pub scope: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Oauth_server_token_code {
+pub struct OauthServerTokenCode {
     pub client_id: Option<String>,
     pub scope: Option<String>,
     pub redirect_uri: Option<String>,
@@ -469,53 +436,53 @@ pub struct Oauth_server_token_code {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Token_create {
+pub struct TokenCreate {
     pub hash: String,
     pub salt: String
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct created_access_and_refresh_tokens {
-    pub access_token: Token_create,
-    pub refresh_token: Token_create
+pub struct CreatedAccessAndRefreshTokens {
+    pub access_token: TokenCreate,
+    pub refresh_token: TokenCreate
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Tls_certificate {
+pub struct TlsCertificate {
     pub private_key: String,
     pub certificate: String
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Protocol_decision_to_pipeline_output {
+pub struct ProtocolDecisionToPipelineOutput {
     pub user: Option<Value>,
-    pub device: Option<Guard_devices>,
+    pub device: Option<GuardDevices>,
     pub authentication_method: Option<AuthMethod>, // The authentication method, e.g. "email", "oauth"
     pub authentication_type: String // The underlying authentication technology, e.g. "signed_request", "static_auth", "bearer_token"
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Error_response {
+pub struct ErrorResponse {
     pub error: bool,
     pub message: String
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OAuth_pipeline_response {
+pub struct OauthPipelineResponse {
     pub external_user: Value
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Device_pipeline_static_auth_response {
-    pub user: Option<Guard_user>,
-    pub device: Option<Guard_devices>,
+pub struct DevicePipelineStaticAuthResponse {
+    pub user: Option<GuardUser>,
+    pub device: Option<GuardDevices>,
     pub authentication_method: Option<AuthMethod>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct User_authentication_pipeline_response {
+pub struct UserAuthenticationPipelineResponse {
     pub user: Option<Value>,
-    pub device: Option<Guard_devices>,
+    pub device: Option<GuardDevices>,
     pub authentication_method: Option<AuthMethod>,
     pub authentication_type: String
 }

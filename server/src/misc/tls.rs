@@ -3,14 +3,14 @@ use std::process::Stdio;
 
 use rocket::config::{TlsConfig, CipherSuite};
 
-use crate::structs::Tls_certificate;
+use crate::structs::TlsCertificate;
 use crate::CONFIG_VALUE;
 
 pub async fn init_tls() -> Option<TlsConfig> {
-    if (CONFIG_VALUE.features.clone().unwrap().tls.unwrap_or(true) == true) {
+    if CONFIG_VALUE.features.clone().unwrap().tls.unwrap_or(true) == true {
         // TODO: In the future, allow getting certificates from environment variables (e.g. to accomodate Docker).
         let config_tls = CONFIG_VALUE.clone().tls;
-        if (config_tls.is_none() == false) {
+        if config_tls.is_none() == false {
             // Use TLS certificates provided in Guard configuration.
             let config_tls_unwrapped = config_tls.clone().unwrap();
 
@@ -34,7 +34,7 @@ pub async fn init_tls() -> Option<TlsConfig> {
     }
 }
 
-pub async fn generate_self_signed_certificate() -> Result<Tls_certificate, String> {
+pub async fn generate_self_signed_certificate() -> Result<TlsCertificate, String> {
     log::info!("Generating self-signed certificate using openssl...");
     
     let output = Command::new("openssl")
@@ -80,7 +80,7 @@ pub async fn generate_self_signed_certificate() -> Result<Tls_certificate, Strin
 
     log::info!("Successfully generated and parsed self-signed certificate.");
 
-    Ok(Tls_certificate {
+    Ok(TlsCertificate {
         private_key: private_key,
         certificate: certificate.to_string()
     })

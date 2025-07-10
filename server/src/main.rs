@@ -59,30 +59,21 @@ pub mod misc {
     pub mod tls;
 }
 
-use diesel_mysql::internal_error;
-
-use rocket::fairing::{Fairing, Info, Kind};
-use rocket::http::Header;
+use rocket::catchers;
 use rocket::{Build, Rocket};
-use rocket::{Request, Response, request, request::FromRequest, catch, catchers, launch};
 
 use once_cell::sync::Lazy;
 use toml::Value;
 
-use std::error::Error;
-use std::{env, fs};
-use std::collections::HashMap;
+use std::env;
 
-use crate::global::validate_sql_table_inputs;
+use crate::diesel_mysql::internal_error;
+use crate::database::validate_sql_table_inputs;
 use crate::structs::*;
 use crate::responses::*;
 
 use diesel::MysqlConnection;
-use diesel::prelude::*;
-use diesel::sql_types::*;
 use diesel::r2d2::{self, ConnectionManager};
-
-use rand::Rng;
 
 // Create a type alias for the connection pool
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
@@ -99,8 +90,8 @@ pub static CONFIG_VALUE: Lazy<Config> = Lazy::new(|| {
     get_config().expect("Failed to get config")
 });
 
-pub static SQL_TABLES: Lazy<Config_sql_tables> = Lazy::new(|| {
-    let config_sql_tables: Config_sql_tables = serde_json::from_value(CONFIG_VALUE.sql.clone().expect("Missing config.sql").tables.expect("mssing config.sql.tables")).expect("Failed to convert config.sql.tables from value to struct");
+pub static SQL_TABLES: Lazy<ConfigSqlTables> = Lazy::new(|| {
+    let config_sql_tables: ConfigSqlTables = serde_json::from_value(CONFIG_VALUE.sql.clone().expect("Missing config.sql").tables.expect("mssing config.sql.tables")).expect("Failed to convert config.sql.tables from value to struct");
     config_sql_tables
 });
 
@@ -110,16 +101,16 @@ pub static ARGUMENTS: Lazy<crate::cli::cli_structs::Args_to_hashmap> = Lazy::new
 
 fn get_config() -> Result<Config, String> {
     let environment_variable = "guard_config";
-    let mut config_str: String = String::new();
+    let mut _config_str: String = String::new();
     if let Some(val) = env::var(environment_variable).ok() {
         println!("Value of {}: {}", environment_variable, val);
 
-        config_str = val;
+        _config_str = val;
     } else {
         return Err(format!("Missing \"{}\" environment variable", environment_variable).into());
     }
 
-    let config_value: Value = toml::from_str(&config_str).unwrap();
+    let config_value: Value = toml::from_str(&_config_str).unwrap();
     let config: Config = serde_json::from_value(serde_json::to_value(config_value).expect("Failed to convert config value from toml to serde::json")).expect("Failed to parse config");
 
     Ok(config)
@@ -131,7 +122,7 @@ async fn main() {
 
     validate_sql_table_inputs(CONFIG_VALUE.sql.clone().expect("Missing config.sql").tables.expect("mssing config.sql.tables")).await.expect("Config validation failed.");
 
-    if (ARGUMENTS.modes.len() > 0) {
+    if ARGUMENTS.modes.len() > 0 {
         // We're using CLI mode.
         log::info!("Using CLI mode - argument modes were specified.");
         crate::cli::index::parse().await;
@@ -142,10 +133,10 @@ async fn main() {
 }
 
 async fn rocket() -> Rocket<Build> {
-    let mut rng = rand::thread_rng();
+    // let mut rng = rand::thread_rng();
     let mut guard_port: u32 = 8000; // rng.gen_range(4000..65535)
     
-    if (ARGUMENTS.args.get("port").is_none() == false && ARGUMENTS.args.get("port").clone().unwrap().value.is_none() == false) {
+    if ARGUMENTS.args.get("port").is_none() == false && ARGUMENTS.args.get("port").clone().unwrap().value.is_none() == false {
         guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");
     }
 
@@ -154,7 +145,7 @@ async fn rocket() -> Rocket<Build> {
     .merge(("address", "0.0.0.0"));
 
     let tls = crate::misc::tls::init_tls().await;
-    if (tls.is_none() == false) {
+    if tls.is_none() == false {
         log::info!("Using TLS configuration.");
         figment = figment.merge(("tls", tls));
     } else {

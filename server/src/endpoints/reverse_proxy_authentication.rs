@@ -1,4 +1,4 @@
-use rocket::http::{CookieJar, Header, Status};
+use rocket::http::{CookieJar, Status};
 use rocket::{response::status, options, get, post, put, delete, head, patch};
 use rocket::response::status::Custom;
 
@@ -6,10 +6,8 @@ use serde_json::{json, Value};
 use std::net::SocketAddr;
 
 use crate::hostname::get_current_valid_hostname;
-use crate::structs::*;
 use crate::global::jar_to_indexmap;
 use crate::users::{ user_authentication_pipeline, user_get_id_preference };
-use crate::Config_reverse_proxy_authentication_config;
 use crate::{CONFIG_VALUE, Headers};
 
 async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
@@ -19,7 +17,7 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
     // Check the output was ok, because there may not be a config for reverse_proxy_authentication.
     if let Some(reverse_proxy_authentication_config) = CONFIG_VALUE.reverse_proxy_authentication.clone().and_then(|value| value.config) {
         // We've found a config, but we need to make sure the header is actually set.
-        if (reverse_proxy_authentication_config.header.is_none() == false) {
+        if reverse_proxy_authentication_config.header.is_none() == false {
             // Set configured header as the header we should use.
             header_to_use = reverse_proxy_authentication_config.header.unwrap();
         }
@@ -32,11 +30,11 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
     let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(jar), remote_addr.to_string(), host.domain_port, headers).await;
     
     // TODO: In the future athentication_method won't be returned as optional from user_authentication_pipelne (user_authentication_pipeline will be changed to from truple to Result<>). This is a temporary fix :)
-    if (user_authentication.is_ok() == true) {
+    if user_authentication.is_ok() == true {
         let user_authentication_unwrapped = user_authentication.unwrap();
         
         let user_result = user_authentication_unwrapped.user;
-        let device = user_authentication_unwrapped.device;
+        let _device = user_authentication_unwrapped.device;
         let authentication_method_wrapped = user_authentication_unwrapped.authentication_method;
         let user = user_result.unwrap();
         let authentication_method = authentication_method_wrapped.unwrap();

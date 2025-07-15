@@ -9,4 +9,4 @@ const nextConfig = {
     basePath: '/guard/frontend'
 }
 
-module.exports = nextConfig
+export default nextConfig

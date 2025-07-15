@@ -1,0 +1,22 @@
+{
+  "tasks": {
+    "build": "deno run -A npm:next@latest build",
+    "dev": "deno run -A npm:next@latest dev --port 8484",
+    "start": "deno run -A npm:next@latest start"
+  },
+  "imports": {
+    "next": "npm:next@latest",
+    "react": "npm:react@latest",
+    "react-dom": "npm:react-dom@latest",
+    "react-cookie": "npm:react-cookie@latest",
+    "@hcaptcha/react-hcaptcha": "npm:@hcaptcha/react-hcaptcha@latest",
+    "elliptic": "npm:elliptic@latest",
+    "hades-auth": "npm:hades-auth@latest",
+    "@oracularhades/guard": "./guard-npm/src/index.js"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "nodeModulesDir": true
+}

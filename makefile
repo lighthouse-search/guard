@@ -23,11 +23,9 @@ build:
 		cargo test --verbose
 	mkdir $(BASE)/release
 	apt-get update -y && \
-		apt-get install -y build-essential curl file git && \
-		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
-		echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile && \
-		/bin/bash -c "eval \$$(/home/linuxbrew/.linuxbrew/bin/brew shellenv) && brew install node" && \
-		cd frontend && npm install && npm run build && cd ..
+		apt-get install -y build-essential curl file git unzip && \
+		curl -fsSL https://deno.land/install.sh | sh && \
+		/bin/bash -c "export PATH=\"$$HOME/.deno/bin:$$PATH\" && cd frontend && deno task build && cd .."
 	mv $(BASE)/guard/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/
 	mv $(BASE)/guard/server/frontend/_static $(BASE)/release/frontend/_static

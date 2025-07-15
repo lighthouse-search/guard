@@ -18,20 +18,18 @@ build:
 	rustc --version && cargo --version  # For any future debugging.
 	apt update -y && apt install zip tree -y
 	tree /
-	cd $(BASE)/guard/server
-	cargo build --verbose --release
-	cargo test --verbose
+	cd $(BASE)/guard/server && \
+		cargo build --verbose --release && \
+		cargo test --verbose
 	mkdir $(BASE)/release
-	apt-get update -y &&
-		apt-get install -y build-essential curl file git &&
-		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" &&
-		echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile &&
-		eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv) &&
-		brew install node &&
+	apt-get update -y && \
+		apt-get install -y build-essential curl file git && \
+		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
+		echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile && \
+		eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv) && \
+		brew install node && \
 		cd frontend && npm install && npm run build && cd ..
 	mv $(BASE)/guard/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/
 	mv $(BASE)/guard/server/frontend/_static $(BASE)/release/frontend/_static
-# 	tree /builds
-	cd $(BASE)/release
-	zip -r $(BASE)/guard/guard.zip .
+	cd $(BASE)/release && zip -r $(BASE)/guard/guard.zip .

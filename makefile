@@ -26,8 +26,7 @@ build:
 		apt-get install -y build-essential curl file git && \
 		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
 		echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile && \
-		eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv) && \
-		brew install node && \
+		/bin/bash -c "eval \$$(/home/linuxbrew/.linuxbrew/bin/brew shellenv) && brew install node" && \
 		cd frontend && npm install && npm run build && cd ..
 	mv $(BASE)/guard/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/

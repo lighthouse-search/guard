@@ -1,5 +1,5 @@
 FROM --platform=linux/amd64 rust:latest as build-stage
-COPY release/ /builds/release
+COPY ./release /builds/release
 WORKDIR /builds/release
 
 RUN apt update -y

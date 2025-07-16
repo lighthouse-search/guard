@@ -1,6 +1,6 @@
 FROM --platform=linux/amd64 rust:latest as build-stage
-COPY release/ /builds/oracularhades/release
-WORKDIR /builds/oracularhades/release
+COPY release/ /builds/release
+WORKDIR /builds/release
 
 RUN apt update -y
 RUN apt upgrade -y
@@ -13,4 +13,4 @@ RUN usermod -s /bin/rbash kube
 # Run the application as kube user
 USER kube
 EXPOSE 8000
-CMD /builds/oracularhades/release/guard-server
+CMD /builds/release/guard-server

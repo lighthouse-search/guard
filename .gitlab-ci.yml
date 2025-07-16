@@ -14,25 +14,7 @@ build_rust_binary:
     - docker:dind
   script:
     - rustc --version && cargo --version  # For any future debugging.
-    - apt update -y && apt install zip tree -y
-    - tree /
-    - cd /builds/oracularhades/guard/server
-    - cargo build --verbose --release
-    - cargo test --verbose
-    - mkdir /builds/oracularhades/release
-    - apt-get update -y &&
-      apt-get install -y build-essential curl file git &&
-      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" &&
-      echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> ~/.profile &&
-      eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv) &&
-      brew install node &&
-      cd frontend && npm install && npm run build && cd ..
-    - mv /builds/oracularhades/guard/server/target/release/guard-server /builds/oracularhades/release
-    - mkdir /builds/oracularhades/release/frontend/
-    - mv /builds/oracularhades/guard/server/frontend/_static /builds/oracularhades/release/frontend/_static
-    - tree /builds
-    - cd /builds/oracularhades/release
-    - zip -r /builds/oracularhades/guard/guard.zip .
+    - BASE=/builds/oracularhades make build
   artifacts:
     paths:
       - /builds/oracularhades/guard/guard.zip

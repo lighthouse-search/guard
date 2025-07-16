@@ -26,7 +26,7 @@ jobs:
         title: Release ${{ github.ref_name }}
         files: |
           ./guard/guard.zip
-          
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
@@ -40,7 +40,8 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: ./server
+        file: ./server/Dockerfile
         push: true
         tags: |
           ghcr.io/${{ github.repository }}:latest

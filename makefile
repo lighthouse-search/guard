@@ -15,7 +15,7 @@ build-dependencies:
 build:
 	rustc --version && cargo --version  # For any future debugging.
 	apt update -y && apt install zip tree -y
-	tree /
+	tree .
 	cd $(BASE)/server && \
 		cargo build --verbose --release && \
 		cargo test --verbose

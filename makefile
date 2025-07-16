@@ -25,7 +25,9 @@ build:
 	apt-get update -y && \
 		apt-get install -y build-essential curl file git unzip && \
 		curl -fsSL https://deno.land/install.sh | sh && \
-		/bin/bash -c "export PATH=\"$$HOME/.deno/bin:$$PATH\" && cd $(BASE)/guard/server/frontend && deno task build && cd .."
+		cd $(BASE)/guard/server/frontend && \
+		$$HOME/.deno/bin/deno cache --allow-scripts npm:next@latest && \
+		$$HOME/.deno/bin/deno run -A --allow-scripts npm:next@latest build
 	mv $(BASE)/guard/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/
 	mv $(BASE)/guard/server/frontend/_static $(BASE)/release/frontend/_static

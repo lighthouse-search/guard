@@ -24,10 +24,14 @@ build:
 	mkdir $(BASE)/release
 	apt-get update -y && \
 		apt-get install -y build-essential curl file git unzip && \
-		curl -fsSL https://deno.land/install.sh | sh && \
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash && \
+		. "$$HOME/.nvm/nvm.sh" && \
+		nvm install 22 && \
+		node -v && \
+		npm -v && \
 		cd $(BASE)/guard/server/frontend && \
-		$$HOME/.deno/bin/deno cache --allow-scripts npm:next@latest && \
-		$$HOME/.deno/bin/deno run -A --allow-scripts npm:next@latest build
+		npm install && \
+		npm run build
 	mv $(BASE)/guard/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/
 	mv $(BASE)/guard/server/frontend/_static $(BASE)/release/frontend/_static

@@ -14,7 +14,7 @@ build_rust_binary:
     - docker:dind
   script:
     - rustc --version && cargo --version  # For any future debugging.
-    - BASE=/builds/oracularhades make build
+    - BASE=/builds/oracularhades/guard make build
   artifacts:
     paths:
       - /builds/oracularhades/guard/guard.zip

@@ -16,7 +16,7 @@ build:
 	rustc --version && cargo --version  # For any future debugging.
 	apt update -y && apt install zip tree -y
 	tree /
-	cd $(BASE)/guard/server && \
+	cd $(BASE)/server && \
 		cargo build --verbose --release && \
 		cargo test --verbose
 	mkdir $(BASE)/release
@@ -27,10 +27,10 @@ build:
 		nvm install 22 && \
 		node -v && \
 		npm -v && \
-		cd $(BASE)/guard/server/frontend && \
+		cd $(BASE)/server/frontend && \
 		npm install && \
 		npm run build
-	mv $(BASE)/guard/server/target/release/guard-server $(BASE)/release
+	mv $(BASE)/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/
-	mv $(BASE)/guard/server/frontend/_static $(BASE)/release/frontend/_static
-	cd $(BASE)/release && zip -r $(BASE)/guard/guard.zip .
+	mv $(BASE)/server/frontend/_static $(BASE)/release/frontend/_static
+	cd $(BASE)/release && zip -r $(BASE)/guard.zip .

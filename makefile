@@ -12,8 +12,6 @@ build-dependencies:
 	curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh -s -- -y
 	. "$(HOME)/.cargo/env"
 
-BASE=/builds/oracularhades
-
 build:
 	rustc --version && cargo --version  # For any future debugging.
 	apt update -y && apt install zip tree -y

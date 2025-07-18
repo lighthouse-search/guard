@@ -19,7 +19,7 @@ jobs:
 
     - name: Check if version already exists
       run: |
-        VERSION=$(jq -r '.version' release.json)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
         EXISTING_TAGS=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.[].tag_name')
         if echo "$EXISTING_TAGS" | grep -q "^$VERSION$"; then
           echo "Error: Version $VERSION already exists as a release tag"
@@ -36,9 +36,9 @@ jobs:
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "${{ jq -r '.version' release.json }}"
+        automatic_release_tag: "${{ env.VERSION }}"
         prerelease: true
-        title: Release ${{ jq -r '.version' release.json }}
+        title: Release ${{ env.VERSION }}
         files: |
           ./guard.zip
 
@@ -66,4 +66,4 @@ jobs:
         file: ./server/Dockerfile
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:${{ jq -r '.version' release.json }}
+          ghcr.io/${{ github.repository }}:${{ env.VERSION }}

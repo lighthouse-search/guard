@@ -21,9 +21,13 @@ jobs:
       run: |
         apt update
         apt install -y jq
-        VERSION=$(jq -r '.version' release.json)
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
         
+        VERSION=$(jq -r '.version' release.json)
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            VERSION="${{ github.ref_name }}-$VERSION"
+          fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
         # Get releases and check if the response is valid JSON
         RELEASES_RESPONSE=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases")
         echo "API Response: $RELEASES_RESPONSE"

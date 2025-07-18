@@ -19,6 +19,7 @@ jobs:
 
     - name: Check if version already exists
       run: |
+        apt-get install -y jq
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         EXISTING_TAGS=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.[].tag_name')
         if echo "$EXISTING_TAGS" | grep -q "^$VERSION$"; then

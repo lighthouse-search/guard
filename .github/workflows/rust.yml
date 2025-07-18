@@ -19,6 +19,9 @@ jobs:
       
     - name: make build
       run: BASE=. make build
+
+    - name: tree .
+      run: tree .
       
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:

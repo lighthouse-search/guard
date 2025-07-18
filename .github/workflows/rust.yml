@@ -21,13 +21,25 @@ jobs:
       run: |
         apt update
         apt install -y jq
+        VERSION=$(jq -r '.version' release.json)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
-        EXISTING_TAGS=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.[].tag_name')
-        if echo "$EXISTING_TAGS" | grep -q "^$VERSION$"; then
-          echo "Error: Version $VERSION already exists as a release tag"
-          exit 1
+        
+        # Get releases and check if the response is valid JSON
+        RELEASES_RESPONSE=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases")
+        echo "API Response: $RELEASES_RESPONSE"
+        
+        # Check if response is valid JSON array
+        if echo "$RELEASES_RESPONSE" | jq -e '. | type == "array"' > /dev/null 2>&1; then
+          EXISTING_TAGS=$(echo "$RELEASES_RESPONSE" | jq -r '.[].tag_name')
+          if echo "$EXISTING_TAGS" | grep -q "^$VERSION$"; then
+            echo "Error: Version $VERSION already exists as a release tag"
+            exit 1
+          fi
+          echo "Version $VERSION is new, proceeding with release"
+        else
+          echo "Warning: Could not fetch releases or invalid response format. Proceeding with release."
+          echo "Response was: $RELEASES_RESPONSE"
         fi
-        echo "Version $VERSION is new, proceeding with release"
       
     - name: make build
       run: BASE=. make build

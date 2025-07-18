@@ -16,6 +16,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Check if version already exists
+      run: |
+        VERSION=$(jq -r '.version' release.json)
+        EXISTING_TAGS=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.[].tag_name')
+        if echo "$EXISTING_TAGS" | grep -q "^$VERSION$"; then
+          echo "Error: Version $VERSION already exists as a release tag"
+          exit 1
+        fi
+        echo "Version $VERSION is new, proceeding with release"
       
     - name: make build
       run: BASE=. make build
@@ -26,9 +36,9 @@ jobs:
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "${{ github.ref_name }}"
+        automatic_release_tag: "${{ jq -r '.version' release.json }}"
         prerelease: true
-        title: Release ${{ github.ref_name }}
+        title: Release ${{ jq -r '.version' release.json }}
         files: |
           ./guard.zip
 
@@ -56,4 +66,4 @@ jobs:
         file: ./server/Dockerfile
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          ghcr.io/${{ github.repository }}:${{ jq -r '.version' release.json }}

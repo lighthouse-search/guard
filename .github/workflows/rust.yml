@@ -88,5 +88,5 @@ jobs:
       file: ./server/Dockerfile
       push: true
       tags: |
-        ghcr.io/${{ github.repository }}:${{ env.VERSION }}
+        ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && env.VERSION || format('{0}-latest', github.ref_name) }}
         ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && 'latest' || format('{0}-latest', github.ref_name) }}

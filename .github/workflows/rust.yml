@@ -12,17 +12,81 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: rust:bookworm
+      image: rust:latest
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Get release.json
+      run: |
+        apt update
+        apt install -y jq
+
+        VERSION=$(jq -r '.version' release.json)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+      
     - name: make build
       run: BASE=. make build
+
+    - name: tree .
+      run: tree .
+
+    - name: Upload guard.zip to artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-artifacts
+        path: ./guard.zip
+        retention-days: 1
+      
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "${{ github.ref_name }}"
-        prerelease: false
-        title: Release ${{ github.ref_name }}
+        automatic_release_tag: "${{ env.VERSION }}"
+        prerelease: ${{ github.ref_name != 'main' }}
+        title: Release ${{ env.VERSION }}
         files: |
-          ./guard/guard.zip
+          ./guard.zip
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download guard.zip from artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: release-artifacts
+        path: .
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Get release.json
+      run: |
+        sudo apt update
+        sudo apt install -y jq
+
+        VERSION=$(jq -r '.version' release.json)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: tree .
+      run: tree .
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./server/Dockerfile
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && env.VERSION || format('{0}-latest', github.ref_name) }}
+          ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && 'latest' || format('{0}-latest', github.ref_name) }}

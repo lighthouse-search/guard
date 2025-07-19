@@ -85,6 +85,9 @@ jobs:
         VERSION=$(jq -r '.version' release.json)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+    - name: tree .
+      run: tree .
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:

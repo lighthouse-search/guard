@@ -33,4 +33,4 @@ build:
 	mv $(BASE)/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/
 	mv $(BASE)/server/frontend/_static $(BASE)/release/frontend/_static
-	cd $(BASE)/release && zip -r $(BASE)/guard.zip .
+	zip -r $(BASE)/guard.zip $(BASE)/release

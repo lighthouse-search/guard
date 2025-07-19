@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 
 use crate::hostname::get_current_valid_hostname;
 use crate::global::jar_to_indexmap;
-use crate::users::{ user_authentication_pipeline, user_get_id_preference };
+use crate::users::user_authentication_pipeline;
 use crate::{CONFIG_VALUE, Headers};
 
 async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
@@ -39,15 +39,10 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
         let user = user_result.unwrap();
         let authentication_method = authentication_method_wrapped.unwrap();
 
-        let user_get_id_preference = user_get_id_preference(user.clone(), authentication_method.clone()).expect("Failed to get user_get_id_preference");
-
-        let forwarded_user_details: Value = json!({
-            "id": user_get_id_preference.id,
-            "email": user_get_id_preference.email
-        });
+        // let user_get_id_preference = user_get_id_preference(user.clone(), authentication_method.clone()).expect("Failed to get user_get_id_preference");
 
         let guard_header: Value = json!({
-            "user": forwarded_user_details,
+            "user": user,
             "authentication_method": authentication_method.id
         });
         

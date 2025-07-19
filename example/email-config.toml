@@ -1,0 +1,53 @@
+[features]
+reverse_proxy_authentication = true
+oauth_server = true
+
+[frontend.metadata]
+instance_hostname = "127.0.0.1:4080"
+alias = "Example configuration"
+public_description = "This server supports Email (SMTP) and OAuth authentication, accepts emails ending in @example.com"
+image = "https://images.unsplash.com/photo-1739609579483-00b49437cc45?q=80&w=2942&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+background_colour = "#0b040e"
+domain_placeholder="example.com"
+username_placeholder="username"
+acess_denied_header=""
+
+[authentication_methods.email]
+active = true
+method_type = "email"
+handoff = "https://example.com/handoff"
+applied_policies = ["staff_only"]
+
+[policies.staff_only]
+active = true
+action = "allow"
+property = "email"
+ends_with = "@example.com"
+
+[hostname.anythingyouwant]
+active = true
+host = "myawesomewebsite.example.com"
+applied_policies = ["specific_users"]
+authentication_methods = ["email"]
+multistep_authentication_methods = false
+
+[database.mysql]
+username = "[YOUR DATABASE USERNAME]"
+password_env = "[YOUR DATABASE PASSWORD]"
+hostname = "127.0.0.1"
+port = 3306
+database = "guard"
+
+[sql.tables]
+user = "account"
+device = "device"
+magiclink = "magiclink"
+
+[smtp]
+host="smtp.sendgrid.net"
+port=587
+username="apikey"
+from_alias="Guard"
+from_header="noreply@paperplane.example.com"
+reply_to_address="noreply@paperplane.example.com"
+password_env="smtp_password"

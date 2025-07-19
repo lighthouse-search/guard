@@ -1,4 +1,4 @@
-.PHONY: example-config dev build build-dependencies
+.PHONY: example-config dev build build-dependencies linux-system-dependencies
 
 example-config:
 # This doesn't work
@@ -12,6 +12,9 @@ build-dependencies:
 	curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh -s -- -y
 	. "$(HOME)/.cargo/env"
 
+linux-system-dependencies:
+	apt update -y && apt install default-libmysqlclient-dev pkg-config -y
+	
 build:
 	rustc --version && cargo --version  # For any future debugging.
 	apt update -y && apt install zip tree -y
@@ -33,4 +36,9 @@ build:
 	mv $(BASE)/server/target/release/guard-server $(BASE)/release
 	mkdir $(BASE)/release/frontend/
 	mv $(BASE)/server/frontend/_static $(BASE)/release/frontend/_static
-	zip -r $(BASE)/guard.zip $(BASE)/release
+
+	mkdir $(BASE)/release/example
+	mv $(BASE)/example/email-config $(BASE)/release/example/email-config.toml
+	mv $(BASE)/example/oauth-config $(BASE)/release/example/oauth-config.toml
+
+	cd $(BASE) && zip -r guard.zip release

@@ -20,10 +20,6 @@ applied_policies = ["staff_only"]
 login_page = "https://example.com/failure"
 validation_endpoint = "https://example.com/success"
 should_create_new_users = true
-ratelimit = 5
-ratelimit_cooldown = 200
-user_info_reference_type = "email"
-user_info_reference_key = "email"
 
 [authentication_methods.microsoft_entra]
 active = true

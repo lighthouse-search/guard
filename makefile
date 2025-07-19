@@ -38,7 +38,7 @@ build:
 	mv $(BASE)/server/frontend/_static $(BASE)/release/frontend/_static
 
 	mkdir $(BASE)/release/example
-	mv $(BASE)/example/email-config $(BASE)/release/example/email-config.toml
-	mv $(BASE)/example/oauth-config $(BASE)/release/example/oauth-config.toml
+	mv $(BASE)/example/email-config.toml $(BASE)/release/example/email-config.toml
+	mv $(BASE)/example/oauth-config.toml $(BASE)/release/example/oauth-config.toml
 
 	cd $(BASE) && zip -r guard.zip release

@@ -41,4 +41,4 @@ build:
 	mv $(BASE)/example/email-config.toml $(BASE)/release/example/email-config.toml
 	mv $(BASE)/example/oauth-config.toml $(BASE)/release/example/oauth-config.toml
 
-	cd $(BASE) && zip -r guard.zip release
+	cd $(BASE)/release && zip -r guard.zip .

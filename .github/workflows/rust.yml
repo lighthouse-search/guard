@@ -76,6 +76,14 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Get release.json
+      run: |
+        apt update
+        apt install -y jq
+
+        VERSION=$(jq -r '.version' release.json)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5

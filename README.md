@@ -1,5 +1,26 @@
 *Guard is in alpha release, please visit [TODO](#whats-on-the-todo-list) to see what's happening before beta*
 
+# Quickstart
+Download the [guard.zip](https://github.com/lighthouse-search/guard/releases/download/latest/guard.zip) and unzip it.
+
+[TODO] [NOTE TO SELF]: This documentation is here, but runners are not building Windows binaries. This needs to get fixed.
+## Windows
+### Powershell
+```
+$guard_config = Get-Content .\example\email-config.toml -Raw
+./guard-server.exe
+```
+### cmd
+```
+set /p guard_config=< .\example\email-config.toml
+./guard-server.exe
+```
+
+## MacOS / Linux
+```
+export guard_config=$(cat ./example/email-config.toml) && ./guard-server
+```
+
 # Why
 Before Guard, when I built apps, I had a Node.JS script handle [Subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/) requests from NGINX. As I deployed more apps, IF statements enforcing authentication policy became more complex, new authentication protocols needed to get integrated per-project, login pages needed new code and designs to support different projects - all of this creates potential security gaps and is overall a pain.
 I built Guard to streamline this process and make it available for everyone.

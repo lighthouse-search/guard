@@ -136,44 +136,44 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
     });
 }
 
-pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<UserGetIdPreferenceStruct, String> {
-    // TODO: I am not sure this is needed? We should be generating UUIDs for users. This only makes sense when there is no database - I suspect that's what this is for. I will return to this.
+// pub fn user_get_id_preference(user_data: Value, authentication_method: AuthMethod) -> Result<UserGetIdPreferenceStruct, String> {
+//     // TODO: I am not sure this is needed? We should be generating UUIDs for users. This only makes sense when there is no database - I suspect that's what this is for. I will return to this.
 
-    let reference_type: String = authentication_method.user_info_reference_type.unwrap_or("id".to_string()); // TODO: maybe revist this later, but this will fail any proxy authentication if not specified. I doubt it will get used in email contexts, so we'll just default to 'id'.
-    let mut reference_key: String = reference_type.clone();
-    if authentication_method.user_info_reference_key.is_none() == true {
-        reference_key = reference_type.clone();
-    }
+//     let reference_type: String = authentication_method.user_info_reference_type.unwrap_or("id".to_string()); // TODO: maybe revist this later, but this will fail any proxy authentication if not specified. I doubt it will get used in email contexts, so we'll just default to 'id'.
+//     let mut reference_key: String = reference_type.clone();
+//     if authentication_method.user_info_reference_key.is_none() == true {
+//         reference_key = reference_type.clone();
+//     }
 
-    let mut _has_value: bool = false;
-    let mut id: Option<String> = None;
-    let mut email: Option<String> = None;
+//     let mut _has_value: bool = false;
+//     let mut id: Option<String> = None;
+//     let mut email: Option<String> = None;
 
-    log::info!("user_get_id_preference user_data: {}", user_data.clone());
+//     log::info!("user_get_id_preference user_data: {}", user_data.clone());
 
-    if user_data.get(reference_key.clone()).is_none() == false {
-        let value: String = user_data.get(reference_key.clone()).unwrap().as_str().unwrap().to_string();
-        _has_value = true;
+//     if user_data.get(reference_key.clone()).is_none() == false {
+//         let value: String = user_data.get(reference_key.clone()).unwrap().as_str().unwrap().to_string();
+//         _has_value = true;
         
-        if reference_type == "id" {
-            id = Some(value);
-        } else if reference_type == "email" {
-            email = Some(value);
-        } else {
-            return Err(format!("'{}' is not a valid authentication_method.user_info_reference_key type. Examples of valid authentication_method.user_info_reference_key: 'id', 'email'", reference_type));
-        }
-    } else {
-        return Err(format!("user_get_id_preference: User data did not include key '{}'", reference_key.clone()))
-    }
+//         if reference_type == "id" {
+//             id = Some(value);
+//         } else if reference_type == "email" {
+//             email = Some(value);
+//         } else {
+//             return Err(format!("'{}' is not a valid authentication_method.user_info_reference_key type. Examples of valid authentication_method.user_info_reference_key: 'id', 'email'", reference_type));
+//         }
+//     } else {
+//         return Err(format!("user_get_id_preference: User data did not include key '{}'", reference_key.clone()))
+//     }
 
-    let output: UserGetIdPreferenceStruct = UserGetIdPreferenceStruct {
-        has_value: _has_value,
-        id: id,
-        email: email
-    };
+//     let output: UserGetIdPreferenceStruct = UserGetIdPreferenceStruct {
+//         has_value: _has_value,
+//         id: id,
+//         email: email
+//     };
 
-    return Ok(output);
-}
+//     return Ok(output);
+// }
 
 
 pub async fn user_get_otherwise_create(host: GuardedHostname, email: String, remote_addr: SocketAddr) -> Result<Option<GuardUser>, String> {

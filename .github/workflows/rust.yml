@@ -17,33 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Check if version already exists
-      run: |
-        apt update
-        apt install -y jq
-
-        VERSION=$(jq -r '.version' release.json)
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            VERSION="${{ github.ref_name }}-$VERSION"
-          fi
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-        # Get releases and extract tag names
-        RELEASES_RESPONSE=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases")
-        
-        # Try to extract tag names, if it fails then there's likely no releases or an error
-        if EXISTING_TAGS=$(echo "$RELEASES_RESPONSE" | jq -r '.[].tag_name' 2>/dev/null); then
-          echo "Found existing release tags: $EXISTING_TAGS"
-          if echo "$EXISTING_TAGS" | grep -q "^$VERSION$"; then
-            echo "Error: Version $VERSION already exists as a release tag"
-            exit 1
-          fi
-          echo "Version $VERSION is new, proceeding with release"
-        else
-          echo "Could not parse releases (possibly no releases exist yet) or API error occurred"
-          echo "Proceeding with release for version: $VERSION"
-        fi
-      
     - name: make build
       run: BASE=. make build
 

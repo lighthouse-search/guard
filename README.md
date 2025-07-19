@@ -3,19 +3,6 @@
 # Quickstart
 Download the [guard.zip](https://github.com/lighthouse-search/guard/releases/download/latest/guard.zip) and unzip it.
 
-[TODO] [NOTE TO SELF]: This documentation is here, but runners are not building Windows binaries. This needs to get fixed.
-## Windows
-### Powershell
-```
-$guard_config = Get-Content .\example\email-config.toml -Raw
-./guard-server.exe
-```
-### cmd
-```
-set /p guard_config=< .\example\email-config.toml
-./guard-server.exe
-```
-
 ## MacOS / Linux
 ```
 export guard_config=$(cat ./example/email-config.toml) && ./guard-server

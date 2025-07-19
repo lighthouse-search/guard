@@ -79,8 +79,8 @@ jobs:
     
     - name: Get release.json
       run: |
-        apt update
-        apt install -y jq
+        sudo apt update
+        sudo apt install -y jq
 
         VERSION=$(jq -r '.version' release.json)
         echo "VERSION=$VERSION" >> $GITHUB_ENV

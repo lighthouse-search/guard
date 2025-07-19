@@ -1,10 +1,11 @@
 FROM --platform=linux/amd64 rust:latest as build-stage
-COPY ./guard.zip /builds/guard.zip
-WORKDIR /builds/release
+WORKDIR /builds
 
 RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y unzip
+
+COPY ./guard.zip /builds/guard.zip
 RUN unzip /builds/guard.zip -d /builds/release
 RUN tree /
 

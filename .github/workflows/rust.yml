@@ -17,6 +17,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Get release.json
+      run: |
+        sudo apt update
+        sudo apt install -y jq
+
+        VERSION=$(jq -r '.version' release.json)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+      
     - name: make build
       run: BASE=. make build
 

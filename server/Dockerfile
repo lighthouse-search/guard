@@ -1,10 +1,11 @@
 FROM --platform=linux/amd64 rust:latest as build-stage
-COPY ./release /builds/release
+COPY ./guard.zip /builds/guard.zip
 WORKDIR /builds/release
 
 RUN apt update -y
 RUN apt upgrade -y
-RuN apt install tree
+RUN apt install -y unzip
+RUN unzip /builds/guard.zip -d /builds/release
 RUN tree /
 
 RUN adduser kube --disabled-login

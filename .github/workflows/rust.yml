@@ -50,6 +50,13 @@ jobs:
 
     - name: tree .
       run: tree .
+
+    - name: Upload guard.zip to artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-artifacts
+        path: ./guard.zip
+        retention-days: 1
       
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
@@ -66,6 +73,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Download guard.zip from artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: release-artifacts
+        path: ./guard.zip
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2

@@ -84,9 +84,9 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-      context: .
-      file: ./server/Dockerfile
-      push: true
-      tags: |
-        ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && env.VERSION || format('{0}-latest', github.ref_name) }}
-        ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && 'latest' || format('{0}-latest', github.ref_name) }}
+        context: .
+        file: ./server/Dockerfile
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && env.VERSION || format('{0}-latest', github.ref_name) }}
+          ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && 'latest' || format('{0}-latest', github.ref_name) }}

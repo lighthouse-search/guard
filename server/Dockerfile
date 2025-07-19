@@ -3,7 +3,7 @@ WORKDIR /builds
 
 RUN apt update -y
 RUN apt upgrade -y
-RUN apt install -y unzip
+RUN apt install -y unzip tree
 
 COPY ./guard.zip /builds/guard.zip
 RUN tree /builds

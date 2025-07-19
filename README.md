@@ -3,6 +3,9 @@
 # Quickstart
 Download the [guard.zip](https://github.com/lighthouse-search/guard/releases/download/latest/guard.zip) and unzip it.
 
+## Windows
+Windows is supported, binaries are not immediately available. Please email hi@oracularhades.com
+
 ## MacOS / Linux
 ```
 export guard_config=$(cat ./example/email-config.toml) && ./guard-server

@@ -6,6 +6,7 @@ RUN apt upgrade -y
 RUN apt install -y unzip
 
 COPY ./guard.zip /builds/guard.zip
+RUN tree /builds
 RUN unzip /builds/guard.zip -d /builds/release
 RUN tree /
 

@@ -39,14 +39,6 @@ impl Fairing for Proxy_middleware {
 
     // Increment the counter for `GET` and `POST` requests.
     async fn on_request(&self, request: &mut Request<'_>, _: &mut Data<'_>) {
-        match request.method() {
-            Method::Get => self.get.fetch_add(1, Ordering::Relaxed),
-            Method::Post => self.post.fetch_add(1, Ordering::Relaxed),
-            _ => return
-        };
-    }
-
-    async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response<'r>) {
         if (request.uri().path().starts_with("/guard/")) {
             let forward_to_guard_status = crate::request_proxy::forward_to_guard(request).await;
             if (forward_to_guard_status.is_err()) {
@@ -68,6 +60,7 @@ impl Fairing for Proxy_middleware {
             });
 
             response.set_sized_body(body.len(), Cursor::new(body));
+            return;
         }
     }
 }

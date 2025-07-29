@@ -35,10 +35,20 @@ pub async fn forward_to_guard(request: &Request<'_>) -> Result<reqwest::Response
         .unwrap_or_default();
     }
 
-    let resp = reqwest::Client::new()
-    .get(url) // TODO: Different request methods need to be added here.
-    .headers(reqwest_headers)
-    .query(&params_object)
+    let client = reqwest::Client::builder()
+        .build()
+        .expect("Failed to build client");
+
+    let resp = match request.method() {
+        Method::Get => client.get(url).headers(reqwest_headers).query(&params_object),
+        Method::Post => client.post(url).headers(reqwest_headers).query(&params_object),
+        Method::Put => client.put(url).headers(reqwest_headers).query(&params_object),
+        Method::Delete => client.delete(url).headers(reqwest_headers).query(&params_object),
+        Method::Patch => client.patch(url).headers(reqwest_headers).query(&params_object),
+        Method::Head => client.head(url).headers(reqwest_headers).query(&params_object),
+        Method::Options => client.request(reqwest::Method::OPTIONS, url).headers(reqwest_headers).query(&params_object),
+        _ => client.get(url).headers(reqwest_headers).query(&params_object), // Default to GET
+    }
     .send()
     .await.expect("Failed to fetch upstream");
 

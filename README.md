@@ -1,12 +1,11 @@
 *Guard is in alpha release, please visit [TODO](#whats-on-the-todo-list) to see what's happening before beta*
 
 # Quickstart
-Download the [guard.zip](https://github.com/lighthouse-search/guard/releases/download/latest/guard.zip) and unzip it.
-
 ## Windows
 Windows is supported, binaries are not immediately available. Please email hi@oracularhades.com
 
 ## MacOS / Linux
+Download [guard.zip](https://github.com/lighthouse-search/guard/releases/download/latest/guard.zip) and unzip it.
 ```
 export guard_config=$(cat ./example/email-config.toml) && ./guard-server
 ```

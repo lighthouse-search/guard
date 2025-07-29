@@ -15,18 +15,15 @@ build-dependencies:
 linux-system-dependencies:
 	apt update -y && apt install default-libmysqlclient-dev pkg-config -y
 	
-build:
+build-linux:
+	cd $(BASE)/server && \
+		cargo build --verbose --release && \
+		cargo test --verbose
+
+build-finalise:
 	rustc --version && cargo --version  # For any future debugging.
 	apt update -y && apt install zip tree -y
 
-	apt install mingw-w64 -y
-	rustup target add x86_64-pc-windows-gnu || echo "Windows target already installed"
-
-	tree .
-	cd $(BASE)/server && \
-		cargo build --verbose --release && \
-		cargo build --target x86_64-pc-windows-gnu && \
-		cargo test --verbose
 	mkdir $(BASE)/release
 	apt-get update -y && \
 		apt-get install -y build-essential curl file git unzip && \
@@ -39,6 +36,8 @@ build:
 		npm install && \
 		npm run build
 	mv $(BASE)/server/target/release/guard-server $(BASE)/release
+	mv $(BASE)/server/target/release/guard-server.exe $(BASE)/release
+	
 	mkdir $(BASE)/release/frontend/
 	mv $(BASE)/server/frontend/_static $(BASE)/release/frontend/_static
 

@@ -9,7 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
     container:
       image: rust:latest
@@ -25,40 +25,49 @@ jobs:
         VERSION=$(jq -r '.version' release.json)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
       
-    - name: make build
-      run: BASE=. make build
+    - name: make build-linux
+      run: BASE=. make build-linux
 
     - name: tree .
       run: tree .
 
-    - name: Upload guard.zip to artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-artifacts
-        path: ./guard.zip
-        retention-days: 1
-      
-    - uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "${{ env.VERSION }}"
-        prerelease: ${{ github.ref_name != 'main' }}
-        title: Release ${{ env.VERSION }}
-        files: |
-          ./guard.zip
-
-  docker:
-    runs-on: ubuntu-latest
-    needs: build
+  build-windows:
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
 
+    - name: cd server; cargo build --verbose --release
+      run: cd server; cargo build --verbose --release
+
+    - name: Upload guard.zip to artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-release-artifacts
+        path: ./server/target/release/guard-server.exe
+        retention-days: 1
+      
+  docker:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set base to "."
+      run: echo "base=." >> $GITHUB_ENV
+
     - name: Download guard.zip from artifacts
       uses: actions/download-artifact@v4
       with:
-        name: release-artifacts
-        path: .
+        name: linux-release-artifacts
+        path: ${{ env.base }}/server/target/release/
+
+    - name: Download guard.zip from artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-release-artifacts
+        path: ${{ env.base }}/server/target/release/
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -80,6 +89,9 @@ jobs:
 
     - name: tree .
       run: tree .
+
+    - name: make build-finalise
+      run: BASE=. make build-finalise
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5

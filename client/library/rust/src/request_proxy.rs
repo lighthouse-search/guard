@@ -75,6 +75,7 @@ pub async fn forward_to_guard_with_body(request: &Request<'_>, body: Option<Vec<
     let resp = request_builder.send().await.expect("Failed to fetch upstream");
 
     if (resp.status().is_success() == false) {
+        println!("Failed to forward request to guard: {}", resp.status());
         return Err(Status::InternalServerError);
     }
 

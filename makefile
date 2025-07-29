@@ -16,11 +16,14 @@ linux-system-dependencies:
 	apt update -y && apt install default-libmysqlclient-dev pkg-config -y
 	
 build:
+	rustup target add x86_64-pc-windows-gnu || echo "Windows target already installed"
+	
 	rustc --version && cargo --version  # For any future debugging.
 	apt update -y && apt install zip tree -y
 	tree .
 	cd $(BASE)/server && \
 		cargo build --verbose --release && \
+		cargo build --target x86_64-pc-windows-gnu && \
 		cargo test --verbose
 	mkdir $(BASE)/release
 	apt-get update -y && \

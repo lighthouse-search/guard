@@ -12,6 +12,10 @@ use url::Url;
 use std::str::FromStr;
 
 pub async fn forward_to_guard(request: &Request<'_>) -> Result<reqwest::Response, Status> {
+    forward_to_guard_with_body(request, None).await
+}
+
+pub async fn forward_to_guard_with_body(request: &Request<'_>, body: Option<Vec<u8>>) -> Result<reqwest::Response, Status> {
     let mut url = Url::parse("http://127.0.0.1:8000").expect("Failed to parse preset URL");
     url.set_path(request.uri().path().as_str());
 
@@ -39,18 +43,36 @@ pub async fn forward_to_guard(request: &Request<'_>) -> Result<reqwest::Response
         .build()
         .expect("Failed to build client");
 
-    let resp = match request.method() {
+    let mut request_builder = match request.method() {
         Method::Get => client.get(url).headers(reqwest_headers).query(&params_object),
-        Method::Post => client.post(url).headers(reqwest_headers).query(&params_object),
-        Method::Put => client.put(url).headers(reqwest_headers).query(&params_object),
+        Method::Post => {
+            let mut builder = client.post(url).headers(reqwest_headers).query(&params_object);
+            if let Some(body_data) = body {
+                builder = builder.body(body_data);
+            }
+            builder
+        },
+        Method::Put => {
+            let mut builder = client.put(url).headers(reqwest_headers).query(&params_object);
+            if let Some(body_data) = body {
+                builder = builder.body(body_data);
+            }
+            builder
+        },
         Method::Delete => client.delete(url).headers(reqwest_headers).query(&params_object),
-        Method::Patch => client.patch(url).headers(reqwest_headers).query(&params_object),
+        Method::Patch => {
+            let mut builder = client.patch(url).headers(reqwest_headers).query(&params_object);
+            if let Some(body_data) = body {
+                builder = builder.body(body_data);
+            }
+            builder
+        },
         Method::Head => client.head(url).headers(reqwest_headers).query(&params_object),
         Method::Options => client.request(reqwest::Method::OPTIONS, url).headers(reqwest_headers).query(&params_object),
         _ => client.get(url).headers(reqwest_headers).query(&params_object), // Default to GET
-    }
-    .send()
-    .await.expect("Failed to fetch upstream");
+    };
+
+    let resp = request_builder.send().await.expect("Failed to fetch upstream");
 
     if (resp.status().is_success() == false) {
         return Err(Status::InternalServerError);

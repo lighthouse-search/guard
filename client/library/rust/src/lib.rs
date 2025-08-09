@@ -1,18 +1,15 @@
 use std::collections::HashMap;
 
-use rocket::data::ToByteUnit;
 use rocket::{options, get, post, put, Request};
 use rocket::request::FromRequest;
 use rocket::request;
 
-use rocket::{Data, Response};
+use rocket::Data;
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::http::{Method, ContentType, Status};
 
 use serde_json::Value;
 
 use crate::request_proxy::{package_response_body, proxy_to_guard};
-use crate::validation::auth_via_https;
 
 mod request_proxy;
 mod validation;
@@ -70,24 +67,24 @@ pub fn guard_routes() -> Vec<rocket::Route> {
 
 #[options("/guard/<_..>")]
 async fn guard_options(request_metadata: &RequestMetadata) -> request_proxy::ProxyResponse {
-    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), None).await).await
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), None).await.expect("Failed to proxy request to guard")).await
 }
 
 #[get("/guard/<_..>")]
 async fn guard_get(request_metadata: &RequestMetadata) -> request_proxy::ProxyResponse {
-    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), None).await).await
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), None).await.expect("Failed to proxy request to guard")).await
 }
 
 #[post("/guard/<_..>", format = "application/json", data = "<body_raw>")]
 async fn guard_post(request_metadata: &RequestMetadata, body_raw: String) -> request_proxy::ProxyResponse {
     // let body = serde_json::from_str(&body_raw).unwrap();
-    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), Some(body_raw)).await).await
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), Some(body_raw)).await.expect("Failed to proxy request to guard")).await
 }
 
 #[put("/guard/<_..>", format = "application/json", data = "<body_raw>")]
 async fn guard_put(request_metadata: &RequestMetadata, body_raw: String) -> request_proxy::ProxyResponse {
     // let body = serde_json::from_str(&body_raw).unwrap();
-    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), Some(body_raw)).await).await
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), Some(body_raw)).await.expect("Failed to proxy request to guard")).await
 }
 
 fn request_metadata(request: &Request<'_>) -> RequestMetadata {

@@ -43,7 +43,9 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
 
         let guard_header: Value = json!({
             "user": user,
-            "authentication_method": authentication_method.id
+            "authentication_method": json!({
+                "id": authentication_method.id
+            })
         });
         
         // Create a JSON response

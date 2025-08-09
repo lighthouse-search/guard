@@ -25,5 +25,5 @@ async fn rocket() -> Rocket<Build> {
 
     rocket::custom(figment)
     .register("/", catchers![internal_error])
-    .attach(guard_auth::Proxy_middleware::new())
+    .mount("/", guard_auth::guard_routes())
 }

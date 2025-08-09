@@ -133,6 +133,8 @@ pub async fn matches_policy(policy: GuardPolicy, user: Value, _ip: String) -> Re
         };
     }
 
+    // TODO: .and doesn't work
+
     // If matches = true, the user will be authorised. This means they haven't failed any policies.
 
     Ok(matches)

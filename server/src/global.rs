@@ -174,7 +174,7 @@ pub async fn send_email(email: String, subject: String, message: String) -> Resu
 
     match result {
         Ok(Ok(_)) => {
-            log::error!("Email sent successfully.");
+            log::debug!("Email sent successfully.");
             Ok(true)
         },
         Ok(Err(e)) => {

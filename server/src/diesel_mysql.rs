@@ -128,7 +128,6 @@ impl Fairing for Cors {
     }
 }
 
-// Returns the current request's ID, assigning one only as necessary.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for &'r QueryString {
     type Error = ();

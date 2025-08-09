@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::io::Cursor;
 
-use rocket::http::{Method, Status, ContentType};
+use rocket::http::{Method, Status};
 use rocket::Response;
 use rocket::response::{self, Responder};
 use rocket::Request;
@@ -19,7 +18,7 @@ impl<'r> Responder<'r, 'static> for ProxyResponse {
     }
 }
 
-pub async fn proxy_to_guard(request_metadata: RequestMetadata, body: Option<String>) -> reqwest::Response {
+pub async fn proxy_to_guard(request_metadata: RequestMetadata, _body: Option<String>) -> Result<reqwest::Response, Status> {
     let mut url = Url::parse("http://127.0.0.1:8000").expect("Failed to parse preset URL");
     url.set_path(&request_metadata.path);
 
@@ -52,7 +51,7 @@ pub async fn proxy_to_guard(request_metadata: RequestMetadata, body: Option<Stri
         .build()
         .expect("Failed to build client");
 
-    let resp = match request.method() {
+    let req_response = match request_metadata.method {
         Method::Get => client.get(url).headers(reqwest_headers).query(&params_object),
         Method::Post => client.post(url).headers(reqwest_headers).query(&params_object),
         Method::Put => client.put(url).headers(reqwest_headers).query(&params_object),
@@ -65,12 +64,16 @@ pub async fn proxy_to_guard(request_metadata: RequestMetadata, body: Option<Stri
     .send()
     .await.expect("Failed to fetch upstream");
 
-    if (resp.status().is_success() == false) {
+    if req_response.status().is_success() == false {
         return Err(Status::InternalServerError);
     }
 
     println!("OK!");
 
+    Ok(req_response)
+}
+
+pub async fn package_response_body(req_response: reqwest::Response) -> ProxyResponse {
     let status = Status::new(req_response.status().as_u16());
     let headers = req_response.headers().clone();
     let body = req_response.text().await.unwrap_or_else(|_| "Failed to read response".to_string());
@@ -86,7 +89,7 @@ pub async fn proxy_to_guard(request_metadata: RequestMetadata, body: Option<Stri
             match header_name.to_lowercase().as_str() {
                 "content-length" | "transfer-encoding" | "connection" => continue,
                 "content-type" => {
-                    if let Ok(content_type) = ContentType::from_str(header_value) {
+                    if let Ok(content_type) = rocket::http::ContentType::from_str(header_value) {
                         response.set_header(content_type);
                     }
                 },
@@ -97,6 +100,6 @@ pub async fn proxy_to_guard(request_metadata: RequestMetadata, body: Option<Stri
         }
     }
     
-    response.set_sized_body(body.len(), Cursor::new(body));
+    response.set_sized_body(body.len(), std::io::Cursor::new(body));
     ProxyResponse(response)
 }

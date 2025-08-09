@@ -1,34 +1,130 @@
 use std::collections::HashMap;
-use std::io::Cursor;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
-use reqwest::header;
-use rocket::response::status;
-use rocket::{Request, Data, Response};
+use rocket::data::ToByteUnit;
+use rocket::{options, get, post, put, Request};
+use rocket::request::FromRequest;
+use rocket::request;
+
+use rocket::{Data, Response};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::{Method, ContentType, Status};
-use url::Url;
 
-use std::str::FromStr;
+use serde_json::Value;
+
+use crate::request_proxy::{package_response_body, proxy_to_guard};
+use crate::validation::auth_via_https;
 
 mod request_proxy;
+mod validation;
 
 // TODO: Enforce a minimum Guard version both with the internal binary and an external server address.
 
-#[derive(Default)]
-pub struct Proxy_middleware {
-    get: AtomicUsize,
-    post: AtomicUsize,
+#[derive(Debug)]
+pub struct ConfigGuard {
+    url: Option<String>,
+    config: Option<String>, // Pass the config TOML as a string.
+    config_path: Option<String>, // Pass path to config.
+    config_env: Option<String>, // Pass the config environment variable.
 }
 
-impl Proxy_middleware {
-    pub fn new() -> Self {
-        Self::default()
+#[derive(Debug)]
+pub struct Config {
+    guard: Option<ConfigGuard>,
+}
+
+#[derive(Default)]
+pub struct ProxyRocketMiddleware {
+    config: Option<Config>,
+}
+
+#[derive(Debug)]
+pub struct QueryString(pub String);
+
+#[derive(Debug)]
+pub struct UrlUri(pub String);
+
+#[derive(Debug, Clone)]
+pub struct RequestMetadata {
+    uri: String,
+    path: String,
+    query: String,
+    headers: Headers,
+    method: rocket::http::Method,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct GuardMetadata {
+    user: Option<Value>,
+    device: Option<Value>,
+    authentication_method: Option<Value>
+}
+
+#[derive(Debug, Clone)]
+pub struct Headers {
+    pub headers_map: HashMap<String, String>,
+}
+
+pub fn guard_routes() -> Vec<rocket::Route> {
+    rocket::routes![guard_options, guard_get, guard_post, guard_put]
+}
+
+#[options("/guard/<_..>")]
+async fn guard_options(request_metadata: &RequestMetadata) -> request_proxy::ProxyResponse {
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), None).await).await
+}
+
+#[get("/guard/<_..>")]
+async fn guard_get(request_metadata: &RequestMetadata) -> request_proxy::ProxyResponse {
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), None).await).await
+}
+
+#[post("/guard/<_..>", format = "application/json", data = "<body_raw>")]
+async fn guard_post(request_metadata: &RequestMetadata, body_raw: String) -> request_proxy::ProxyResponse {
+    // let body = serde_json::from_str(&body_raw).unwrap();
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), Some(body_raw)).await).await
+}
+
+#[put("/guard/<_..>", format = "application/json", data = "<body_raw>")]
+async fn guard_put(request_metadata: &RequestMetadata, body_raw: String) -> request_proxy::ProxyResponse {
+    // let body = serde_json::from_str(&body_raw).unwrap();
+    package_response_body(request_proxy::proxy_to_guard(request_metadata.clone(), Some(body_raw)).await).await
+}
+
+fn request_metadata(request: &Request<'_>) -> RequestMetadata {
+    let query_params = request.uri().query().map(|query| query.as_str().to_owned()).unwrap_or_else(|| String::new());
+
+    // Headers
+    let headers = request.headers().iter()
+        .map(|header| (header.name.to_string(), header.value.to_string()))
+        .collect::<HashMap<String, String>>();
+
+    RequestMetadata {
+        query: query_params,
+        uri: request.uri().to_string(),
+        path: request.uri().path().to_string(),
+        method: request.method(),
+        headers: Headers { headers_map: headers },
+    }
+}
+
+// TODO: RequestMetadata might be useable in depdendent codebases, which wouldn't be great. This should be internal only.
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for &'r RequestMetadata {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        // The closure passed to `local_cache` will be executed at most once per
+        // request: the first time the `RequestId` guard is used. If it is
+        // requested again, `local_cache` will return the same value.
+
+        request::Outcome::Success(request.local_cache(|| {
+            request_metadata(request)
+        }))
     }
 }
 
 #[rocket::async_trait]
-impl Fairing for Proxy_middleware {
+impl Fairing for GuardMetadata {
     // This is a request and response fairing named "GET/POST Counter".
     fn info(&self) -> Info {
         Info {
@@ -37,37 +133,27 @@ impl Fairing for Proxy_middleware {
         }
     }
 
-    // Increment the counter for `GET` and `POST` requests.
-    async fn on_request(&self, request: &mut Request<'_>, _: &mut Data<'_>) {
-        match request.method() {
-            Method::Get => self.get.fetch_add(1, Ordering::Relaxed),
-            Method::Post => self.post.fetch_add(1, Ordering::Relaxed),
-            _ => return
-        };
-    }
+    async fn on_request(&self, request: &mut Request<'_>, data: &mut Data<'_>) {
+        let mut request_metadata = request_metadata(request);
+        
+        // let stream = data.open(2.mebibytes());
 
-    async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response<'r>) {
-        if (request.uri().path().starts_with("/guard/")) {
-            let forward_to_guard_status = crate::request_proxy::forward_to_guard(request).await;
-            if (forward_to_guard_status.is_err()) {
-                response.set_status(Status::BadGateway);
-                response.set_sized_body(0, Cursor::new("Failed to forward request to guard"));
-                return;
+        // let body_data = data.open(20.mebibytes()).into_string().await.expect("Failed to get body").to_string();
+        // auth_via_https(request_metadata, Some(body_data)).await;
+
+        request.local_cache(|| {
+            let query_params = request.uri().query().map(|query| query.as_str().to_owned()).unwrap_or_else(|| String::new());
+
+            // Headers
+            let headers = request.headers().iter()
+                .map(|header| (header.name.to_string(), header.value.to_string()))
+                .collect::<HashMap<String, String>>();
+
+            GuardMetadata {
+                user: None,
+                device: None,
+                authentication_method: None
             }
-            let resp = forward_to_guard_status.unwrap();
-
-            let status = Status::new(resp.status().as_u16());
-            let headers = resp.headers().clone();
-
-            let body = resp.text().await.unwrap_or_else(|_| "Failed to read response".to_string());
-            response.set_status(status);
-            headers.get(header::CONTENT_TYPE).map(|ct| {
-                if let Ok(content_type) = ct.to_str() {
-                    response.set_header(ContentType::from_str(content_type).unwrap_or(ContentType::Plain));
-                }
-            });
-
-            response.set_sized_body(body.len(), Cursor::new(body));
-        }
+        });
     }
 }

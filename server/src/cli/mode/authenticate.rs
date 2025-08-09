@@ -11,9 +11,6 @@ pub async fn handle(arguments: HashMap<String, CommandArgument>, modes: Vec<Stri
     // PLACEHOLDER EXAMPLE: ./guard authenticate handle --type request --host example.com --body {"post": "💞"} --headers {"Content-Type": "application/json"} --parameters referer=my%20awesome%20post%20composer&status=cool --nonce 1746447427345+40
     log::debug!("Initalised");
 
-    if arguments.contains_key("type") == false {
-        return Err("--type requires a value. E.g. try ./guard --type request".to_string());
-    }
     if has_no_value(&arguments, "type") == true {
         return Err("--type requires a value. E.g. try ./guard --type request".to_string());
     }

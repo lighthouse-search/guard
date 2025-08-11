@@ -1,7 +1,6 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: "[Bug]"
 labels: bug
 assignees: ''
 
@@ -20,32 +19,22 @@ Steps to reproduce the behavior:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Screenshots/videos**
+If applicable, please add screenshots/videos to help explain your problem.
 
 **Server information**
-Please tell us about your setup:
+## Server
+Please tell us about your Guard server:
  - OS: [e.g Debian 12.5]
- - Where are you running Guard? [e.g Docker & Kubernetes]
- - What version of Guard are you running? You can find this on the login page, at /guard/api/version, or Guard's logs. (Using Docker and using the tag "latest" doesn't count)
+ - Where are you running Guard? [e.g Docker, Kubernetes]
+ - What version of Guard are you running?
 
-If a web device is involved in any way, e.g this isn't a configuration issue), please complete the following information:
-
-If using a computer:
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
+## Clients
+Please tells us about any clients involved:
 OR, if using a smartphone:
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-**(Optional) configuration**
-[You are not required to post your configuration, but part of it will probably be asked for. To better resolve your problem it would be very helpful. Guard configurations are specifically designed to not contain API keys, however, they do contain firewall rules and other data like database usernames. In most people's use-cases, it's fine to put here (publicly). However, it's recommended you redact irrelevant data (emails, SMTP username/address, etc), provided it's not related to your issue.]
-
-Add any other context about the problem here.
+ - Device: [e.g. Windows, Mac, iPhone 16, Galaxy S25]
+ - OS + version: [e.g. iOS 18.6, Android 16 4.1]
+ - Browser + version: [e.g. Firefox 141.0.3, Chrome 140.0.7339.6, Safari 18.5]
 
 **Additional context**
 Add any other context about the problem here.

@@ -32,8 +32,8 @@ pub async fn oauth_exchange_code(authentication_method: Option<String>, code: Op
 
     let data_from_login_url = oauth_get_data_from_oauth_login_url(auth_method.login_page.clone());
     let result = oauth_code_exchange_for_access_key(
-        auth_method.oauth_client_token_endpoint.clone().unwrap(),
-        auth_method.oauth_client_id.clone().unwrap(),
+        auth_method.oauth_client_token_endpoint.clone().expect("Missing auth_method.oauth_client_token_endpoint"),
+        auth_method.oauth_client_id.clone().expect("Missing auth_method.oauth_client_id"),
         client_secret,
         code.unwrap(),
         data_from_login_url.scope.unwrap(),

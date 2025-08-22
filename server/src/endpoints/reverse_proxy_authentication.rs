@@ -12,7 +12,7 @@ use crate::{CONFIG_VALUE, Headers};
 
 async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
     // TODO: "pathname" is not processed.
-    
+
     let mut header_to_use: String = "host".to_string();
 
     // Here, we need to get the reverse_proxy_authentication.config to check if a custom header is set. For example, NGINX auth-url overrides the "host" header, and instead gives a "x-original-url" (among others) header.

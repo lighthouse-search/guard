@@ -1,7 +1,7 @@
 use crate::{request_proxy::proxy_to_guard, GuardMetadata, RequestMetadata};
 
 pub async fn auth_via_https(mut request_metadata: RequestMetadata, body: Option<String>) -> GuardMetadata {
-    request_metadata.path = "/guard/api/proxy/authenticate".to_string();
+    request_metadata.path = "/guard/api/proxy/authentication".to_string();
     let response = proxy_to_guard(request_metadata, body).await.expect("Failed to proxy request to guard");
 
     let response_json = serde_json::from_str::<GuardMetadata>(&response.text().await.expect("Failed to read response text")).expect("Failed to parse response JSON");

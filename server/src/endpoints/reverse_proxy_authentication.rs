@@ -11,6 +11,8 @@ use crate::users::user_authentication_pipeline;
 use crate::{CONFIG_VALUE, Headers};
 
 async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+    // TODO: "pathname" is not processed.
+
     let mut header_to_use: String = "host".to_string();
 
     // Here, we need to get the reverse_proxy_authentication.config to check if a custom header is set. For example, NGINX auth-url overrides the "host" header, and instead gives a "x-original-url" (among others) header.
@@ -34,15 +36,25 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
         let user_authentication_unwrapped = user_authentication.unwrap();
         
         let user_result = user_authentication_unwrapped.user;
-        let _device = user_authentication_unwrapped.device;
         let authentication_method_wrapped = user_authentication_unwrapped.authentication_method;
         let user = user_result.unwrap();
         let authentication_method = authentication_method_wrapped.unwrap();
 
         // let user_get_id_preference = user_get_id_preference(user.clone(), authentication_method.clone()).expect("Failed to get user_get_id_preference");
 
+        // TODO: This is wildly messy, I'll fix it.
+
+        let mut device: Option<Value> = None;
+        if user_authentication_unwrapped.device.is_none() == false {
+            let device_unwrapped = user_authentication_unwrapped.device.unwrap();
+            device = Some(json!({
+                "id": device_unwrapped.id
+            }));
+        }
+
         let guard_header: Value = json!({
             "user": user,
+            "device": device,
             "authentication_method": json!({
                 "id": authentication_method.id
             })

@@ -19,7 +19,6 @@ use crate::responses::*;
 use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
-
 pub struct Cors;
 
 pub fn stage() -> AdHoc {

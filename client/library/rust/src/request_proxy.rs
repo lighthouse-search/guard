@@ -53,12 +53,12 @@ pub async fn proxy_to_guard(request_metadata: RequestMetadata, _body: Option<Str
 
     let req_response = match request_metadata.method {
         Method::Get => client.get(url).headers(reqwest_headers).query(&params_object),
-        Method::Post => client.post(url).headers(reqwest_headers).query(&params_object),
-        Method::Put => client.put(url).headers(reqwest_headers).query(&params_object),
-        Method::Delete => client.delete(url).headers(reqwest_headers).query(&params_object),
-        Method::Patch => client.patch(url).headers(reqwest_headers).query(&params_object),
-        Method::Head => client.head(url).headers(reqwest_headers).query(&params_object),
-        Method::Options => client.request(reqwest::Method::OPTIONS, url).headers(reqwest_headers).query(&params_object),
+        Method::Post => client.post(url).headers(reqwest_headers).query(&params_object).body(_body.unwrap_or_default()),
+        Method::Put => client.put(url).headers(reqwest_headers).query(&params_object).body(_body.unwrap_or_default()),
+        Method::Delete => client.delete(url).headers(reqwest_headers).query(&params_object).body(_body.unwrap_or_default()),
+        Method::Patch => client.patch(url).headers(reqwest_headers).query(&params_object).body(_body.unwrap_or_default()),
+        Method::Head => client.head(url).headers(reqwest_headers).query(&params_object).body(_body.unwrap_or_default()),
+        Method::Options => client.request(reqwest::Method::OPTIONS, url).headers(reqwest_headers).query(&params_object).body(_body.unwrap_or_default()),
         _ => client.get(url).headers(reqwest_headers).query(&params_object), // Default to GET
     }
     .send()

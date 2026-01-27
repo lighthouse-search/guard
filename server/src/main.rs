@@ -140,6 +140,8 @@ async fn rocket() -> Rocket<Build> {
         guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");
     }
 
+    print!("Starting Guard server on port {}...\n", guard_port);
+
     let mut figment = rocket::Config::figment()
     .merge(("port", guard_port))
     .merge(("address", "0.0.0.0"));

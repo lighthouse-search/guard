@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use axum::response::Response;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
@@ -335,13 +336,13 @@ pub struct GuardPolicy {
 }
 
 pub struct HandlingMagiclink {
-    pub error_to_respond_to_client_with: Option<Custom<Value>>,
+    pub error_to_respond_to_client_with: Option<Response>,
     pub magiclink: Option<Magiclink>,
     pub user: Option<GuardUser>
 }
 
 pub struct RequestMagiclink {
-    pub error_to_respond_to_client_with: Option<Custom<Value>>,
+    pub error_to_respond_to_client_with: Option<Response>,
     pub _email: Option<String>
 }
 
@@ -461,10 +462,11 @@ pub struct ProtocolDecisionToPipelineOutput {
     pub authentication_type: String // The underlying authentication technology, e.g. "signed_request", "static_auth", "bearer_token"
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct ErrorResponse {
     pub error: bool,
-    pub message: String
+    pub message: String,
+    pub code: i64
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

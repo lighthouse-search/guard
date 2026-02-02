@@ -1,8 +1,5 @@
 use serde_json::{Value, json};
 
-use rocket::response::status;
-use rocket::http::Status;
-
 use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
@@ -30,7 +27,7 @@ pub async fn request_email(email: String, authentication_method: AuthMethod, req
     if user_result.is_none() {
         // Because the user_get_otherwise_create will always return a user (after all, it's creating a user if it doesn't exist), a None result means the user is unauthorized and we will not create one.
         return Ok(RequestMagiclink {
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message(&format!("Access denied - '{}' is not an authorized email", email)).into())),
+            error_to_respond_to_client_with: Some(error_message(3001, axum::http::StatusCode::UNAUTHORIZED, format!("Access denied - '{}' is not an authorized email", email).to_string())),
             _email: None,
         });
     }

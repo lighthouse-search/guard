@@ -1,3 +1,5 @@
+use axum::response::Response;
+
 use crate::global::get_authentication_method;
 use crate::responses::{self, *};
 use crate::structs::*;
@@ -6,12 +8,12 @@ use crate::device::{device_signed_authentication, device_guard_static_auth_from_
 use crate::users::user_get;
 use crate::hostname::{is_valid_authentication_method_for_hostname, prepend_hostname_to_cookie};
 
-pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: GuardedHostname, _jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &Headers) -> Result<(Option<GuardUser>, Option<GuardDevices>, Option<AuthMethod>), ErrorResponse> {
+pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: GuardedHostname, _jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &Headers) -> Result<(Option<GuardUser>, Option<GuardDevices>, Option<AuthMethod>), Response> {
     // This relates to OAuth server applications, but is easily confused with oauth_pipeline and even conflicts. This needs to be re-worked. This function checks bearer tokens match a hashed value in Guard's database and returns the matched user.
     
     // Check the Authroization header starts with ("Bearer "), consistent with OAuth standard.
     if headers.headers_map.get("Authorization").expect("Missing Authorization header.").clone().starts_with("Bearer ") == false {
-        return Err(error_message("Authorization header does not start with 'Bearer '.").into());
+        return Err(error_message(8001, axum::http::StatusCode::BAD_REQUEST, "Authorization header does not start with 'Bearer '.".to_string()));
     }
     let authorization_header = headers.headers_map.get("Authorization").expect("Missing Authorization header.").trim_start_matches("Bearer ");
 
@@ -32,7 +34,7 @@ pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: 
     // Check if either authentication method is available.
     if oauth_general_authentication_method.is_none() == true && oauth_application_authentication_method.is_none() == true {
         log::error!("neither {} nor {} authentication methods exist.", "oauth", oauth_application_specific_id.clone());
-        return Err(responses::internal_server_error_generic());
+        return Err(fatal_error());
     }
     // >1 authentication method for this OAuth application is available. If the application specific authentication method is available, we'll use that.
     let using_authentication_method = if oauth_application_authentication_method.is_none() == false { oauth_application_authentication_method.unwrap() } else { oauth_general_authentication_method.unwrap() };
@@ -46,18 +48,18 @@ pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: 
     return Ok((Some(user), None, Some(using_authentication_method)));
 }
 
-pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, _headers: &Headers) -> Result<DevicePipelineStaticAuthResponse, ErrorResponse> {
+pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, _headers: &Headers) -> Result<DevicePipelineStaticAuthResponse, Response> {
     // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
 
     let signed_data = device_guard_static_auth_from_cookies(jar);
     if signed_data.is_none() == true {
         log::info!("missing {}", prepend_hostname_to_cookie("guard_static_auth"));
-        return Err(error_message(&format!("missing {}", prepend_hostname_to_cookie("guard_static_auth"))));
+        return Err(error_message(9001, axum::http::StatusCode::BAD_REQUEST, format!("missing {}", prepend_hostname_to_cookie("guard_static_auth"))));
     }
 
     let device_authentication = device_signed_authentication(signed_data.unwrap()).await;
     if device_authentication.is_err() == true {
-        return Err(error_message("device signed authentication failed."));
+        return Err(error_message(9002, axum::http::StatusCode::BAD_REQUEST, "device signed authentication failed.".to_string()));
     }
     let (device, _additional_data) = device_authentication.unwrap();
 

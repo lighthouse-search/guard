@@ -59,15 +59,17 @@ pub mod misc {
     pub mod tls;
 }
 
-use rocket::catchers;
-use rocket::{Build, Rocket};
+use axum::{
+    Json, Router, http::StatusCode, routing::{delete, get, head, options, patch, post, put}
+};
+use axum_server::tls_rustls::RustlsConfig;
 
 use once_cell::sync::Lazy;
 use toml::Value;
 
-use std::env;
+use std::{env, path::PathBuf};
 
-use crate::diesel_mysql::internal_error;
+use crate::{endpoints::{auth::authenticate, metadata::{metadata_get, metadata_get_authentication_methods}, reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put}}, protocols::oauth::endpoint::{client::oauth_exchange_code, server::oauth_server_token}};
 use crate::database::validate_sql_table_inputs;
 use crate::structs::*;
 use crate::responses::*;
@@ -128,11 +130,11 @@ async fn main() {
         crate::cli::index::parse().await;
     } else {
         log::info!("Using Web mode - zero arguments specified. Starting Rocket server.");
-        rocket().await.launch().await.expect("Failed to start web server");
+        start_web().await;
     }
 }
 
-async fn rocket() -> Rocket<Build> {
+async fn start_web() {
     // let mut rng = rand::thread_rng();
     let mut guard_port: u32 = 8000; // rng.gen_range(4000..65535)
     
@@ -154,9 +156,68 @@ async fn rocket() -> Rocket<Build> {
         log::info!("Not using TLS configuration.");
     }
 
-    // We're using Web mode.
-    rocket::custom(figment)
-    .register("/", catchers![internal_error])
-    // .attach(Cors)
-    .attach(diesel_mysql::stage())
+    let mut frontend_path: PathBuf = env::current_exe().expect("Failed to get current directory");
+
+    if cfg!(debug_assertions) {
+        // Program is debug (cargo run).
+        // guard/server/frontend/_static
+        frontend_path.pop();
+        frontend_path.pop();
+        frontend_path.pop();
+        frontend_path.push("frontend");
+        frontend_path.push("_static");
+    } else {
+        // Program is release (cargo build)
+        // guard/frontend/_static (use packaged assets)
+        frontend_path.pop();
+        frontend_path.push("frontend");
+        frontend_path.push("_static");
+    }
+
+    let mut app = Router::new()
+    .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()))
+    .route("/guard/api/metadata/get", get(metadata_get))
+    .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
+    .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
+    .route("/guard/api/auth/authenticate", post(authenticate))
+    .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code));
+    
+    let config = (&*CONFIG_VALUE).clone();
+    
+    // Attempt to extract "config.reverse_proxy_authentication"
+    if let Some(features) = config.features {
+        if features.reverse_proxy_authentication.unwrap_or(false) == true {
+            app.route("/guard/api/proxy/authentication", get(reverse_proxy_authentication_get));
+            app.route("/guard/api/proxy/authentication", put(reverse_proxy_authentication_put));
+            app.route("/guard/api/proxy/authentication", post(reverse_proxy_authentication_post));
+            app.route("/guard/api/proxy/authentication", delete(reverse_proxy_authentication_delete));
+            app.route("/guard/api/proxy/authentication", head(reverse_proxy_authentication_head));
+            app.route("/guard/api/proxy/authentication", options(reverse_proxy_authentication_options));
+            app.route("/guard/api/proxy/authentication", patch(reverse_proxy_authentication_patch));
+        }
+
+        if features.oauth_server.unwrap_or(false) == true {
+            app.route("/guard/api/oauth/server/token", post(oauth_server_token));
+        }
+    }
+
+    // // configure certificate and private key used by https
+    // let config = RustlsConfig::from_pem_file(
+    //     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    //         .join("self_signed_certs")
+    //         .join("cert.pem"),
+    //     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    //         .join("self_signed_certs")
+    //         .join("key.pem"),
+    // )
+    // .await
+    // .unwrap();
+
+    // run https server
+    let addr = SocketAddr::from(([127, 0, 0, 1], guard_port));
+    tracing::debug!("listening on {}", addr);
+    axum_server::bind_rustls(addr, config)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }

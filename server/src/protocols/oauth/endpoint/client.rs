@@ -1,30 +1,29 @@
+use axum::response::{Response, IntoResponse};
+
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 
-use rocket::{http::Status, response::status::{self, Custom}, get};
-
 use crate::hostname::hostname_auth_exit_flow;
-
 use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{client::oauth_code_exchange_for_access_key, pipeline::oauth_get_data_from_oauth_login_url}, Headers};
 
 #[get("/exchange-code?<authentication_method>&<code>&<host>")]
-pub async fn oauth_exchange_code(authentication_method: Option<String>, code: Option<String>, host: Option<String>, _remote_addr: SocketAddr, _headers: &Headers) -> Result<Custom<Value>, Status> {
+pub async fn oauth_exchange_code(authentication_method: Option<String>, code: Option<String>, host: Option<String>, _remote_addr: SocketAddr, _headers: &Headers) -> Response {
     if authentication_method.is_none() == true {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.authentication_method is null.").into()));
+        return error_message(10001, axum::http::StatusCode::BAD_REQUEST, "params.authentication_method is null.".to_string());
     }
     if code.is_none() == true {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.code is null.").into()));
+        return error_message(10002, axum::http::StatusCode::BAD_REQUEST, "params.code is null.".to_string());
     }
 
     let authentication_method_string_unwrapped = authentication_method.unwrap();
     
     let auth_method_wrapped = get_authentication_method(authentication_method_string_unwrapped.clone(), true).await;
     if auth_method_wrapped.is_none() == true {
-        return Ok(status::Custom(Status::BadRequest, error_message(&format!("'{}' is not a valid authentication method", authentication_method_string_unwrapped)).into()));
+        return error_message(10003, axum::http::StatusCode::BAD_REQUEST, format!("'{}' is not a valid authentication method", authentication_method_string_unwrapped));
     }
     let auth_method = auth_method_wrapped.unwrap();
     if auth_method.method_type != "oauth" {
-        return Ok(status::Custom(Status::BadRequest, error_message(&format!("authentication method '{}' is not oauth", authentication_method_string_unwrapped)).into()));
+        return error_message(10004, axum::http::StatusCode::BAD_REQUEST, format!("authentication method '{}' is not oauth", authentication_method_string_unwrapped));
     }
 
     let oauth_client_secret_env = auth_method.oauth_client_secret_env.clone().unwrap();
@@ -42,23 +41,26 @@ pub async fn oauth_exchange_code(authentication_method: Option<String>, code: Op
     
     if result.is_none() == true {
         log::info!("External authentication failed. Most likely because the client is unauthorized, or there's an issue with the application oauth information provided for this authentication-method in the config (Are your OAuth URLs, client-id, client-secret, redirect_uri and scope all valid?)");
-        return Ok(status::Custom(Status::Unauthorized, error_message("Unauthorized, external authentication failed.").into()));
+        return error_message(10005, axum::http::StatusCode::BAD_REQUEST, "Unauthorized, external authentication failed.".to_string());
     }
 
     let oauth_code_exchange = result.unwrap();
 
     if host.is_none() == true {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.hostname is null or whitespace.").into()));
+        return error_message(10006, axum::http::StatusCode::BAD_REQUEST, "params.hostname is null or whitespace.".to_string());
     }
     
     let hostname_result = hostname_auth_exit_flow(host.unwrap(), auth_method).await;
     if hostname_result.is_none() == true {
-        return Ok(status::Custom(Status::BadRequest, error_message("Invalid params.host").into()));
+        return error_message(10007, axum::http::StatusCode::BAD_REQUEST, "Invalid params.host".to_string());
     }
 
-    Ok(status::Custom(Status::Ok, json!({
-        "ok": true,
-        "access_token": oauth_code_exchange.access_token,
-        "hostname": hostname_result.unwrap()
-    })))
+    (
+        axum::http::StatusCode::OK,
+        serde_json::to_string(&json!({
+            "ok": true,
+            "access_token": oauth_code_exchange.access_token,
+            "hostname": hostname_result.unwrap()
+        })).unwrap(),
+    ).into_response()
 }

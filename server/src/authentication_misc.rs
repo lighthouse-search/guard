@@ -1,3 +1,4 @@
+use axum::response::Response;
 use serde_json::Value;
 
 use crate::global::{get_authentication_method};
@@ -8,7 +9,7 @@ use crate::protocols::oauth::pipeline::oauth_pipeline;
 use crate::responses::*;
 use crate::structs::*;
 
-pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<ProtocolDecisionToPipelineOutput, ErrorResponse> {
+pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<ProtocolDecisionToPipelineOutput, Response> {
     let mut _authentication_type: Option<String> = None;
 
     let authentication_metadata_status = get_guard_authentication_metadata(&jar, remote_addr.clone(), hostname.clone(), headers).await;
@@ -74,7 +75,7 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
             });
         } else {
             // TODO: make this a not-terrible error message
-            return Err(error_message(&format!("Unhandled guard_authentication_metadata.method_type, type: '{}'", unverified_authentication_method.method_type)).into());
+            return Err(error_message(2004, axum::http::StatusCode::BAD_REQUEST, format!("Unhandled guard_authentication_metadata.method_type, type: '{}'", unverified_authentication_method.method_type).to_string()));
         }
     } else if headers.headers_map.get("Authorization").is_none() == false {// TODO: This needs a config feature flag to check if OAuth-server is enabled on the server. // No authentication metadata was provided, let's check the "Authorization" header. It's important to check standard headers, like "Authorization", last as the client may not be intending for Guard to use it. We need to be careful how this IF statement evolves in the future - we don't want to reject a valid request because Guard is reading a standard header before checking if another Guard-specific method was provided.
         _authentication_type = Some(String::from("oauth"));
@@ -94,11 +95,11 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
         });
     } else {
         // TODO: make this a not-terrible error message
-        return Err(error_message(&format!("guard_authentication_metadata.authentication_method.method_type and headers.Authorization are both unspecified.")).into());
+        return Err(error_message(2003, axum::http::StatusCode::BAD_REQUEST, format!("guard_authentication_metadata.authentication_method.method_type and headers.Authorization are both unspecified.").to_string()));
     }
 }
 
-pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, String>, _remote_addr: String, hostname: GuardedHostname, headers: &Headers) -> Result<Option<GuardAuthenticationMetadata>, ErrorResponse> {
+pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, String>, _remote_addr: String, hostname: GuardedHostname, headers: &Headers) -> Result<Option<GuardAuthenticationMetadata>, Response> {
     // This cookie is used instead of [Guard hostname]_guard_static_auth because, for example, if we're using OAuth, there isn't a [Guard hostname]_guard_static_auth cookie.
 
     let mut _auth_metadata_string: String = String::new();
@@ -108,7 +109,7 @@ pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, 
         _auth_metadata_string = jar.get(&prepend_hostname_to_cookie("guard_authentication_metadata")).expect("Failed to parse cookie.").to_string();
     } else {
         log::info!("neither (cookie) {} or header {} was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata"), &prepend_hostname_to_cookie("guard_authentication_metadata"));
-        return Err(error_message(&format!("neither cookies.{} or headers.guard_authentication_metadata was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata"))).into());
+        return Err(error_message(2001, axum::http::StatusCode::BAD_REQUEST, format!("neither cookies.{} or headers.guard_authentication_metadata was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata")).to_string()));
     }
 
     let auth_metadata: GuardAuthenticationMetadataCookie = serde_json::from_str(&_auth_metadata_string).expect("Failed to parse auth_metadata_string");
@@ -116,7 +117,7 @@ pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, 
     // TODO: FOR TMW: Implement this into a function, so that you can get a authentication method from auth_metadata. Then go to reverse_proxy_authentication.rs and finish the user_id preference to then get the forwarded user id/email. Actually there should be a function to parse all the necessary data from auth metadata, including the specified authentication method and checking that authentication method is valid for the endpoint - should all be done in a specific function.
     if auth_metadata.authentication_method.is_none() {
         log::info!("guard_authentication_metadata.authentication_method is null.");
-        return Err(error_message("guard_authentication_metadata.authentication_method is null.").into());
+        return Err(error_message(2002, axum::http::StatusCode::BAD_REQUEST, "guard_authentication_metadata.authentication_method is null.".to_string()));
     }
     let requested_authentication_method = auth_metadata.authentication_method.unwrap();
     let authentication_method: AuthMethod = get_authentication_method(requested_authentication_method, true).await.expect("Failed to get auth method.");

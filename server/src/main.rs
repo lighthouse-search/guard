@@ -63,11 +63,12 @@ use axum::{
     Json, Router, http::StatusCode, routing::{delete, get, head, options, patch, post, put}
 };
 use axum_server::tls_rustls::RustlsConfig;
+use tower_http::services::ServeDir;
 
 use once_cell::sync::Lazy;
 use toml::Value;
 
-use std::{env, path::PathBuf};
+use std::{env, net::SocketAddr, path::PathBuf};
 
 use crate::{endpoints::{auth::authenticate, metadata::{metadata_get, metadata_get_authentication_methods}, reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put}}, protocols::oauth::endpoint::{client::oauth_exchange_code, server::oauth_server_token}};
 use crate::database::validate_sql_table_inputs;
@@ -135,23 +136,17 @@ async fn main() {
 }
 
 async fn start_web() {
-    // let mut rng = rand::thread_rng();
-    let mut guard_port: u32 = 8000; // rng.gen_range(4000..65535)
-    
+    let mut guard_port: u16 = 8000;
+
     if ARGUMENTS.args.get("port").is_none() == false && ARGUMENTS.args.get("port").clone().unwrap().value.is_none() == false {
         guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");
     }
 
     print!("Starting Guard server on port {}...\n", guard_port);
 
-    let mut figment = rocket::Config::figment()
-    .merge(("port", guard_port))
-    .merge(("address", "0.0.0.0"));
-
-    let tls = crate::misc::tls::init_tls().await;
-    if tls.is_none() == false {
+    let tls_config = crate::misc::tls::init_tls().await;
+    if tls_config.is_some() {
         log::info!("Using TLS configuration.");
-        figment = figment.merge(("tls", tls));
     } else {
         log::info!("Not using TLS configuration.");
     }
@@ -181,43 +176,38 @@ async fn start_web() {
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code));
-    
-    let config = (&*CONFIG_VALUE).clone();
-    
+
+    let guard_config = (&*CONFIG_VALUE).clone();
+
     // Attempt to extract "config.reverse_proxy_authentication"
-    if let Some(features) = config.features {
+    if let Some(features) = guard_config.features {
         if features.reverse_proxy_authentication.unwrap_or(false) == true {
-            app.route("/guard/api/proxy/authentication", get(reverse_proxy_authentication_get));
-            app.route("/guard/api/proxy/authentication", put(reverse_proxy_authentication_put));
-            app.route("/guard/api/proxy/authentication", post(reverse_proxy_authentication_post));
-            app.route("/guard/api/proxy/authentication", delete(reverse_proxy_authentication_delete));
-            app.route("/guard/api/proxy/authentication", head(reverse_proxy_authentication_head));
-            app.route("/guard/api/proxy/authentication", options(reverse_proxy_authentication_options));
-            app.route("/guard/api/proxy/authentication", patch(reverse_proxy_authentication_patch));
+            app = app.route("/guard/api/proxy/authentication", get(reverse_proxy_authentication_get));
+            app = app.route("/guard/api/proxy/authentication", put(reverse_proxy_authentication_put));
+            app = app.route("/guard/api/proxy/authentication", post(reverse_proxy_authentication_post));
+            app = app.route("/guard/api/proxy/authentication", delete(reverse_proxy_authentication_delete));
+            app = app.route("/guard/api/proxy/authentication", head(reverse_proxy_authentication_head));
+            app = app.route("/guard/api/proxy/authentication", options(reverse_proxy_authentication_options));
+            app = app.route("/guard/api/proxy/authentication", patch(reverse_proxy_authentication_patch));
         }
 
         if features.oauth_server.unwrap_or(false) == true {
-            app.route("/guard/api/oauth/server/token", post(oauth_server_token));
+            app = app.route("/guard/api/oauth/server/token", post(oauth_server_token));
         }
     }
 
-    // // configure certificate and private key used by https
-    // let config = RustlsConfig::from_pem_file(
-    //     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-    //         .join("self_signed_certs")
-    //         .join("cert.pem"),
-    //     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-    //         .join("self_signed_certs")
-    //         .join("key.pem"),
-    // )
-    // .await
-    // .unwrap();
+    let addr = SocketAddr::from(([0, 0, 0, 0], guard_port));
+    log::info!("listening on {}", addr);
 
-    // run https server
-    let addr = SocketAddr::from(([127, 0, 0, 1], guard_port));
-    tracing::debug!("listening on {}", addr);
-    axum_server::bind_rustls(addr, config)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    if let Some(tls) = tls_config {
+        axum_server::bind_rustls(addr, tls)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .unwrap();
+    } else {
+        axum_server::bind(addr)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .unwrap();
+    }
 }

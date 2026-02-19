@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::net::SocketAddr;
 
 use crate::structs::*;
-use crate::{error_message, Headers};
+use crate::error_message;
 use crate::global::is_null_or_whitespace;
 use crate::device::device_signed_authentication;
 use crate::protocols::oauth::server::bearer_token::create_access_and_refresh_tokens;
@@ -21,7 +21,7 @@ pub struct AuthRequest {
     client_secret: Option<String>,
 }
 
-pub async fn oauth_server_token(Form(auth_request): Form<AuthRequest>, _remote_addr: SocketAddr, _headers: &Headers) -> Response {
+pub async fn oauth_server_token(axum::extract::ConnectInfo(remote_addr): axum::extract::ConnectInfo<SocketAddr>, _headers: axum::http::HeaderMap, Form(auth_request): Form<AuthRequest>) -> Response {
     // "auth_request" = request body.
 
     let _grant_type = auth_request.grant_type.clone();

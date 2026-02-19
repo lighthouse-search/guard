@@ -9,10 +9,10 @@ use crate::protocols::oauth::pipeline::oauth_pipeline;
 use crate::responses::*;
 use crate::structs::*;
 
-pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &Headers) -> Result<ProtocolDecisionToPipelineOutput, Response> {
+pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: axum::http::HeaderMap) -> Result<ProtocolDecisionToPipelineOutput, Response> {
     let mut _authentication_type: Option<String> = None;
 
-    let authentication_metadata_status = get_guard_authentication_metadata(&jar, remote_addr.clone(), hostname.clone(), headers).await;
+    let authentication_metadata_status = get_guard_authentication_metadata(&jar, remote_addr.clone(), hostname.clone(), headers.clone()).await;
 
     if authentication_metadata_status.is_err() == true {
         let error = authentication_metadata_status.err().unwrap();
@@ -77,7 +77,7 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
             // TODO: make this a not-terrible error message
             return Err(error_message(2004, axum::http::StatusCode::BAD_REQUEST, format!("Unhandled guard_authentication_metadata.method_type, type: '{}'", unverified_authentication_method.method_type).to_string()));
         }
-    } else if headers.headers_map.get("Authorization").is_none() == false {// TODO: This needs a config feature flag to check if OAuth-server is enabled on the server. // No authentication metadata was provided, let's check the "Authorization" header. It's important to check standard headers, like "Authorization", last as the client may not be intending for Guard to use it. We need to be careful how this IF statement evolves in the future - we don't want to reject a valid request because Guard is reading a standard header before checking if another Guard-specific method was provided.
+    } else if headers.get("Authorization").is_none() == false {// TODO: This needs a config feature flag to check if OAuth-server is enabled on the server. // No authentication metadata was provided, let's check the "Authorization" header. It's important to check standard headers, like "Authorization", last as the client may not be intending for Guard to use it. We need to be careful how this IF statement evolves in the future - we don't want to reject a valid request because Guard is reading a standard header before checking if another Guard-specific method was provided.
         _authentication_type = Some(String::from("oauth"));
 
         // TODO: investigate why this doesn't/pass need auth_metadata, is something duplicating?.
@@ -99,12 +99,12 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
     }
 }
 
-pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, String>, _remote_addr: String, hostname: GuardedHostname, headers: &Headers) -> Result<Option<GuardAuthenticationMetadata>, Response> {
+pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, String>, _remote_addr: String, hostname: GuardedHostname, headers: axum::http::HeaderMap) -> Result<Option<GuardAuthenticationMetadata>, Response> {
     // This cookie is used instead of [Guard hostname]_guard_static_auth because, for example, if we're using OAuth, there isn't a [Guard hostname]_guard_static_auth cookie.
 
     let mut _auth_metadata_string: String = String::new();
-    if headers.headers_map.get("guard_authentication_metadata").is_none() == false {
-        _auth_metadata_string = headers.headers_map.get("guard_authentication_metadata").expect("Failed to parse header.").to_string();
+    if headers.get("guard_authentication_metadata").is_none() == false {
+        _auth_metadata_string = headers.get("guard_authentication_metadata").expect("Failed to parse header.").to_str().unwrap().to_string();
     } else if jar.get(&prepend_hostname_to_cookie("guard_authentication_metadata")).is_none() == false {
         _auth_metadata_string = jar.get(&prepend_hostname_to_cookie("guard_authentication_metadata")).expect("Failed to parse cookie.").to_string();
     } else {

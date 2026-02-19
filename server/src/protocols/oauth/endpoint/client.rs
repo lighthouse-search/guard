@@ -1,11 +1,11 @@
-use axum::extract::Query;
+use axum::extract::{ConnectInfo, Query};
 use axum::response::{Response, IntoResponse};
 
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 
 use crate::hostname::hostname_auth_exit_flow;
-use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{client::oauth_code_exchange_for_access_key, pipeline::oauth_get_data_from_oauth_login_url}, Headers};
+use crate::{error_message, global::get_authentication_method, globals::environment_variables, protocols::oauth::{client::oauth_code_exchange_for_access_key, pipeline::oauth_get_data_from_oauth_login_url}};
 
 #[derive(serde::Deserialize)]
 pub struct QueryDetails {
@@ -13,7 +13,7 @@ pub struct QueryDetails {
     code: Option<String>,
     host: Option<String>,
 }
-pub async fn oauth_exchange_code(params: Query<QueryDetails>, _remote_addr: SocketAddr, _headers: &Headers) -> Response {
+pub async fn oauth_exchange_code(params: Query<QueryDetails>, axum::extract::ConnectInfo(remote_addr): axum::extract::ConnectInfo<SocketAddr>, _headers: axum::http::HeaderMap) -> Response {
     if params.authentication_method.is_none() == true {
         return error_message(10001, axum::http::StatusCode::BAD_REQUEST, "params.authentication_method is null.".to_string());
     }

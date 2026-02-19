@@ -1,3 +1,4 @@
+use axum::extract::ConnectInfo;
 use axum::response::{Response, IntoResponse};
 use serde_json::{json, Value};
 use std::net::SocketAddr;
@@ -8,20 +9,20 @@ use crate::global::is_valid_authentication_method;
 use crate::hostname::{get_hostname, hostname_auth_exit_flow, is_valid_authentication_method_for_hostname};
 use crate::responses::fatal_error;
 use crate::{EssentialAuthenticateRequestData, GuardUser, Magiclink, MagiclinkHandlingData, MagiclinkRequestData, MethodRequestBody, RequestMagiclink};
-use crate::{error_message, Headers};
+use crate::error_message;
 use crate::structs::*;
 
 #[derive(serde::Deserialize)]
 pub struct QueryDetails {
     host: Option<String>,
 }
-pub async fn auth_method_request(params: axum::extract::Query<QueryDetails>, body: Json<MethodRequestBody>, remote_addr: SocketAddr, _headers: &Headers) -> Response {
+pub async fn auth_method_request(params: axum::extract::Query<QueryDetails>, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, _headers: axum::http::HeaderMap, axum::Json(body): axum::Json<MethodRequestBody>) -> Response {
     let _db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
     if params.host.is_none() == true {
         return error_message(6001, axum::http::StatusCode::BAD_REQUEST, "params.host is null or whitespace.".to_string());
     }
-    let hostname_result = get_hostname(params.host.unwrap()).await;
+    let hostname_result = get_hostname(params.host.clone().unwrap()).await;
     if hostname_result.is_err() == true {
         return error_message(6002, axum::http::StatusCode::BAD_REQUEST, "params.host is invalid.".to_string());
     }
@@ -66,14 +67,14 @@ pub async fn auth_method_request(params: axum::extract::Query<QueryDetails>, bod
 }
 
 #[derive(serde::Deserialize)]
-struct AuthenticateQueryDetails {
+pub struct AuthenticateQueryDetails {
     host: Option<String>,
 }
-pub async fn authenticate(params: AuthenticateQueryDetails, body: Json<MethodRequestBody>, remote_addr: SocketAddr, _headers: &Headers) -> Response {
+pub async fn authenticate(params: axum::extract::Query<AuthenticateQueryDetails>, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, _headers: axum::http::HeaderMap, axum::Json(body): axum::Json<MethodRequestBody>) -> Response {
     let _db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
 
     // TODO: this should return 404 instead of error.
-    let hostname_check = get_hostname(params.host.unwrap()).await;
+    let hostname_check = get_hostname(params.host.clone().unwrap()).await;
     if hostname_check.is_err() == true {
         return error_message(7001, axum::http::StatusCode::BAD_REQUEST, "params.host is invalid.".to_string());
     }

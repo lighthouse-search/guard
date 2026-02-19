@@ -378,10 +378,6 @@ pub struct AuthMethodSql {
     // pub column: Option<String>
 }
 
-pub struct Headers {
-    pub headers_map: HashMap<String, String>,
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UserGetIdPreferenceStruct {
     pub has_value: bool,

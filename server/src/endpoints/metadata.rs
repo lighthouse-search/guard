@@ -12,7 +12,7 @@ use crate::{error_message, AuthMethodPublic, FrontendMetadata, CONFIG_VALUE};
 // Endpoint root: /api/metadata
 
 #[derive(Deserialize)]
-struct MetadataGet {
+pub struct MetadataGet {
     hostname: Option<String>,
 }
 
@@ -82,7 +82,7 @@ pub async fn metadata_get(params: Query<MetadataGet>) -> Response {
 }
 
 #[derive(Deserialize)]
-struct MetadataGetAuthenticationMethods {
+pub struct MetadataGetAuthenticationMethods {
     hostname: Option<String>,
 }
 

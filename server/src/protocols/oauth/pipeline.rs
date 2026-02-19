@@ -9,11 +9,11 @@ use crate::structs::*;
 use url::Url;
 use std::collections::HashMap;
 
-pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &Headers) -> Result<OauthPipelineResponse, Response> {
+pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {
     let mut _bearer_token: String = String::new();
 
-    if headers.headers_map.get("Authorization").is_none() == false {
-        _bearer_token = headers.headers_map.get("Authorization").expect("Missing Authorization header.").to_string();
+    if headers.get("Authorization").is_none() == false {
+        _bearer_token = headers.get("Authorization").expect("Missing Authorization header.").to_str().unwrap().to_string();
     } else if jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).is_none() == false {
         _bearer_token = jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).expect("Failed to parse guard_oauth_access_token.").to_string();
     } else {

@@ -8,14 +8,15 @@ use crate::device::{device_signed_authentication, device_guard_static_auth_from_
 use crate::users::user_get;
 use crate::hostname::{is_valid_authentication_method_for_hostname, prepend_hostname_to_cookie};
 
-pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: GuardedHostname, _jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &Headers) -> Result<(Option<GuardUser>, Option<GuardDevices>, Option<AuthMethod>), Response> {
+pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: GuardedHostname, _jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: axum::http::HeaderMap) -> Result<(Option<GuardUser>, Option<GuardDevices>, Option<AuthMethod>), Response> {
     // This relates to OAuth server applications, but is easily confused with oauth_pipeline and even conflicts. This needs to be re-worked. This function checks bearer tokens match a hashed value in Guard's database and returns the matched user.
     
     // Check the Authroization header starts with ("Bearer "), consistent with OAuth standard.
-    if headers.headers_map.get("Authorization").expect("Missing Authorization header.").clone().starts_with("Bearer ") == false {
+    if headers.get("Authorization").expect("Missing Authorization header.").clone().to_str().unwrap().to_string().starts_with("Bearer ") == false {
         return Err(error_message(8001, axum::http::StatusCode::BAD_REQUEST, "Authorization header does not start with 'Bearer '.".to_string()));
     }
-    let authorization_header = headers.headers_map.get("Authorization").expect("Missing Authorization header.").trim_start_matches("Bearer ");
+    let authorization_header_raw = headers.get("Authorization").expect("Missing Authorization header.").to_str().unwrap().to_string();
+    let authorization_header = authorization_header_raw.trim_start_matches("Bearer ");
 
     // Verify bearer_token (access token) is valid (generally and for this scope).
     let verify_token = crate::protocols::oauth::server::bearer_token::verify(authorization_header, required_scopes)
@@ -48,7 +49,7 @@ pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: 
     return Ok((Some(user), None, Some(using_authentication_method)));
 }
 
-pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, _headers: &Headers) -> Result<DevicePipelineStaticAuthResponse, Response> {
+pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, _headers: axum::http::HeaderMap) -> Result<DevicePipelineStaticAuthResponse, Response> {
     // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
 
     let signed_data = device_guard_static_auth_from_cookies(jar);

@@ -1,6 +1,4 @@
-use rocket::http::{CookieJar, Status};
-use rocket::{response::status, options, get, post, put, delete, head, patch};
-use rocket::response::status::Custom;
+use axum_extra::extract::CookieJar;
 
 use serde_json::{json, Value};
 use std::net::SocketAddr;
@@ -10,7 +8,7 @@ use crate::global::jar_to_indexmap;
 use crate::users::user_authentication_pipeline;
 use crate::{CONFIG_VALUE, Headers};
 
-async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     // TODO: "pathname" is not processed.
 
     let mut header_to_use: String = "host".to_string();
@@ -80,36 +78,36 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
 }
 
 #[get("/authentication")]
-pub async fn reverse_proxy_authentication_get(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_get(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[post("/authentication")]
-pub async fn reverse_proxy_authentication_post(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_post(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[put("/authentication")]
-pub async fn reverse_proxy_authentication_put(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_put(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[delete("/authentication")]
-pub async fn reverse_proxy_authentication_delete(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_delete(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[head("/authentication")]
-pub async fn reverse_proxy_authentication_head(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_head(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[options("/authentication")]
-pub async fn reverse_proxy_authentication_options(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_options(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
 #[patch("/authentication")]
-pub async fn reverse_proxy_authentication_patch(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_patch(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Custom<Value> {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }

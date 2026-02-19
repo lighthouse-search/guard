@@ -1,3 +1,4 @@
+use axum::Form;
 use axum::response::{Response, IntoResponse};
 
 use serde::Deserialize;
@@ -11,7 +12,7 @@ use crate::global::is_null_or_whitespace;
 use crate::device::device_signed_authentication;
 use crate::protocols::oauth::server::bearer_token::create_access_and_refresh_tokens;
 
-#[derive(FromForm, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct AuthRequest {
     grant_type: Option<String>,
     code: Option<String>,
@@ -20,8 +21,7 @@ pub struct AuthRequest {
     client_secret: Option<String>,
 }
 
-#[post("/token", data = "<auth_request>")]
-pub async fn oauth_server_token(auth_request: Form<AuthRequest>, _remote_addr: SocketAddr, _headers: &Headers) -> Response {
+pub async fn oauth_server_token(Form(auth_request): Form<AuthRequest>, _remote_addr: SocketAddr, _headers: &Headers) -> Response {
     // "auth_request" = request body.
 
     let _grant_type = auth_request.grant_type.clone();

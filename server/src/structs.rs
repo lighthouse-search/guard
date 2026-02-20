@@ -7,8 +7,6 @@ use serde_json::Value;
 use crate::tables::*;
 use diesel::prelude::*;
 
-use rocket::response::status::Custom;
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub features: Option<ConfigFeatures>,

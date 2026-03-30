@@ -76,10 +76,13 @@ export default function HostnameComponent({ id, data, onChange, onRemove }: Prop
           )}
         </div>
 
-        <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+        <div
+          className="flex items-center gap-2 cursor-pointer select-none shrink-0"
+          onClick={() => update({ active: !isActive })}
+        >
           <span className="text-xs text-zinc-500">{isActive ? "Active" : "Inactive"}</span>
-          <Toggle checked={isActive} onChange={(v) => update({ active: v })} />
-        </label>
+          <Toggle checked={isActive} onChange={() => {}} />
+        </div>
 
         <button
           type="button"

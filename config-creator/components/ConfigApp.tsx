@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import TOML from "@iarna/toml";
-import ConfigEditor from "./ConfigEditor";
+
+// Disable SSR for the editor: react-simple-code-editor sets autoCapitalize="none"
+// but browsers normalise it to "off", causing a React hydration mismatch.
+const ConfigEditor = dynamic(() => import("./ConfigEditor"), { ssr: false });
 import HostnameComponent, { HostnameData } from "./Hostname";
 import AuthMethodComponent, { AuthMethodData } from "./AuthMethod";
 import PolicyComponent, { PolicyData } from "./Policy";
@@ -153,23 +157,23 @@ function FeatureToggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+    // Use div+onClick instead of label+button — label activates its child button
+    // on click, causing a double-fire that makes the toggle revert immediately.
+    <div
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors select-none"
+    >
       <div>
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</p>
         {description && (
           <p className="text-xs text-zinc-400 mt-0.5">{description}</p>
         )}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={(e) => {
-          e.preventDefault();
-          onChange(!checked);
-        }}
-        className={`relative w-10 h-5 rounded-full transition-colors duration-200 shrink-0 focus:outline-none focus:ring-2 focus:ring-zinc-400 ${
-          checked ? "bg-zinc-700 dark:bg-zinc-400" : "bg-zinc-200 dark:bg-zinc-700"
+      <div
+        className={`relative w-10 h-5 rounded-full transition-colors duration-200 shrink-0 ${
+          checked ? "bg-zinc-600 dark:bg-zinc-400" : "bg-zinc-200 dark:bg-zinc-700"
         }`}
       >
         <span
@@ -177,8 +181,8 @@ function FeatureToggle({
             checked ? "translate-x-5" : "translate-x-0.5"
           }`}
         />
-      </button>
-    </label>
+      </div>
+    </div>
   );
 }
 
@@ -238,7 +242,10 @@ export default function ConfigApp() {
 
   function updateConfig(next: GuardConfig) {
     setConfig(next);
-    setTomlValue(TOML.stringify(next as any));
+    // JSON round-trip strips the internal type metadata that @iarna/toml attaches
+    // to parsed values — without this, stringify produces malformed section headers.
+    const plain = JSON.parse(JSON.stringify(next));
+    setTomlValue(TOML.stringify(plain));
   }
 
   function copyToml() {

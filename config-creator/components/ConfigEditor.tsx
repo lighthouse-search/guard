@@ -11,7 +11,13 @@ export default function ConfigEditor(props: any) {
     <Editor
       value={props.value}
       onValueChange={props.onChange}
-      highlight={(code) => Prism.highlight(code ?? "", Prism.languages.toml, "toml")}
+      highlight={(code) => {
+        const html = Prism.highlight(code ?? "", Prism.languages.toml, "toml");
+        // Prism's TOML grammar marks section headers as class="token table".
+        // Tailwind v4 generates .table { display: table } which makes those spans
+        // block-level and breaks the editor layout. Rename to avoid the collision.
+        return html.replace(/\btoken table\b/g, "token toml-section");
+      }}
       padding={24}
       style={{
         fontFamily: '"Fira Code", "Fira Mono", "Cascadia Code", monospace',

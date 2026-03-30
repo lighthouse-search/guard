@@ -94,3 +94,14 @@ body {
 select {
   appearance: auto;
 }
+
+/*
+  Prism.js uses class names like "table", "property", etc. for token types.
+  Tailwind v4 generates utility classes with the same names (e.g. .table → display:table),
+  which clobbers the inline display of those tokens and breaks the editor layout.
+  Force all tokens back to inline.
+*/
+code[class*="language-"] .token,
+pre[class*="language-"] .token {
+  display: inline !important;
+}

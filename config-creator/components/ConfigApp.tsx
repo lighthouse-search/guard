@@ -346,7 +346,7 @@ export default function ConfigApp() {
             <FeatureToggle
               label="Proxy authentication"
               description="Guard will proxy reqeusts and enforce authentication."
-              checked={config.features?.reverse_proxy_authentication ?? false}
+              checked={config.features?.request_proxy ?? false}
               onChange={(v) =>
                 updateConfig({
                   ...config,

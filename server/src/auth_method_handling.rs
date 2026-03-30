@@ -1,6 +1,3 @@
-use rocket::response::status;
-use rocket::http::Status;
-
 use diesel::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::*;
@@ -25,7 +22,7 @@ pub async fn handling_email_magiclink(request_data: MagiclinkHandlingData, _auth
         return Ok(HandlingMagiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("body.request_data.code is null or whitespace.").into()))
+            error_to_respond_to_client_with: Some(error_message(4001, axum::http::StatusCode::BAD_REQUEST, "body.request_data.code is null or whitespace.".to_string()))
         });
     }
 
@@ -38,7 +35,7 @@ pub async fn handling_email_magiclink(request_data: MagiclinkHandlingData, _auth
         return Ok(HandlingMagiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink not found.").into()))
+            error_to_respond_to_client_with: Some(error_message(4002, axum::http::StatusCode::BAD_REQUEST, "Magiclink not found.".to_string()))
         });
     }
 
@@ -51,7 +48,7 @@ pub async fn handling_email_magiclink(request_data: MagiclinkHandlingData, _auth
         return Ok(HandlingMagiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink expired.").into()))
+            error_to_respond_to_client_with: Some(error_message(4003, axum::http::StatusCode::UNAUTHORIZED, "Magiclink expired.".to_string()))
         });
     }
 
@@ -60,7 +57,7 @@ pub async fn handling_email_magiclink(request_data: MagiclinkHandlingData, _auth
         return Ok(HandlingMagiclink {
             magiclink: None,
             user: None,
-            error_to_respond_to_client_with: Some(status::Custom(Status::BadRequest, error_message("Magiclink invalid, mismatched IP.").into()))
+            error_to_respond_to_client_with: Some(error_message(4004, axum::http::StatusCode::UNAUTHORIZED, "Magiclink invalid, mismatched IP.".to_string()))
         });
     }
 

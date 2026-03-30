@@ -1,3 +1,4 @@
+use axum::response::Response;
 use serde_json::Value;
 
 use crate::hostname::prepend_hostname_to_cookie;
@@ -8,23 +9,23 @@ use crate::structs::*;
 use url::Url;
 use std::collections::HashMap;
 
-pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &Headers) -> Result<OauthPipelineResponse, ErrorResponse> {
+pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {
     let mut _bearer_token: String = String::new();
 
-    if headers.headers_map.get("Authorization").is_none() == false {
-        _bearer_token = headers.headers_map.get("Authorization").expect("Missing Authorization header.").to_string();
+    if headers.get("Authorization").is_none() == false {
+        _bearer_token = headers.get("Authorization").expect("Missing Authorization header.").to_str().unwrap().to_string();
     } else if jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).is_none() == false {
         _bearer_token = jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).expect("Failed to parse guard_oauth_access_token.").to_string();
     } else {
         log::info!("Bearer token not provided by client.");
-        return Err(error_message("Bearer token is null or whitespace - please provide a Bearer token in your request when authenticating with OAuth."));
+        return Err(error_message(6001, axum::http::StatusCode::BAD_REQUEST, "Bearer token is null or whitespace - please provide a Bearer token in your request when authenticating with OAuth.".to_string()));
     }
 
     // TODO: Somehow this unwrap might not catch an empty (completely unspecified) oauth_client_user_info?
     let user_info_result = oauth_userinfo(auth_method.oauth_client_user_info.unwrap(), _bearer_token).await;
     if user_info_result.is_err() == true {
         log::info!("Failed to get user-info");
-        return Err(error_message("Failed to get user information from relevant service"));
+        return Err(error_message(6002, axum::http::StatusCode::BAD_REQUEST, "Failed to get user information from relevant service".to_string()));
     }
     
     let attempted_external_user: Value = user_info_result.expect("Failed to get oauth userinfo.");

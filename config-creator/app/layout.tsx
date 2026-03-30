@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Guard — Config Creator",
   description:
-    "Interactive configuration builder for Guard, the reverse-proxy authentication server.",
+    "Interactive configuration builder for Guard.",
 };
 
 export default function RootLayout({

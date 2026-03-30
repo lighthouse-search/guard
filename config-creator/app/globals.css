@@ -18,7 +18,7 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
-    --editor-bg: #1d1f21;
+    --editor-bg: #111113;
     --editor-fg: #c5c8c6;
   }
 }
@@ -91,6 +91,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-button {
-  width: fit-content;
+select {
+  appearance: auto;
 }

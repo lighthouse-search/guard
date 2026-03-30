@@ -1,4 +1,4 @@
-import ConfigApp from "@/pages/components/ConfigApp";
+import ConfigApp from "@/components/ConfigApp";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {

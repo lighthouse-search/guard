@@ -59,9 +59,12 @@ pub mod misc {
     pub mod tls;
 }
 
+pub mod request_proxy;
+
 use axum::{
-    Json, Router, http::StatusCode, routing::{delete, get, head, options, patch, post, put}
+    Json, Router, http::StatusCode, routing::{any, delete, get, head, options, patch, post, put}
 };
+
 use axum_server::tls_rustls::RustlsConfig;
 use tower_http::services::ServeDir;
 
@@ -80,6 +83,10 @@ use diesel::r2d2::{self, ConnectionManager};
 
 // Create a type alias for the connection pool
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
+
+use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_util::rt::TokioExecutor;
 
 // Create a Lazy static variable for the connection pool
 static DB_POOL: Lazy<Pool> = Lazy::new(|| {
@@ -169,13 +176,23 @@ async fn start_web() {
         frontend_path.push("_static");
     }
 
+    let client: Client<HttpConnector, axum::body::Body> =
+        hyper_util::client::legacy::Client::builder(TokioExecutor::new())
+            .build(HttpConnector::new());
+
     let mut app = Router::new()
     .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()))
     .route("/guard/api/metadata/get", get(metadata_get))
     .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))
-    .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code));
+    .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
+    .route("/ws", any(crate::request_proxy::ws_handler))
+    .route("/", get(crate::request_proxy::http_handler)).with_state(client);
+    // .layer(
+    //     TraceLayer::new_for_http()
+    //         .make_span_with(DefaultMakeSpan::default().include_headers(true)),
+    // );
 
     let guard_config = (&*CONFIG_VALUE).clone();
 

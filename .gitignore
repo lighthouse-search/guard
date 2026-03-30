@@ -3,3 +3,5 @@ _static/
 node_modules/
 .DS_Store
 .github/workflows/mirror-to-gitlab.yml
+/config-creator/.next
+/config-creator/out

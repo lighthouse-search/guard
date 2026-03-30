@@ -133,19 +133,19 @@ pub fn url_to_domain_port(host_unparsed: String) -> Result<String, String> {
 }
 
 // Bad name. But this function returns get_hostname alongside parsed URL strings (domain port) and the original_url.
-pub async fn get_current_valid_hostname(headers: &Headers, header_to_use: Option<String>) -> Option<GetCurrentValidHostnameStruct> {
+pub async fn get_current_valid_hostname(headers: axum::http::HeaderMap, header_to_use: Option<String>) -> Option<GetCurrentValidHostnameStruct> {
     let mut header: String = "host".to_string();
     if header_to_use.is_none() == false {
         header = header_to_use.unwrap();
     }
 
-    let headers_cloned = headers.headers_map.clone();
+    let headers_cloned = headers.clone();
     if headers_cloned.get(&header).is_none() == true {
         log::info!("Missing header: {}", header);
         return None;
     }
 
-    let mut host_unparsed = headers_cloned.get(&header).unwrap().to_owned();
+    let mut host_unparsed = headers_cloned.get(&header).unwrap().to_str().unwrap().to_string();
     // host_unparsed.contains("://") == false, could pick up something in the pathname, but this isn't for security's sake, this is for error handling sake. The URL parser validates the URL.
     if host_unparsed.starts_with("https://") == false && host_unparsed.starts_with("http://") == false && host_unparsed.contains("://") == false {
         // Add HTTPS to protocol in URL, since none was specified (which is always going to happen in "host" headers).

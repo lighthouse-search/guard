@@ -1,5 +1,5 @@
-target/
-_static/
-node_modules/
+target
+_static
+node_modules
 .DS_Store
 .github/workflows/mirror-to-gitlab.yml

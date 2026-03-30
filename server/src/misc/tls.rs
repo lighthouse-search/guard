@@ -1,12 +1,12 @@
 use std::process::Command;
 use std::process::Stdio;
 
-use rocket::config::{TlsConfig, CipherSuite};
+use axum_server::tls_rustls::RustlsConfig;
 
 use crate::structs::TlsCertificate;
 use crate::CONFIG_VALUE;
 
-pub async fn init_tls() -> Option<TlsConfig> {
+pub async fn init_tls() -> Option<RustlsConfig> {
     if CONFIG_VALUE.features.clone().unwrap().tls.unwrap_or(true) == true {
         // TODO: In the future, allow getting certificates from environment variables (e.g. to accomodate Docker).
         let config_tls = CONFIG_VALUE.clone().tls;
@@ -19,13 +19,19 @@ pub async fn init_tls() -> Option<TlsConfig> {
 
             log::debug!("Using TLS certificate specified in configuration (paths: certificate {}, private_key {}).", &config_tls_unwrapped.certificate.clone().expect("Missing config.tls.certificate"), &config_tls_unwrapped.private_key.clone().expect("Missing config.tls.private_key"));
 
-            Some(TlsConfig::from_paths(&config_tls_unwrapped.certificate.expect("Missing config.tls.certificate"), &config_tls_unwrapped.private_key.expect("Missing config.tls.private_key")).with_ciphers(CipherSuite::TLS_V13_SET))
+            Some(RustlsConfig::from_pem_file(
+                &config_tls_unwrapped.certificate.expect("Missing config.tls.certificate"),
+                &config_tls_unwrapped.private_key.expect("Missing config.tls.private_key"),
+            ).await.expect("Failed to load TLS certificate from files"))
         } else {
             // Use one-time generated self-signed certificate.
-            
+
             log::warn!("No TLS certificate specified in configuration, using self-signed certificate. Note: do not use self-signed certificates in production.");
             let certificate = generate_self_signed_certificate().await.expect("Failed to generate self-signed certificate");
-            Some(TlsConfig::from_bytes(&certificate.certificate.into_bytes(), &certificate.private_key.into_bytes()).with_ciphers(CipherSuite::TLS_V13_SET))
+            Some(RustlsConfig::from_pem(
+                certificate.certificate.into_bytes().into(),
+                certificate.private_key.into_bytes().into(),
+            ).await.expect("Failed to load self-signed TLS certificate"))
         }
     } else {
         // No TLS configuration specified, return None.
@@ -36,7 +42,7 @@ pub async fn init_tls() -> Option<TlsConfig> {
 
 pub async fn generate_self_signed_certificate() -> Result<TlsCertificate, String> {
     log::info!("Generating self-signed certificate using openssl...");
-    
+
     let output = Command::new("openssl")
         .args([
             "req", "-x509",
@@ -56,7 +62,7 @@ pub async fn generate_self_signed_certificate() -> Result<TlsCertificate, String
         .expect("Failed to wait for output");
 
     if output.status.success() {
-        log::debug!("OpenSSL exited successfully!"); 
+        log::debug!("OpenSSL exited successfully!");
     } else {
         return Err(format!("OpenSSL exited with {}", output.status));
     }

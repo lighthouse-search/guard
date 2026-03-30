@@ -59,15 +59,21 @@ pub mod misc {
     pub mod tls;
 }
 
-use rocket::catchers;
-use rocket::{Build, Rocket};
+pub mod request_proxy;
+
+use axum::{
+    Json, Router, http::StatusCode, routing::{any, delete, get, head, options, patch, post, put}
+};
+
+use axum_server::tls_rustls::RustlsConfig;
+use tower_http::services::ServeDir;
 
 use once_cell::sync::Lazy;
 use toml::Value;
 
-use std::env;
+use std::{env, net::SocketAddr, path::PathBuf};
 
-use crate::diesel_mysql::internal_error;
+use crate::{endpoints::{auth::authenticate, metadata::{metadata_get, metadata_get_authentication_methods}, reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put}}, protocols::oauth::endpoint::{client::oauth_exchange_code, server::oauth_server_token}};
 use crate::database::validate_sql_table_inputs;
 use crate::structs::*;
 use crate::responses::*;
@@ -77,6 +83,10 @@ use diesel::r2d2::{self, ConnectionManager};
 
 // Create a type alias for the connection pool
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
+
+use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_util::rt::TokioExecutor;
 
 // Create a Lazy static variable for the connection pool
 static DB_POOL: Lazy<Pool> = Lazy::new(|| {
@@ -128,33 +138,93 @@ async fn main() {
         crate::cli::index::parse().await;
     } else {
         log::info!("Using Web mode - zero arguments specified. Starting Rocket server.");
-        rocket().await.launch().await.expect("Failed to start web server");
+        start_web().await;
     }
 }
 
-async fn rocket() -> Rocket<Build> {
-    // let mut rng = rand::thread_rng();
-    let mut guard_port: u32 = 8000; // rng.gen_range(4000..65535)
-    
+async fn start_web() {
+    let mut guard_port: u16 = 8000;
+
     if ARGUMENTS.args.get("port").is_none() == false && ARGUMENTS.args.get("port").clone().unwrap().value.is_none() == false {
         guard_port = ARGUMENTS.args.get("port").unwrap().value.clone().unwrap().parse().expect("Failed to parse guard_port.");
     }
 
-    let mut figment = rocket::Config::figment()
-    .merge(("port", guard_port))
-    .merge(("address", "0.0.0.0"));
+    print!("Starting Guard server on port {}...\n", guard_port);
 
-    let tls = crate::misc::tls::init_tls().await;
-    if tls.is_none() == false {
+    let tls_config = crate::misc::tls::init_tls().await;
+    if tls_config.is_some() {
         log::info!("Using TLS configuration.");
-        figment = figment.merge(("tls", tls));
     } else {
         log::info!("Not using TLS configuration.");
     }
 
-    // We're using Web mode.
-    rocket::custom(figment)
-    .register("/", catchers![internal_error])
-    // .attach(Cors)
-    .attach(diesel_mysql::stage())
+    let mut frontend_path: PathBuf = env::current_exe().expect("Failed to get current directory");
+
+    if cfg!(debug_assertions) {
+        // Program is debug (cargo run).
+        // guard/server/frontend/_static
+        frontend_path.pop();
+        frontend_path.pop();
+        frontend_path.pop();
+        frontend_path.push("frontend");
+        frontend_path.push("_static");
+    } else {
+        // Program is release (cargo build)
+        // guard/frontend/_static (use packaged assets)
+        frontend_path.pop();
+        frontend_path.push("frontend");
+        frontend_path.push("_static");
+    }
+
+    let client: Client<HttpConnector, axum::body::Body> =
+        hyper_util::client::legacy::Client::builder(TokioExecutor::new())
+            .build(HttpConnector::new());
+
+    let mut app = Router::new()
+    .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()))
+    .route("/guard/api/metadata/get", get(metadata_get))
+    .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
+    .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
+    .route("/guard/api/auth/authenticate", post(authenticate))
+    .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
+    .route("/ws", any(crate::request_proxy::ws_handler))
+    .route("/", get(crate::request_proxy::http_handler)).with_state(client);
+    // .layer(
+    //     TraceLayer::new_for_http()
+    //         .make_span_with(DefaultMakeSpan::default().include_headers(true)),
+    // );
+
+    let guard_config = (&*CONFIG_VALUE).clone();
+
+    // Attempt to extract "config.reverse_proxy_authentication"
+    if let Some(features) = guard_config.features {
+        if features.reverse_proxy_authentication.unwrap_or(false) == true {
+            app = app.route("/guard/api/proxy/authentication", get(reverse_proxy_authentication_get));
+            app = app.route("/guard/api/proxy/authentication", put(reverse_proxy_authentication_put));
+            app = app.route("/guard/api/proxy/authentication", post(reverse_proxy_authentication_post));
+            app = app.route("/guard/api/proxy/authentication", delete(reverse_proxy_authentication_delete));
+            app = app.route("/guard/api/proxy/authentication", head(reverse_proxy_authentication_head));
+            app = app.route("/guard/api/proxy/authentication", options(reverse_proxy_authentication_options));
+            app = app.route("/guard/api/proxy/authentication", patch(reverse_proxy_authentication_patch));
+        }
+
+        if features.oauth_server.unwrap_or(false) == true {
+            app = app.route("/guard/api/oauth/server/token", post(oauth_server_token));
+        }
+    }
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], guard_port));
+    log::info!("listening on {}", addr);
+
+    if let Some(tls) = tls_config {
+        axum_server::bind_rustls(addr, tls)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .unwrap();
+    } else {
+        axum_server::bind(addr)
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .unwrap();
+    }
 }

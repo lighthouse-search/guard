@@ -1,11 +1,21 @@
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+
 use serde_json::{Value, json};
 use crate::structs::*;
 
-pub fn error_message(message: &str) -> ErrorResponse {
-    return ErrorResponse {
-        error: true,
-        message: message.to_string()
-    }
+pub fn error_message(code: i64, status_code: StatusCode, message: String) -> axum::response::Response {
+    (
+        status_code,
+        serde_json::to_string(&ErrorResponse { error: true, message: message, code: code }).unwrap(),
+    ).into_response()
+}
+
+pub fn fatal_error() -> axum::response::Response {
+    (
+        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+        serde_json::to_string(&ErrorResponse { error: true, message: "Internal server error".to_string(), code: 1000 }).unwrap(),
+    ).into_response()
 }
 
 impl From<ErrorResponse> for Value {
@@ -20,7 +30,8 @@ impl From<ErrorResponse> for Value {
 pub fn internal_server_error_generic() -> ErrorResponse {
     return ErrorResponse {
         error: true,
-        message: "Internal server error".to_string()
+        message: "Internal server error".to_string(),
+        code: 0
     }
 }
 

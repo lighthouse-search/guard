@@ -1,16 +1,28 @@
-use rocket::http::{CookieJar, Status};
-use rocket::{response::status, options, get, post, put, delete, head, patch};
-use rocket::response::status::Custom;
+use axum::Json;
+use axum::extract::ConnectInfo;
+use axum::response::{Response, IntoResponse};
+use axum_extra::extract::CookieJar;
 
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use crate::hostname::get_current_valid_hostname;
 use crate::global::jar_to_indexmap;
 use crate::users::user_authentication_pipeline;
-use crate::{CONFIG_VALUE, Headers};
+use crate::CONFIG_VALUE;
 
-async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+// fn headermap_to_headers(header_map: &axum::http::HeaderMap) -> Headers {
+//     let mut headers_map = HashMap::new();
+//     for (name, value) in header_map.iter() {
+//         if let Ok(v) = value.to_str() {
+//             headers_map.insert(name.to_string(), v.to_string());
+//         }
+//     }
+//     Headers { headers_map }
+// }
+
+async fn reverse_proxy_authentication(jar: CookieJar, remote_addr: SocketAddr, headers: axum::http::HeaderMap) -> Response {
     // TODO: "pathname" is not processed.
 
     let mut header_to_use: String = "host".to_string();
@@ -25,11 +37,11 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
         }
     }
     
-    let host = get_current_valid_hostname(headers, Some(header_to_use)).await.expect("Invalid or missing hostname.");
+    let host = get_current_valid_hostname(headers.clone(), Some(header_to_use)).await.expect("Invalid or missing hostname.");
 
     // (result, user_result, device, authentication_method_wrapped, error_to_respond_with)
 
-    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(jar), remote_addr.to_string(), host.domain_port, headers).await;
+    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(&jar), remote_addr.to_string(), host.domain_port, headers).await;
     
     // TODO: In the future athentication_method won't be returned as optional from user_authentication_pipelne (user_authentication_pipeline will be changed to from truple to Result<>). This is a temporary fix :)
     if user_authentication.is_ok() == true {
@@ -52,64 +64,65 @@ async fn reverse_proxy_authentication(jar: &CookieJar<'_>, remote_addr: SocketAd
             }));
         }
 
-        let guard_header: Value = json!({
-            "user": user,
-            "device": device,
-            "authentication_method": json!({
-                "id": authentication_method.id
-            })
-        });
-        
-        // Create a JSON response
-        let response_body = json!({
-            "success": true,
-            "destination_url": host.original_url,
-            "guard": guard_header
-        });
+        // TODO: This is wildly messy, I'll fix it.
 
-        return status::Custom(Status::Ok, response_body);
+        let mut device: Option<Value> = None;
+        if user_authentication_unwrapped.device.is_none() == false {
+            let device_unwrapped = user_authentication_unwrapped.device.unwrap();
+            device = Some(json!({
+                "id": device_unwrapped.id
+            }));
+        }
+
+        return (
+            axum::http::StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "destination_url": host.original_url,
+                "guard": {
+                    "user": user,
+                    "device": device,
+                    "authentication_method": json!({
+                        "id": authentication_method.id
+                    })
+                }
+            })),
+        ).into_response()
     } else {
-        // Create a JSON response
-        let response_body = json!({
-            "success": false,
-            // "reason": error_to_respond_with
-        });
-
-        return status::Custom(Status::Unauthorized, response_body);
+        return (
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "success": false,
+                // "reason": error_to_respond_with
+            })),
+        ).into_response();
     }
 }
 
-#[get("/authentication")]
-pub async fn reverse_proxy_authentication_get(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_get(jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Response {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
-#[post("/authentication")]
-pub async fn reverse_proxy_authentication_post(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_post(jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Response {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
-#[put("/authentication")]
-pub async fn reverse_proxy_authentication_put(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_put(jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Response {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
-#[delete("/authentication")]
-pub async fn reverse_proxy_authentication_delete(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_delete(jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Response {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
-#[head("/authentication")]
-pub async fn reverse_proxy_authentication_head(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_head(jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Response {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
-#[options("/authentication")]
-pub async fn reverse_proxy_authentication_options(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_options(jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Response {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }
 
-#[patch("/authentication")]
-pub async fn reverse_proxy_authentication_patch(jar: &CookieJar<'_>, remote_addr: SocketAddr, headers: &Headers) -> Custom<Value> {
+pub async fn reverse_proxy_authentication_patch(jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Response {
     return reverse_proxy_authentication(jar, remote_addr, headers).await;
 }

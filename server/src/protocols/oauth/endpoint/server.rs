@@ -1,19 +1,18 @@
+use axum::Form;
+use axum::response::{Response, IntoResponse};
+
+use serde::Deserialize;
 use serde_json::{json, Value};
+
 use std::net::SocketAddr;
 
-use rocket::{http::Status, response::status::{self, Custom}};
-
 use crate::structs::*;
-use crate::{error_message, Headers};
+use crate::error_message;
 use crate::global::is_null_or_whitespace;
 use crate::device::device_signed_authentication;
 use crate::protocols::oauth::server::bearer_token::create_access_and_refresh_tokens;
-use rocket::form::Form;
-use rocket::FromForm;
-use rocket::post;
-use serde::Deserialize;
 
-#[derive(FromForm, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct AuthRequest {
     grant_type: Option<String>,
     code: Option<String>,
@@ -22,8 +21,7 @@ pub struct AuthRequest {
     client_secret: Option<String>,
 }
 
-#[post("/token", data = "<auth_request>")]
-pub async fn oauth_server_token(auth_request: Form<AuthRequest>, _remote_addr: SocketAddr, _headers: &Headers) -> Result<Custom<Value>, Status> {
+pub async fn oauth_server_token(axum::extract::ConnectInfo(remote_addr): axum::extract::ConnectInfo<SocketAddr>, _headers: axum::http::HeaderMap, Form(auth_request): Form<AuthRequest>) -> Response {
     // "auth_request" = request body.
 
     let _grant_type = auth_request.grant_type.clone();
@@ -34,13 +32,13 @@ pub async fn oauth_server_token(auth_request: Form<AuthRequest>, _remote_addr: S
     let _client_secret = auth_request.client_secret.clone();
 
     if is_null_or_whitespace(client_id.clone()) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.client_id is null or whitespace.").into()));
+        return error_message(11001, axum::http::StatusCode::BAD_REQUEST, "params.client_id is null or whitespace.".to_string());
     }
     if is_null_or_whitespace(redirect_uri.clone()) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.redirect_uri is null or whitespace.").into()));
+        return error_message(11002, axum::http::StatusCode::BAD_REQUEST, "params.redirect_uri is null or whitespace.".to_string());
     }
     if is_null_or_whitespace(code.clone()) {
-        return Ok(status::Custom(Status::BadRequest, error_message("params.code is null or whitespace.").into()));
+        return error_message(11003, axum::http::StatusCode::BAD_REQUEST, "params.code is null or whitespace.".to_string());
     }
 
     let (device, additional_data) = device_signed_authentication(code.unwrap()).await.expect("Authentication failed.");
@@ -65,12 +63,15 @@ pub async fn oauth_server_token(auth_request: Form<AuthRequest>, _remote_addr: S
     }
 
     if errors.len() > 0 {
-        return Ok(status::Custom(Status::BadRequest, json!(
-            {
-                "error": true,
-                "message": errors
-            }
-        )));
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+                serde_json::to_string(&json!(
+                {
+                    "error": true,
+                    "message": errors
+                }
+            )).unwrap(),
+        ).into_response();
     }
 
     let client_id_unwrapped = client_id.clone().unwrap();
@@ -96,12 +97,15 @@ pub async fn oauth_server_token(auth_request: Form<AuthRequest>, _remote_addr: S
     }
 
     if errors.len() > 0 {
-        return Ok(status::Custom(Status::BadRequest, json!(
-            {
-                "error": true,
-                "message": errors
-            }
-        )));
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+                serde_json::to_string(&json!(
+                {
+                    "error": true,
+                    "message": errors
+                }
+            )).unwrap(),
+        ).into_response();
     }
     // -------------- Verify code is signed for client_id and redirect_uri.
 
@@ -120,12 +124,15 @@ pub async fn oauth_server_token(auth_request: Form<AuthRequest>, _remote_addr: S
     //     grant_type: search_params.get("grant_type")
     // }
 
-    Ok(status::Custom(Status::Ok, json!(
-        {
-            "token_type": "Bearer",
-            "expires_in": 3600,
-            "access_token": access_and_refresh_tokens.access_token.hash,
-            "refresh_token": access_and_refresh_tokens.refresh_token.hash,
-        }
-    )))
+    return (
+        axum::http::StatusCode::OK,
+            serde_json::to_string(&json!(
+            {
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "access_token": access_and_refresh_tokens.access_token.hash,
+                "refresh_token": access_and_refresh_tokens.refresh_token.hash,
+            }
+        )).unwrap(),
+    ).into_response();
 }

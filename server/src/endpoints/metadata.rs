@@ -1,6 +1,9 @@
-use rocket::response::status::Custom;
-use rocket::{http::Status, response::status, get};
+use axum::{
+    Json, Router, extract::Path, http::StatusCode, response::{IntoResponse, Response}, routing::{get, post}
+};
+use axum::extract::Query;
 
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::hostname::{get_hostname, get_hostname_authentication_methods};
@@ -8,8 +11,12 @@ use crate::{error_message, AuthMethodPublic, FrontendMetadata, CONFIG_VALUE};
 
 // Endpoint root: /api/metadata
 
-#[get("/?<hostname>")]
-pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
+#[derive(Deserialize)]
+pub struct MetadataGet {
+    hostname: Option<String>,
+}
+
+pub async fn metadata_get(params: Query<MetadataGet>) -> Response {
     let frontend_metadata: FrontendMetadata = CONFIG_VALUE.frontend.clone().unwrap().metadata.unwrap();
 
     let mut alias: Option<String> = frontend_metadata.alias;
@@ -23,7 +30,7 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
     let mut style: String = frontend_metadata.style.unwrap_or("login_1".to_string());
 
     // TODO: This should be an impl From<>.
-    let hostname = get_hostname(hostname.unwrap()).await;
+    let hostname = get_hostname(params.hostname.clone().unwrap()).await;
     if hostname.is_ok() == true {
         let hostname_unwrapped = hostname.unwrap();
         if hostname_unwrapped.alias.is_none() == false {
@@ -55,27 +62,34 @@ pub async fn metadata_get(hostname: Option<String>) -> Custom<Value> {
         }
     }
 
-    return status::Custom(Status::Ok, json!({
-        "ok": true,
-        "data": {
-            "alias": alias,
-            "public_description": public_description,
-            "logo": logo,
-            "image": image,
-            "motd_banner": motd_banner,
-            "domain_placeholder": domain_placeholder,
-            "username_placeholder": username_placeholder,
-            "background_colour": background_colour,
-            "style": style
-        }
-    }));
+    return (
+        StatusCode::OK,
+        serde_json::to_string(&json!({
+            "ok": true,
+            "data": {
+                "alias": alias,
+                "public_description": public_description,
+                "logo": logo,
+                "image": image,
+                "motd_banner": motd_banner,
+                "domain_placeholder": domain_placeholder,
+                "username_placeholder": username_placeholder,
+                "background_colour": background_colour,
+                "style": style
+            }
+        })).unwrap(),
+    ).into_response()
 }
 
-#[get("/get-authentication-methods?<hostname>")]
-pub async fn metadata_get_authentication_methods(hostname: Option<String>) -> Custom<Value> {
-    let hostname_data = get_hostname(hostname.unwrap()).await;
+#[derive(Deserialize)]
+pub struct MetadataGetAuthenticationMethods {
+    hostname: Option<String>,
+}
+
+pub async fn metadata_get_authentication_methods(params: Query<MetadataGetAuthenticationMethods>) -> Response {
+    let hostname_data = get_hostname(params.hostname.clone().unwrap()).await;
     if hostname_data.is_err() == true {
-        return status::Custom(Status::BadRequest, error_message("Invalid hostname.").into());
+        return error_message(1001, StatusCode::BAD_REQUEST, "Invalid hostname.".to_string());
     }
 
     let active_authentication_methods_data = get_hostname_authentication_methods(hostname_data.unwrap(), true).await;
@@ -85,8 +99,11 @@ pub async fn metadata_get_authentication_methods(hostname: Option<String>) -> Cu
         auth_methods_public.push(auth_method.clone().into());
     }
     
-    return status::Custom(Status::Ok, json!({
-        "ok": true,
-        "data": auth_methods_public
-    }));
+    (
+        StatusCode::OK,
+        serde_json::to_string(&json!({
+            "ok": true,
+            "data": auth_methods_public
+        })).unwrap(),
+    ).into_response()
 }

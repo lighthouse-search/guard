@@ -57,17 +57,25 @@ async fn request(arguments: HashMap<String, CommandArgument>, _modes: Vec<String
     let _parameters = get_value(&arguments, "parameters");
     let nonce = get_value(&arguments, "nonce");
     let ip_address = get_value(&arguments, "ip-address").expect("Failed to get IP address value");
-    let headers: HashMap<String, String> = serde_json::from_str(&get_value(&arguments, "headers").expect("Failed to get headers value")).expect("Failed to parse headers");
+    let headers_map: HashMap<String, String> = serde_json::from_str(&get_value(&arguments, "headers").expect("Failed to get headers value")).expect("Failed to parse headers");
     let cookies: indexmap::IndexMap<String, String> = serde_json::from_str(&get_value(&arguments, "cookies").expect("Failed to get cookies value")).expect("Failed to parse cookies");
     // TODO: This needs to include request body.
-    
+
+    let mut headers = axum::http::HeaderMap::new();
+    for (key, value) in &headers_map {
+        headers.insert(
+            axum::http::header::HeaderName::from_bytes(key.as_bytes()).expect("Invalid header name"),
+            axum::http::header::HeaderValue::from_str(value).expect("Invalid header value"),
+        );
+    }
+
     // let (valid, user, device, authentication_method, error_to_respond_with)
     let user_authentication = user_authentication_pipeline(
         vec!["access_applications"],
         &cookies,
         ip_address,
         host,
-        &Headers { headers_map: headers }
+        headers
     ).await;
 
     if user_authentication.is_err() == false {

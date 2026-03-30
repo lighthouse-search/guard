@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
+use axum::response::Response;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
 use crate::tables::*;
 use diesel::prelude::*;
-
-use rocket::response::status::Custom;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -335,13 +334,13 @@ pub struct GuardPolicy {
 }
 
 pub struct HandlingMagiclink {
-    pub error_to_respond_to_client_with: Option<Custom<Value>>,
+    pub error_to_respond_to_client_with: Option<Response>,
     pub magiclink: Option<Magiclink>,
     pub user: Option<GuardUser>
 }
 
 pub struct RequestMagiclink {
-    pub error_to_respond_to_client_with: Option<Custom<Value>>,
+    pub error_to_respond_to_client_with: Option<Response>,
     pub _email: Option<String>
 }
 
@@ -375,10 +374,6 @@ pub struct OauthHandlingData {
 pub struct AuthMethodSql {
     pub table: Option<String>
     // pub column: Option<String>
-}
-
-pub struct Headers {
-    pub headers_map: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -461,10 +456,11 @@ pub struct ProtocolDecisionToPipelineOutput {
     pub authentication_type: String // The underlying authentication technology, e.g. "signed_request", "static_auth", "bearer_token"
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct ErrorResponse {
     pub error: bool,
-    pub message: String
+    pub message: String,
+    pub code: i64
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

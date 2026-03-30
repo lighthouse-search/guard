@@ -1,3 +1,4 @@
+use axum::response::Response;
 use serde_json::Value;
 
 use diesel::sql_query;
@@ -70,7 +71,7 @@ pub fn device_guard_static_auth_from_cookies(jar: &indexmap::IndexMap<String, St
     return Some(_signed_data);
 }
 
-pub async fn device_signed_authentication(signed_data: String) -> Result<(GuardDevices, Option<Value>), ErrorResponse> {
+pub async fn device_signed_authentication(signed_data: String) -> Result<(GuardDevices, Option<Value>), Response> {
     let mut _db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let unsigned_data: Static_auth_sign = serde_json::from_value(get_unsafe_noverification_jwt_payload(signed_data.clone()).expect("Failed to parse payload.")).expect("Failed to prase JWT");
     
@@ -88,14 +89,14 @@ pub async fn device_signed_authentication(signed_data: String) -> Result<(GuardD
     // Invalid static auth.
     if output.is_err() == true {
         log::info!("Invalid static auth (output.is_err)");
-        return Err(error_message("Invalid static authentication."));
+        return Err(error_message(3001, axum::http::StatusCode::UNAUTHORIZED, "Invalid static authentication.".to_string()));
     }
 
     let additional_data = output.expect("Missing result");
     // We use is_none() here, because we're expecting additional data.
     if additional_data.is_none() == true {
         log::info!("Invalid static auth (missing additional data)");
-        return Err(error_message("Invalid static authentication (missing additional data)."));
+        return Err(error_message(3002, axum::http::StatusCode::UNAUTHORIZED, "Invalid static authentication (missing additional data).".to_string()));
     }
     // ----
 

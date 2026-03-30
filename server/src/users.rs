@@ -1,3 +1,5 @@
+use axum::http;
+use axum::response::Response;
 use serde_json::{Value, json};
 
 use diesel::prelude::*;
@@ -99,12 +101,12 @@ pub async fn user_create(id_input: Option<String>, email_input: Option<String>) 
     })
 }
 
-pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &Headers) -> Result<UserAuthenticationPipelineResponse, ErrorResponse> {
+pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: axum::http::HeaderMap) -> Result<UserAuthenticationPipelineResponse, Response> {
     // Match incoming hostname to configuration.
     let hostname_result = get_hostname(host.clone()).await;
     if hostname_result.is_err() == true {
         log::info!("(user_authentication_pipeline) hostname is invalid: {:?}", host.clone());
-        return Err(error_message("Invalid hostname").into())
+        return Err(error_message(5001, axum::http::StatusCode::BAD_REQUEST, "Invalid hostname".to_string()))
     }
     let hostname = hostname_result.unwrap();
     
@@ -125,7 +127,7 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
 
     if result != true {
         log::debug!("policy_authentication returned {}", result);
-        return Err(error_message("Unauthorized (due to policy)").into());
+        return Err(error_message(5002, axum::http::StatusCode::BAD_REQUEST, "Unauthorized (due to policy)".to_string()));
     }
 
     return Ok(UserAuthenticationPipelineResponse {

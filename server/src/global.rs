@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 
 use rand::prelude::*;
 
-use rocket::http::CookieJar;
+use axum_extra::extract::CookieJar;
 
 use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;

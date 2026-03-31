@@ -11,6 +11,8 @@ import HostnameComponent, { HostnameData } from "./Hostname";
 import AuthMethodComponent, { AuthMethodData } from "./AuthMethod";
 import PolicyComponent, { PolicyData } from "./Policy";
 import Input from "./Input";
+import Quickstart from "./Quickstart";
+import { QuickstartPreset } from "./quickstartPresets";
 
 const DEFAULT_TOML = `[features]
 reverse_proxy_authentication = true
@@ -227,7 +229,36 @@ function AddEntryRow({
   );
 }
 
+
+const EMPTY_TOML = `[features]
+
+[frontend.metadata]
+instance_hostname = ""
+alias = ""
+
+[database.mysql]
+username = ""
+password_env = ""
+hostname = ""
+port = 3306
+database = "guard"
+
+[smtp]
+host = ""
+port = 587
+username = ""
+from_alias = ""
+from_header = ""
+password_env = ""
+
+[sql]
+users_table = "users"
+devices_table = "devices"
+magiclink_table = "magiclinks"
+`;
+
 export default function ConfigApp() {
+  const [step, setStep] = useState<"quickstart" | "configure">("quickstart");
   const [tomlValue, setTomlValue] = useState(DEFAULT_TOML);
   const [config, setConfig] = useState<GuardConfig>(
     parseToml(DEFAULT_TOML) ?? {}
@@ -324,7 +355,29 @@ export default function ConfigApp() {
     });
   }
 
+  function applyQuickstart(preset: QuickstartPreset) {
+    const base = parseToml(EMPTY_TOML) ?? {};
+    const next: GuardConfig = {
+      ...base,
+      authentication_methods: { [preset.authMethodId]: preset.authMethod },
+    };
+    setConfig(next);
+    const plain = JSON.parse(JSON.stringify(next));
+    setTomlValue(TOML.stringify(plain));
+    setStep("configure");
+  }
+
+  function startFromScratch() {
+    setConfig(parseToml(EMPTY_TOML) ?? {});
+    setTomlValue(EMPTY_TOML);
+    setStep("configure");
+  }
+
   const rpaEnabled = config.features?.reverse_proxy_authentication ?? false;
+
+  if (step === "quickstart") {
+    return <Quickstart onSelect={applyQuickstart} onSkip={startFromScratch} />;
+  }
 
   return (
     <div className="flex bg-zinc-50 dark:bg-zinc-950 h-screen overflow-hidden font-sans">
@@ -337,13 +390,22 @@ export default function ConfigApp() {
               Guard config creator
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={copyToml}
-            className="px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
-          >
-            {copied ? "Copied!" : "Copy TOML"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStep("quickstart")}
+              className="px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
+            >
+              ← Quickstart
+            </button>
+            <button
+              type="button"
+              onClick={copyToml}
+              className="px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
+            >
+              {copied ? "Copied!" : "Copy TOML"}
+            </button>
+          </div>
         </div>
 
         {/* Scrollable sections */}

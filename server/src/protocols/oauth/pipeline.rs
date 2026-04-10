@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use crate::authentication_misc::redirect_to_login;
 use crate::hostname::prepend_hostname_to_cookie;
 use crate::protocols::oauth::client::oauth_userinfo;
 use crate::responses::error_message;
@@ -35,7 +36,7 @@ fn hash_token(token: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
-pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {
+pub async fn oauth_pipeline(hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {
     let mut _bearer_token: String = String::new();
 
     if headers.get("Authorization").is_none() == false {
@@ -54,6 +55,7 @@ pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod,
         let cache = OAUTH_USERINFO_CACHE.lock().unwrap();
         if let Some((cached_user, cached_at)) = cache.get(&token_hash) {
             if cached_at.elapsed() < OAUTH_CACHE_TTL {
+                log::debug!("Using cached oauth bearer user.");
                 return Ok(OauthPipelineResponse {
                     external_user: cached_user.clone()
                 });
@@ -65,7 +67,7 @@ pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod,
     let user_info_result = oauth_userinfo(auth_method.oauth_client_user_info.unwrap(), _bearer_token).await;
     if user_info_result.is_err() == true {
         log::info!("Failed to get user-info");
-        return Err(error_message(6002, axum::http::StatusCode::BAD_REQUEST, "Failed to get user information from relevant service".to_string()));
+        return Err(redirect_to_login(hostname));
     }
 
     let attempted_external_user: Value = user_info_result.expect("Failed to get oauth userinfo.");

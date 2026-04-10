@@ -99,6 +99,19 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
     }
 }
 
+pub fn redirect_to_login(hostname: GuardedHostname) -> Response {
+    let mut login_url = url::Url::parse(&format!("https://{}", CONFIG_VALUE.clone().frontend.unwrap().metadata.unwrap().instance_hostname.unwrap())).unwrap();
+    login_url.set_path("/guard/frontend/login");
+    let redirect_host = if hostname.host.starts_with("https://") || hostname.host.starts_with("http://") {
+        hostname.host.clone()
+    } else {
+        format!("https://{}", hostname.host)
+    };
+    login_url.query_pairs_mut().append_pair("redirect", &redirect_host);
+
+    Redirect::temporary(login_url.as_str()).into_response()
+}
+
 pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, String>, _remote_addr: String, hostname: GuardedHostname, headers: axum::http::HeaderMap) -> Result<Option<GuardAuthenticationMetadata>, Response> {
     // This cookie is used instead of [Guard hostname]_guard_static_auth because, for example, if we're using OAuth, there isn't a [Guard hostname]_guard_static_auth cookie.
 
@@ -114,16 +127,8 @@ pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, 
             .map(|v| v.contains("text/html"))
             .unwrap_or(false);
         if incoming_host_header == hostname.host && accepts_html {
-            // If Client is likely connecting via Guard's proxy and accepts html/css. We can return HTML/CSS directly to user's browser.
-            let mut login_url = url::Url::parse(&format!("https://{}", CONFIG_VALUE.clone().frontend.unwrap().metadata.unwrap().instance_hostname.unwrap())).unwrap();
-            login_url.set_path("/guard/frontend/login");
-            let redirect_host = if hostname.host.starts_with("https://") || hostname.host.starts_with("http://") {
-                hostname.host.clone()
-            } else {
-                format!("https://{}", hostname.host)
-            };
-            login_url.query_pairs_mut().append_pair("redirect", &redirect_host);
-            return Err(Redirect::temporary(login_url.as_str()).into_response());
+            // Client accepts HTML/CSS and needs to authenticate. Redirect to login page.
+            return Err(redirect_to_login(hostname));
         } else { // Client is connecting via reverse proxy or other means. We probably can't return HTML/CSS.
             log::info!("neither (cookie) {} or header {} was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata"), &prepend_hostname_to_cookie("guard_authentication_metadata"));
             return Err(error_message(2001, axum::http::StatusCode::BAD_REQUEST, format!("neither cookies.{} or headers.guard_authentication_metadata was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata")).to_string()));

@@ -223,10 +223,10 @@ pub struct AuthMethod {
     pub alias: Option<String>,
     pub icon: Option<String>,
     pub method_type: String,
-    pub login_page: String,
+    pub login_page: Option<String>,
     // pub applied_policies: Vec<String>,
-    pub ratelimit: u32,
-    pub ratelimit_cooldown: u32,
+    pub ratelimit: Option<u32>,
+    pub ratelimit_cooldown: Option<u32>,
     pub should_create_new_users: Option<bool>,
     // pub user_info_reference_type: Option<String>,
     // pub user_info_reference_key: Option<String>,
@@ -247,7 +247,7 @@ pub struct AuthMethodPublic {
     pub alias: Option<String>,
     pub icon: Option<String>,
     pub method_type: String,
-    pub login_page: String
+    pub login_page: Option<String>
 }
 
 impl From<AuthMethod> for AuthMethodPublic {

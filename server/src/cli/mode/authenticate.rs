@@ -75,7 +75,7 @@ async fn request(arguments: HashMap<String, CommandArgument>, _modes: Vec<String
         &cookies,
         ip_address,
         host,
-        headers
+        &headers
     ).await;
 
     if user_authentication.is_err() == false {

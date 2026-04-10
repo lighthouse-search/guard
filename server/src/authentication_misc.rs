@@ -1,4 +1,4 @@
-use axum::response::Response;
+use axum::response::{Redirect, Response, IntoResponse};
 use serde_json::Value;
 
 use crate::global::{get_authentication_method};
@@ -6,10 +6,10 @@ use crate::hostname::is_valid_authentication_method_for_hostname;
 use crate::hostname::prepend_hostname_to_cookie;
 use crate::protocols::misc_pipeline::device::{device_pipeline_server_oauth, device_pipeline_static_auth};
 use crate::protocols::oauth::pipeline::oauth_pipeline;
-use crate::responses::*;
+use crate::{CONFIG_VALUE, responses::*};
 use crate::structs::*;
 
-pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: axum::http::HeaderMap) -> Result<ProtocolDecisionToPipelineOutput, Response> {
+pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &axum::http::HeaderMap) -> Result<ProtocolDecisionToPipelineOutput, Response> {
     let mut _authentication_type: Option<String> = None;
 
     let authentication_metadata_status = get_guard_authentication_metadata(&jar, remote_addr.clone(), hostname.clone(), headers.clone()).await;
@@ -35,7 +35,7 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
             _authentication_type = Some(String::from("bearer_token"));
             // WARNING: OAuth client (e.g. Login with Microsoft, NOT "Login with Guard") doesn't check scope!
 
-            let oauth_status = oauth_pipeline(hostname, unverified_authentication_method.clone(), &jar, remote_addr, headers).await;
+            let oauth_status = oauth_pipeline(hostname, unverified_authentication_method.clone(), &jar, remote_addr, &headers).await;
 
             // Check pipeline for response error.
             if oauth_status.is_err() == true {
@@ -54,7 +54,7 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
             _authentication_type = Some(String::from("static_auth"));
             // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
 
-            let device_pipeline_status = device_pipeline_static_auth(required_scopes, hostname, &jar, remote_addr, headers).await;
+            let device_pipeline_status = device_pipeline_static_auth(required_scopes, hostname, &jar, remote_addr, &headers).await;
 
             // Check pipeline for response error.
             // TODO: Check this err returns successfully.
@@ -81,7 +81,7 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
         _authentication_type = Some(String::from("oauth"));
 
         // TODO: investigate why this doesn't/pass need auth_metadata, is something duplicating?.
-        let (user, device, verified_auth_method) = device_pipeline_server_oauth(required_scopes, hostname, &jar, remote_addr, headers).await.expect("Device pipeline failed");
+        let (user, device, verified_auth_method) = device_pipeline_server_oauth(required_scopes, hostname, &jar, remote_addr, &headers).await.expect("Device pipeline failed");
 
         let user_value: Value = serde_json::to_value(user).expect("Failed to convert user to value");
 
@@ -108,8 +108,21 @@ pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, 
     } else if jar.get(&prepend_hostname_to_cookie("guard_authentication_metadata")).is_none() == false {
         _auth_metadata_string = jar.get(&prepend_hostname_to_cookie("guard_authentication_metadata")).expect("Failed to parse cookie.").to_string();
     } else {
-        log::info!("neither (cookie) {} or header {} was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata"), &prepend_hostname_to_cookie("guard_authentication_metadata"));
-        return Err(error_message(2001, axum::http::StatusCode::BAD_REQUEST, format!("neither cookies.{} or headers.guard_authentication_metadata was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata")).to_string()));
+        let incoming_host_header = headers.get("host").and_then(|v| v.to_str().ok()).unwrap_or("");
+        let accepts_html = headers.get("accept")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.contains("text/html"))
+            .unwrap_or(false);
+        if incoming_host_header == hostname.host && accepts_html {
+            // If Client is likely connecting via Guard's proxy and accepts html/css. We can return HTML/CSS directly to user's browser.
+            let mut login_url = url::Url::parse(&format!("https://{}", CONFIG_VALUE.clone().frontend.unwrap().metadata.unwrap().instance_hostname.unwrap())).unwrap();
+            login_url.set_path("/guard/frontend/login");
+            login_url.query_pairs_mut().append_pair("hostname", &hostname.host);
+            return Err(Redirect::temporary(login_url.as_str()).into_response());
+        } else { // Client is connecting via reverse proxy or other means. We probably can't return HTML/CSS.
+            log::info!("neither (cookie) {} or header {} was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata"), &prepend_hostname_to_cookie("guard_authentication_metadata"));
+            return Err(error_message(2001, axum::http::StatusCode::BAD_REQUEST, format!("neither cookies.{} or headers.guard_authentication_metadata was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata")).to_string()));
+        }
     }
 
     let auth_metadata: GuardAuthenticationMetadataCookie = serde_json::from_str(&_auth_metadata_string).expect("Failed to parse auth_metadata_string");

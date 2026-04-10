@@ -41,7 +41,7 @@ async fn reverse_proxy_authentication(jar: CookieJar, remote_addr: SocketAddr, h
 
     // (result, user_result, device, authentication_method_wrapped, error_to_respond_with)
 
-    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(&jar), remote_addr.to_string(), host.domain_port, headers).await;
+    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(&jar), remote_addr.to_string(), host.domain_port, &headers).await;
     
     // TODO: In the future athentication_method won't be returned as optional from user_authentication_pipelne (user_authentication_pipeline will be changed to from truple to Result<>). This is a temporary fix :)
     if user_authentication.is_ok() == true {

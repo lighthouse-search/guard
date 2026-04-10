@@ -8,7 +8,7 @@ use crate::device::{device_signed_authentication, device_guard_static_auth_from_
 use crate::users::user_get;
 use crate::hostname::{is_valid_authentication_method_for_hostname, prepend_hostname_to_cookie};
 
-pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: GuardedHostname, _jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: axum::http::HeaderMap) -> Result<(Option<GuardUser>, Option<GuardDevices>, Option<AuthMethod>), Response> {
+pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: GuardedHostname, _jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap) -> Result<(Option<GuardUser>, Option<GuardDevices>, Option<AuthMethod>), Response> {
     // This relates to OAuth server applications, but is easily confused with oauth_pipeline and even conflicts. This needs to be re-worked. This function checks bearer tokens match a hashed value in Guard's database and returns the matched user.
     
     // Check the Authroization header starts with ("Bearer "), consistent with OAuth standard.
@@ -49,7 +49,7 @@ pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: 
     return Ok((Some(user), None, Some(using_authentication_method)));
 }
 
-pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, _headers: axum::http::HeaderMap) -> Result<DevicePipelineStaticAuthResponse, Response> {
+pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, _headers: &axum::http::HeaderMap) -> Result<DevicePipelineStaticAuthResponse, Response> {
     // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
 
     let signed_data = device_guard_static_auth_from_cookies(jar);

@@ -221,7 +221,8 @@ async fn start_web() {
     .route("/guard/api/auth/authenticate", post(authenticate))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
     // .route("/ws", any(crate::request_proxy::ws_handler))
-    .route("/", get(root_handler))
+    .route("/{*path}", any(root_handler))
+    .route("/", any(root_handler))
     .with_state(client);
     // .layer(
     //     TraceLayer::new_for_http()
@@ -296,7 +297,7 @@ async fn root_handler(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    if host == instance_hostname {
+    if host == instance_hostname && req.uri().path() == "/" {
         let body = concat!(
             "<!DOCTYPE html>\n",
             "<html>\n",

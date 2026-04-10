@@ -179,8 +179,42 @@ async fn start_web() {
         hyper_util::client::legacy::Client::builder(TokioExecutor::new())
             .build(HttpConnector::new());
 
+    let frontend_path_arc = std::sync::Arc::new(frontend_path.clone());
+    let html_fallback = tower::util::service_fn(move |req: axum::http::Request<axum::body::Body>| {
+        let base = frontend_path_arc.clone();
+        async move {
+            let uri_path = req.uri().path();
+            let rel_path = uri_path.trim_start_matches('/');
+
+            // Sanitize: keep only Normal components to prevent path traversal
+            let mut safe_path = std::path::PathBuf::new();
+            for component in std::path::Path::new(rel_path).components() {
+                if let std::path::Component::Normal(c) = component {
+                    safe_path.push(c);
+                }
+            }
+
+            let html_file = base.join(format!("{}.html", safe_path.display()));
+            match tokio::fs::read(&html_file).await {
+                Ok(content) => Ok::<_, std::convert::Infallible>(
+                    axum::http::Response::builder()
+                        .status(200)
+                        .header("content-type", "text/html; charset=utf-8")
+                        .body(axum::body::Body::from(content))
+                        .unwrap()
+                ),
+                Err(_) => Ok::<_, std::convert::Infallible>(
+                    axum::http::Response::builder()
+                        .status(404)
+                        .body(axum::body::Body::empty())
+                        .unwrap()
+                ),
+            }
+        }
+    });
+
     let mut app = Router::new()
-    .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()))
+    .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()).fallback(html_fallback))
     .route("/guard/api/metadata/get", get(metadata_get))
     .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
@@ -261,8 +295,6 @@ async fn root_handler(
         .get("host")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-
-    log::info!("A: {} | B: {}", host, instance_hostname);
 
     if host == instance_hostname {
         let body = concat!(

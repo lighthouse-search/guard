@@ -21,6 +21,7 @@ static OAUTH_USERINFO_CACHE: Lazy<Mutex<HashMap<String, (Value, Instant)>>> =
 
 // Random salt generated once at startup. Without it, cache keys would be
 // reversible via rainbow tables if memory is ever inspected.
+// TODO: Check this.
 static CACHE_KEY_SALT: Lazy<[u8; 32]> = Lazy::new(|| {
     let mut salt = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut salt);
@@ -31,7 +32,7 @@ fn hash_token(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(*CACHE_KEY_SALT);
     hasher.update(token.as_bytes());
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {

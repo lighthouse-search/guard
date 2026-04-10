@@ -187,7 +187,8 @@ async fn start_web() {
     .route("/guard/api/auth/authenticate", post(authenticate))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
     // .route("/ws", any(crate::request_proxy::ws_handler))
-    .route("/", get(crate::request_proxy::http_handler)).with_state(client);
+    .route("/", get(root_handler))
+    .with_state(client);
     // .layer(
     //     TraceLayer::new_for_http()
     //         .make_span_with(DefaultMakeSpan::default().include_headers(true)),
@@ -226,4 +227,29 @@ async fn start_web() {
             .await
             .unwrap();
     }
+}
+
+async fn root_handler() -> impl axum::response::IntoResponse {
+    let body = r#"<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Guard</title></head>
+<body style="background:#0d1117;color:#e6edf3;font-family:monospace;padding:2rem">
+<pre>  ____                     _
+ / ___|_   _  __ _ _ __ __| |
+| |  _| | | |/ _` | '__/ _` |
+| |_| | |_| | (_| | | | (_| |
+ \____|\__,_|\__,_|_|  \__,_|</pre>
+<p>Guard is ready! Open a hostname to start.</p>
+<p>
+  <a href="https://github.com/lighthouse-search/guard" style="color:#58a6ff">Docs</a> &nbsp;|&nbsp;
+  <a href="https://lighthouse-search.github.io/guard/" style="color:#58a6ff">Quickstart</a>
+</p>
+</body>
+</html>
+"#;
+    (
+        axum::http::StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        body,
+    )
 }

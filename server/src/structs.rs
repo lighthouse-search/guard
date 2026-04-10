@@ -277,6 +277,7 @@ pub struct OauthCodeAccessExchangeResponse {
 pub struct GuardedHostname {
     pub active: bool,
     pub host: String,
+    pub proxy_to: Option<String>,
     pub authentication_methods: Vec<String>,
     pub multistep_authentication_methods: bool,
     pub applied_policies: Vec<String>,

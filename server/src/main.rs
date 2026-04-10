@@ -215,7 +215,7 @@ async fn start_web() {
 
     let mut app = Router::new()
     .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()).fallback(html_fallback))
-    .route("/guard/api/metadata/get", get(metadata_get))
+    .route("/guard/api/metadata", get(metadata_get))
     .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))

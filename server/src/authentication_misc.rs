@@ -117,7 +117,7 @@ pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, 
             // If Client is likely connecting via Guard's proxy and accepts html/css. We can return HTML/CSS directly to user's browser.
             let mut login_url = url::Url::parse(&format!("https://{}", CONFIG_VALUE.clone().frontend.unwrap().metadata.unwrap().instance_hostname.unwrap())).unwrap();
             login_url.set_path("/guard/frontend/login");
-            login_url.query_pairs_mut().append_pair("hostname", &hostname.host);
+            login_url.query_pairs_mut().append_pair("redirect", &hostname.host);
             return Err(Redirect::temporary(login_url.as_str()).into_response());
         } else { // Client is connecting via reverse proxy or other means. We probably can't return HTML/CSS.
             log::info!("neither (cookie) {} or header {} was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata"), &prepend_hostname_to_cookie("guard_authentication_metadata"));

@@ -131,6 +131,7 @@ pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body:
 
         // TODO: Remove Guard authentication data.
 
+        // TODO: Check max-forwards header in the client response here.
         return client
             .request(req)
             .await

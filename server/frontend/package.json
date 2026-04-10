@@ -6,14 +6,14 @@
     "start": "next start"
   },
   "dependencies": {
-    "@hcaptcha/react-hcaptcha": "latest",
+    "@hcaptcha/react-hcaptcha": "2.0.2",
     "@oracularhades/guard": "file:guard-npm",
     "elliptic": "latest",
     "hades-auth": "latest",
-    "next": "latest",
-    "react": "latest",
-    "react-cookie": "latest",
-    "react-dom": "latest"
+    "next": "16.2.3",
+    "react": "19.2.5",
+    "react-cookie": "8.1.0",
+    "react-dom": "19.2.5"
   },
   "engines": {
     "node": ">=18"

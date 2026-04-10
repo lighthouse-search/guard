@@ -9,7 +9,7 @@ use crate::structs::*;
 use url::Url;
 use std::collections::HashMap;
 
-pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {
+pub async fn oauth_pipeline(_hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {
     let mut _bearer_token: String = String::new();
 
     if headers.get("Authorization").is_none() == false {

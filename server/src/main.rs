@@ -1,6 +1,5 @@
 pub struct Cors;
 
-mod diesel_mysql;
 mod global;
 mod structs;
 mod responses;
@@ -187,7 +186,7 @@ async fn start_web() {
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
-    .route("/ws", any(crate::request_proxy::ws_handler))
+    // .route("/ws", any(crate::request_proxy::ws_handler))
     .route("/", get(crate::request_proxy::http_handler)).with_state(client);
     // .layer(
     //     TraceLayer::new_for_http()

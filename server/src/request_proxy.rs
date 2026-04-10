@@ -44,11 +44,6 @@ use crate::{CONFIG_VALUE, hostname::get_current_valid_hostname, users::user_auth
 
 pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body::Body>>, jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap, mut req: Request) -> Response {
     let path = req.uri().path().to_string();
-    let path_query = req
-        .uri()
-        .path_and_query()
-        .map(|v| v.as_str().to_string())
-        .unwrap_or_else(|| path.clone());
 
     // TODO: If no user credentials are provided, redirect to login.
 
@@ -86,13 +81,23 @@ pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body:
 
         // TODO: Need to pass a JWT with authentication data in headers.
 
-        let scheme = if hostname.original_url.starts_with("https") { "https" } else { "http" };
-        if scheme == "http" {
+        let mut proxy_to = hostname.hostname.proxy_to.expect(&format!("Missing hostname.proxy_to in {}", hostname.hostname.host));
+
+        if proxy_to.starts_with("https://") == false && proxy_to.starts_with("http://") == false {
+            log::warn!("Appending https://. proxy_to doesn't specify protocol. Changed from {} to {}", proxy_to, format!("https://{}", proxy_to));
+            proxy_to = format!("https://{}", proxy_to);
+        }
+        let mut proxy_to_url = url::Url::parse(
+            &proxy_to
+        ).expect("Failed to parse proxy_to url");
+        proxy_to_url.set_path(&path);
+        proxy_to_url.set_query(req.uri().query());
+
+        if proxy_to_url.scheme() == "http" {
             log::warn!("Using http:// ({}) proxy destination. It's really important you use an HTTPS connection with a trusted certificate whenever possible otherwise you are vulnerable to man-in-the-middle attacks.", hostname.original_url)
         }
-        let uri = format!("{scheme}://{}{path_query}", hostname.domain_port);
 
-        *req.uri_mut() = Uri::try_from(uri).unwrap();
+        *req.uri_mut() = Uri::try_from(proxy_to_url.as_str()).unwrap();
 
         // Check Max-Forwards to detect proxy loops.
         if let Some(max_forwards_val) = req.headers().get("max-forwards") {

@@ -26,6 +26,7 @@ tokio = "1.44.2"
 env_logger = "0.11.8"
 uuid = { version = "1.16.0", features = ["v4"] }
 rand = "0.8.5"
+sha2 = "0.11"
 axum = { version = "0.8.8", features = ["ws"] }
 axum-server = { version = "0.8.0", features = ["tls-rustls"] }
 axum-extra = { version = "0.12.5", features = ["cookie", "typed-header"] }

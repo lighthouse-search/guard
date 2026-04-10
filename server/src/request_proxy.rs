@@ -87,9 +87,7 @@ pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body:
             log::warn!("Appending https://. proxy_to doesn't specify protocol. Changed from {} to {}", proxy_to, format!("https://{}", proxy_to));
             proxy_to = format!("https://{}", proxy_to);
         }
-        let mut proxy_to_url = url::Url::parse(
-            &proxy_to
-        ).expect("Failed to parse proxy_to url");
+        let mut proxy_to_url = url::Url::parse(&proxy_to).expect("Failed to parse proxy_to url");
         proxy_to_url.set_path(&path);
         proxy_to_url.set_query(req.uri().query());
 
@@ -98,6 +96,8 @@ pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body:
         }
 
         *req.uri_mut() = Uri::try_from(proxy_to_url.as_str()).unwrap();
+
+        log::debug!("Proxying to: {}", proxy_to_url.as_str());
 
         // Check Max-Forwards to detect proxy loops.
         if let Some(max_forwards_val) = req.headers().get("max-forwards") {

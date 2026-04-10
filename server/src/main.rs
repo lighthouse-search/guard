@@ -229,27 +229,72 @@ async fn start_web() {
     }
 }
 
-async fn root_handler() -> impl axum::response::IntoResponse {
-    let body = r#"<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Guard</title></head>
-<body style="background:#0d1117;color:#e6edf3;font-family:monospace;padding:2rem">
-<pre>  ____                     _
- / ___|_   _  __ _ _ __ __| |
-| |  _| | | |/ _` | '__/ _` |
-| |_| | |_| | (_| | | | (_| |
- \____|\__,_|\__,_|_|  \__,_|</pre>
-<p>Guard is ready! Open a hostname to start.</p>
-<p>
-  <a href="https://github.com/lighthouse-search/guard" style="color:#58a6ff">Docs</a> &nbsp;|&nbsp;
-  <a href="https://lighthouse-search.github.io/guard/" style="color:#58a6ff">Quickstart</a>
-</p>
-</body>
-</html>
-"#;
-    (
-        axum::http::StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
-        body,
-    )
+async fn root_handler(
+    axum::extract::State(client): axum::extract::State<Client<HttpConnector, axum::body::Body>>,
+    jar: axum_extra::extract::CookieJar,
+    axum::extract::ConnectInfo(remote_addr): axum::extract::ConnectInfo<SocketAddr>,
+    mut headers: axum::http::HeaderMap,
+    mut req: axum::extract::Request,
+) -> axum::response::Response {
+    use axum::http::HeaderValue;
+    use axum::response::IntoResponse;
+
+    // In HTTP/2, the Host header is absent — the host comes from the :authority pseudo-header,
+    // which hyper maps to the URI authority rather than to a "host" header entry.
+    if headers.get("host").is_none() {
+        if let Some(authority) = req.uri().authority() {
+            if let Ok(val) = HeaderValue::from_str(authority.as_str()) {
+                headers.insert(axum::http::header::HOST, val.clone());
+                req.headers_mut().insert(axum::http::header::HOST, val);
+            }
+        }
+    }
+
+    let instance_hostname = CONFIG_VALUE
+        .frontend
+        .as_ref()
+        .and_then(|f| f.metadata.as_ref())
+        .and_then(|m| m.instance_hostname.as_deref())
+        .unwrap_or("");
+
+    let host = headers
+        .get("host")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    log::info!("A: {} | B: {}", host, instance_hostname);
+
+    if host == instance_hostname {
+        let body = concat!(
+            "<!DOCTYPE html>\n",
+            "<html>\n",
+            "<head><meta charset=\"utf-8\"><title>Guard</title></head>\n",
+            "<body style=\"background:#0d1117;color:#e6edf3;font-family:monospace;padding:2rem\">\n",
+            "<pre>  ____                     _\n",
+            " / ___|_   _  __ _ _ __ __| |\n",
+            "| |  _| | | |/ _` | '__/ _` |\n",
+            "| |_| | |_| | (_| | | | (_| |\n",
+            " \\____|\\ __,_|\\__,_|_|  \\__,_|</pre>\n",
+            "<p>Guard is ready! Open a hostname to start.</p>\n",
+            "<p>\n",
+            "  <a href=\"https://github.com/lighthouse-search/guard\" style=\"color:#58a6ff\">Docs</a> &nbsp;|&nbsp;\n",
+            "  <a href=\"https://lighthouse-search.github.io/guard/\" style=\"color:#58a6ff\">Quickstart</a>\n",
+            "</p>\n",
+            "</body>\n",
+            "</html>\n"
+        );
+        return (
+            axum::http::StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+            body,
+        ).into_response();
+    }
+
+    crate::request_proxy::http_handler(
+        axum::extract::State(client),
+        jar,
+        axum::extract::ConnectInfo(remote_addr),
+        headers,
+        req,
+    ).await
 }

@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ "main", "cicd-changed" ]
+    branches: [ "main", "nightly", "cicd-changed" ]
   workflow_dispatch:
 
 env:

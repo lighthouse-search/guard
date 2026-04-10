@@ -54,16 +54,7 @@ pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body:
 
     let mut header_to_use: String = "host".to_string();
 
-    // In HTTP/2, the Host header is absent — the host comes from the :authority pseudo-header,
-    // which hyper maps to the URI authority rather than to a "host" header entry.
-    let mut req_headers = req.headers().clone();
-    if req_headers.get("host").is_none() {
-        if let Some(authority) = req.uri().authority() {
-            if let Ok(val) = HeaderValue::from_str(authority.as_str()) {
-                req_headers.insert(axum::http::header::HOST, val);
-            }
-        }
-    }
+    let req_headers = req.headers().clone();
 
     let hostname = match get_current_valid_hostname(req_headers.clone(), Some(header_to_use)).await {
         Some(h) => h,

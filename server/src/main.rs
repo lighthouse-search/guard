@@ -222,6 +222,7 @@ async fn start_web() {
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
     // .route("/ws", any(crate::request_proxy::ws_handler))
     .fallback(root_handler)
+    .layer(axum::middleware::from_fn_with_state(client.clone(), guard_namespace_middleware))
     .with_state(client);
     // .layer(
     //     TraceLayer::new_for_http()
@@ -261,6 +262,51 @@ async fn start_web() {
             .await
             .unwrap();
     }
+}
+
+async fn guard_namespace_middleware(
+    axum::extract::State(client): axum::extract::State<Client<HttpConnector, axum::body::Body>>,
+    jar: axum_extra::extract::CookieJar,
+    axum::extract::ConnectInfo(remote_addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    mut req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::http::HeaderValue;
+
+    if req.uri().path().starts_with("/guard/") {
+        if req.headers().get("host").is_none() {
+            if let Some(authority) = req.uri().authority().cloned() {
+                if let Ok(val) = HeaderValue::from_str(authority.as_str()) {
+                    req.headers_mut().insert(axum::http::header::HOST, val);
+                }
+            }
+        }
+
+        let instance_hostname = CONFIG_VALUE
+            .frontend
+            .as_ref()
+            .and_then(|f| f.metadata.as_ref())
+            .and_then(|m| m.instance_hostname.as_deref())
+            .unwrap_or("");
+
+        let host = req.headers()
+            .get("host")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+
+        if host != instance_hostname {
+            let headers = req.headers().clone();
+            return crate::request_proxy::http_handler(
+                axum::extract::State(client),
+                jar,
+                axum::extract::ConnectInfo(remote_addr),
+                headers,
+                req,
+            ).await;
+        }
+    }
+
+    next.run(req).await
 }
 
 async fn root_handler(

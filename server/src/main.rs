@@ -347,15 +347,8 @@ async fn root_handler(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    let mut proxy_enabled = false;
-    if let Some(features) = CONFIG_VALUE.clone().features {
-        if features.proxy.unwrap_or(false) == true {
-            proxy_enabled = true;
-        }
-    }
-
     // If connection is directly to server (e.g. guard.example.com) or proxying is disabled, show ready page.
-    if host == instance_hostname || proxy_enabled == false {
+    if host == instance_hostname {
         let body = concat!(
             "<!DOCTYPE html>\n",
             "<html>\n",

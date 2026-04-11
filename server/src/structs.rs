@@ -25,6 +25,7 @@ pub struct Config {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConfigFeatures {
+    pub proxy: Option<bool>,
     pub reverse_proxy_authentication: Option<bool>,
     pub oauth_server: Option<bool>,
     pub tls: Option<bool>

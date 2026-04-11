@@ -43,6 +43,13 @@ use serde_json::{json, Value};
 use crate::{CONFIG_VALUE, hostname::get_current_valid_hostname, users::user_authentication_pipeline};
 
 pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body::Body>>, jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap, mut req: Request) -> Response {
+    let mut proxy_enabled = false;
+    if let Some(features) = CONFIG_VALUE.clone().features {
+        if features.proxy.unwrap_or(false) == false {
+            return (StatusCode::INTERNAL_SERVER_ERROR, "features.proxy is disabled.").into_response()
+        }
+    }
+
     let path = req.uri().path().to_string();
 
     // TODO: If no user credentials are provided, redirect to login.

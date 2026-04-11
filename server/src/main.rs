@@ -220,7 +220,7 @@ async fn start_web() {
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
-    // .route("/ws", any(crate::request_proxy::ws_handler))
+    // TODO: need to make this path not /ws and catch all, but: .route("/ws", any(crate::request_proxy::ws_handler))
     .fallback(root_handler)
     .layer(axum::middleware::from_fn_with_state(client.clone(), guard_namespace_middleware))
     .with_state(client);
@@ -272,37 +272,42 @@ async fn guard_namespace_middleware(
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     use axum::http::HeaderValue;
+    
+    if let Some(features) = CONFIG_VALUE.clone().features {
+        if features.proxy.unwrap_or(false) == true {
+            // Proxy is enabled. Redirect /guard apis to proxy when proxying.
+            if req.uri().path().starts_with("/guard/") {
+                if req.headers().get("host").is_none() {
+                    if let Some(authority) = req.uri().authority().cloned() {
+                        if let Ok(val) = HeaderValue::from_str(authority.as_str()) {
+                            req.headers_mut().insert(axum::http::header::HOST, val);
+                        }
+                    }
+                }
 
-    if req.uri().path().starts_with("/guard/") {
-        if req.headers().get("host").is_none() {
-            if let Some(authority) = req.uri().authority().cloned() {
-                if let Ok(val) = HeaderValue::from_str(authority.as_str()) {
-                    req.headers_mut().insert(axum::http::header::HOST, val);
+                let instance_hostname = CONFIG_VALUE
+                    .frontend
+                    .as_ref()
+                    .and_then(|f| f.metadata.as_ref())
+                    .and_then(|m| m.instance_hostname.as_deref())
+                    .unwrap_or("");
+
+                let host = req.headers()
+                    .get("host")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("");
+
+                if host != instance_hostname {
+                    let headers = req.headers().clone();
+                    return crate::request_proxy::http_handler(
+                        axum::extract::State(client),
+                        jar,
+                        axum::extract::ConnectInfo(remote_addr),
+                        headers,
+                        req,
+                    ).await;
                 }
             }
-        }
-
-        let instance_hostname = CONFIG_VALUE
-            .frontend
-            .as_ref()
-            .and_then(|f| f.metadata.as_ref())
-            .and_then(|m| m.instance_hostname.as_deref())
-            .unwrap_or("");
-
-        let host = req.headers()
-            .get("host")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
-
-        if host != instance_hostname {
-            let headers = req.headers().clone();
-            return crate::request_proxy::http_handler(
-                axum::extract::State(client),
-                jar,
-                axum::extract::ConnectInfo(remote_addr),
-                headers,
-                req,
-            ).await;
         }
     }
 
@@ -342,7 +347,15 @@ async fn root_handler(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    if host == instance_hostname {
+    let mut proxy_enabled = false;
+    if let Some(features) = CONFIG_VALUE.clone().features {
+        if features.proxy.unwrap_or(false) == true {
+            proxy_enabled = true;
+        }
+    }
+
+    // If connection is directly to server (e.g. guard.example.com) or proxying is disabled, show ready page.
+    if host == instance_hostname || proxy_enabled == false {
         let body = concat!(
             "<!DOCTYPE html>\n",
             "<html>\n",

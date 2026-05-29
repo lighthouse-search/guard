@@ -5,3 +5,5 @@ node_modules
 .github/workflows/mirror-to-gitlab.yml
 
 example/dev
+/config-creator/.next
+/config-creator/out

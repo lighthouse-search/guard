@@ -1,4 +1,4 @@
-use axum::http::StatusCode;
+use axum::{Json, http::StatusCode};
 use axum::response::IntoResponse;
 
 use serde_json::{Value, json};
@@ -7,14 +7,14 @@ use crate::structs::*;
 pub fn error_message(code: i64, status_code: StatusCode, message: String) -> axum::response::Response {
     (
         status_code,
-        serde_json::to_string(&ErrorResponse { error: true, message: message, code: code }).unwrap(),
+        Json(&ErrorResponse { error: true, message: message, code: code }),
     ).into_response()
 }
 
 pub fn fatal_error() -> axum::response::Response {
     (
         axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-        serde_json::to_string(&ErrorResponse { error: true, message: "Internal server error".to_string(), code: 1000 }).unwrap(),
+        Json(&ErrorResponse { error: true, message: "Internal server error".to_string(), code: 1000 }),
     ).into_response()
 }
 

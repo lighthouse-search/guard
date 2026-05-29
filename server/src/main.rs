@@ -1,6 +1,5 @@
 pub struct Cors;
 
-mod diesel_mysql;
 mod global;
 mod structs;
 mod responses;
@@ -180,15 +179,51 @@ async fn start_web() {
         hyper_util::client::legacy::Client::builder(TokioExecutor::new())
             .build(HttpConnector::new());
 
+    let frontend_path_arc = std::sync::Arc::new(frontend_path.clone());
+    let html_fallback = tower::util::service_fn(move |req: axum::http::Request<axum::body::Body>| {
+        let base = frontend_path_arc.clone();
+        async move {
+            let uri_path = req.uri().path();
+            let rel_path = uri_path.trim_start_matches('/');
+
+            // Sanitize: keep only Normal components to prevent path traversal
+            let mut safe_path = std::path::PathBuf::new();
+            for component in std::path::Path::new(rel_path).components() {
+                if let std::path::Component::Normal(c) = component {
+                    safe_path.push(c);
+                }
+            }
+
+            let html_file = base.join(format!("{}.html", safe_path.display()));
+            match tokio::fs::read(&html_file).await {
+                Ok(content) => Ok::<_, std::convert::Infallible>(
+                    axum::http::Response::builder()
+                        .status(200)
+                        .header("content-type", "text/html; charset=utf-8")
+                        .body(axum::body::Body::from(content))
+                        .unwrap()
+                ),
+                Err(_) => Ok::<_, std::convert::Infallible>(
+                    axum::http::Response::builder()
+                        .status(404)
+                        .body(axum::body::Body::empty())
+                        .unwrap()
+                ),
+            }
+        }
+    });
+
     let mut app = Router::new()
-    .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()))
-    .route("/guard/api/metadata/get", get(metadata_get))
+    .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()).fallback(html_fallback))
+    .route("/guard/api/metadata", get(metadata_get))
     .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
-    .route("/ws", any(crate::request_proxy::ws_handler))
-    .route("/", get(crate::request_proxy::http_handler)).with_state(client);
+    // TODO: need to make this path not /ws and catch all, but: .route("/ws", any(crate::request_proxy::ws_handler))
+    .fallback(root_handler)
+    .layer(axum::middleware::from_fn_with_state(client.clone(), guard_namespace_middleware))
+    .with_state(client);
     // .layer(
     //     TraceLayer::new_for_http()
     //         .make_span_with(DefaultMakeSpan::default().include_headers(true)),
@@ -227,4 +262,124 @@ async fn start_web() {
             .await
             .unwrap();
     }
+}
+
+async fn guard_namespace_middleware(
+    axum::extract::State(client): axum::extract::State<Client<HttpConnector, axum::body::Body>>,
+    jar: axum_extra::extract::CookieJar,
+    axum::extract::ConnectInfo(remote_addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
+    mut req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::http::HeaderValue;
+    
+    if let Some(features) = CONFIG_VALUE.clone().features {
+        if features.proxy.unwrap_or(false) == true {
+            // Proxy is enabled. Redirect /guard apis to proxy when proxying.
+            if req.uri().path().starts_with("/guard/") {
+                if req.headers().get("host").is_none() {
+                    if let Some(authority) = req.uri().authority().cloned() {
+                        if let Ok(val) = HeaderValue::from_str(authority.as_str()) {
+                            req.headers_mut().insert(axum::http::header::HOST, val);
+                        }
+                    }
+                }
+
+                let instance_hostname = CONFIG_VALUE
+                    .frontend
+                    .as_ref()
+                    .and_then(|f| f.metadata.as_ref())
+                    .and_then(|m| m.instance_hostname.as_deref())
+                    .unwrap_or("");
+
+                let host = req.headers()
+                    .get("host")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("");
+
+                if host != instance_hostname {
+                    let headers = req.headers().clone();
+                    return crate::request_proxy::http_handler(
+                        axum::extract::State(client),
+                        jar,
+                        axum::extract::ConnectInfo(remote_addr),
+                        headers,
+                        req,
+                    ).await;
+                }
+            }
+        }
+    }
+
+    next.run(req).await
+}
+
+async fn root_handler(
+    axum::extract::State(client): axum::extract::State<Client<HttpConnector, axum::body::Body>>,
+    jar: axum_extra::extract::CookieJar,
+    axum::extract::ConnectInfo(remote_addr): axum::extract::ConnectInfo<SocketAddr>,
+    mut headers: axum::http::HeaderMap,
+    mut req: axum::extract::Request,
+) -> axum::response::Response {
+    use axum::http::HeaderValue;
+    use axum::response::IntoResponse;
+
+    // In HTTP/2, the Host header is absent — the host comes from the :authority pseudo-header,
+    // which hyper maps to the URI authority rather than to a "host" header entry.
+    if headers.get("host").is_none() {
+        if let Some(authority) = req.uri().authority() {
+            if let Ok(val) = HeaderValue::from_str(authority.as_str()) {
+                headers.insert(axum::http::header::HOST, val.clone());
+                req.headers_mut().insert(axum::http::header::HOST, val);
+            }
+        }
+    }
+
+    let instance_hostname = CONFIG_VALUE
+        .frontend
+        .as_ref()
+        .and_then(|f| f.metadata.as_ref())
+        .and_then(|m| m.instance_hostname.as_deref())
+        .unwrap_or("");
+
+    let host = headers
+        .get("host")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    // If connection is directly to server (e.g. guard.example.com) or proxying is disabled, show ready page.
+    if host == instance_hostname {
+        let body = concat!(
+            "<!DOCTYPE html>\n",
+            "<html>\n",
+            "<head><meta charset=\"utf-8\"><title>Guard</title></head>\n",
+            "<body style=\"background:#0d1117;color:#e6edf3;font-family:monospace;padding:2rem\">\n",
+            "<pre>   _____                     _ \n",
+            "  / ____|                   | |\n",
+            " | |  __ _   _  __ _ _ __ __| |\n",
+            " | | |_ | | | |/ _` | '__/ _` |\n",
+            " | |__| | |_| | (_| | | | (_| |\n",
+            "  \\_____|\\__,_|\\__,_|_|  \\__,_|</pre>\n",
+            "<p>Guard is ready! Open a hostname to start.</p>\n",
+            "<p>\n",
+            "  <a href=\"https://github.com/lighthouse-search/guard\" style=\"color:#58a6ff\">Docs</a> &nbsp;|&nbsp;\n",
+            "  <a href=\"https://lighthouse-search.github.io/guard/\" style=\"color:#58a6ff\">Quickstart</a>\n",
+            "</p>\n",
+            "</body>\n",
+            "</html>\n"
+        );
+        return (
+            axum::http::StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+            body,
+        ).into_response();
+    }
+
+    crate::request_proxy::http_handler(
+        axum::extract::State(client),
+        jar,
+        axum::extract::ConnectInfo(remote_addr),
+        headers,
+        req,
+    ).await
 }

@@ -134,10 +134,7 @@ pub fn url_to_domain_port(host_unparsed: String) -> Result<String, String> {
 
 // Bad name. But this function returns get_hostname alongside parsed URL strings (domain port) and the original_url.
 pub async fn get_current_valid_hostname(headers: axum::http::HeaderMap, header_to_use: Option<String>) -> Option<GetCurrentValidHostnameStruct> {
-    let mut header: String = "host".to_string();
-    if header_to_use.is_none() == false {
-        header = header_to_use.unwrap();
-    }
+    let header: String = header_to_use.unwrap_or("host".to_string());
 
     let headers_cloned = headers.clone();
     if headers_cloned.get(&header).is_none() == true {

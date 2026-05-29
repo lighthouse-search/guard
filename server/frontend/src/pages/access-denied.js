@@ -1,46 +1,33 @@
-"use client"
+import React, { useEffect, useRef, useState } from 'react';
+import Base from '@/components/base';
+import { useRouter } from 'next/router';
 import "../../styles/global.css";
-import './css/access-denied.css';
-import './../components/login/pages/css/magiclink1.css';
+import { Turnstile } from '@marsidev/react-turnstile';
 
-import { useEffect, useRef, useState } from 'react';
-import Login1 from '../components/login/pages/login1';
-import FormStyle_1 from "@/components/login/forms/form_style1";
-import { logout } from "@/global";
-import Base from "@/components/base";
+export default function Login() {
+  const router = useRouter();
+  const shouldSend = useRef(true);
+  const [metadata, set_metadata] = useState(null);
 
-export default function Access_denied(props) {
-    let params = new URLSearchParams({});
-    // Less code than making a useState and handling useRef.
-    if (typeof window != "undefined") {
-        params = new URLSearchParams(document.location.search);;
-    }
+  const turnstileRef = useRef(null)
 
-    const This_is_weird = ((props) => {
-        return (
-            <FormStyle_1 header={false} className="access_denied_form" style={{ rowGap: 5 }}>
-                <h2 className='access_denied_header'>This is weird</h2>
-                <p className='access_denied_subtext'>You were redirected from <a className="greyText">internal.example.com</a>, which I don't recognize. Looks like you've gotten lost, or <a className="greyText">internal.example.com</a> is up to mischievous activity.<br/><br/>Please find a valid link, and we'll try this again.</p>
-            </FormStyle_1>
-        )
-    });
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const token = turnstileRef.current?.getResponse()
+    // Send token to your server...
+    turnstileRef.current?.reset() // Reset after submission
+  }
 
-    const Access_denied = ((props) => {
-        // <a className="greyText">user@example.com</a> (this was going to be in place of "You", but the user @me endpoints are not implemented yet.)
-        return (
-            <FormStyle_1 header={false} className="access_denied_form" style={{ rowGap: 5 }}>
-                {/* <img className='magiclink_img' src="/assets/crystalball.png"/> */}
-                <h2 className='access_denied_header'>Access Denied</h2>
-                <p className='access_denied_subtext'>You don't have access to this resource (<a className="greyText">{params.get("redirect")}</a>).</p>
-                <button onClick={() => { logout(params.get("redirect")); }}>Logout</button>
-            </FormStyle_1>
-        )
-    })
-
-    return (
-        <Login1>
-            <Access_denied/>
-            {/* <This_is_weird/> */}
-        </Login1>
-    )
+  return (
+    <Base metadata={metadata}>
+      <div className="flex items-center justify-center w-full h-screen bg-[rgb(235,235,235)]">
+        <div className="flex flex-col items-center gap-4 bg-white rounded p-6 w-[400px] shadow-sm">
+          <div className="flex flex-col items-center gap-1 text-center">
+            <h1 className="text-xl font-bold">Access denied</h1>
+            <p className="text-sm text-gray-500">You are not authorised to access {typeof window != "undefined" && window.location.hostname || ""}</p>
+          </div>
+        </div>
+      </div>
+    </Base>
+  )
 }

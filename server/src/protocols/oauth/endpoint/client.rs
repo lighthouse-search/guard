@@ -35,7 +35,7 @@ pub async fn oauth_exchange_code(params: Query<QueryDetails>, axum::extract::Con
     let oauth_client_secret_env = auth_method.oauth_client_secret_env.clone().unwrap();
     let client_secret: String = environment_variables::get(oauth_client_secret_env.clone()).expect(&format!("environment variable '{}' is missing.", oauth_client_secret_env));
 
-    let data_from_login_url = oauth_get_data_from_oauth_login_url(auth_method.login_page.clone());
+    let data_from_login_url = oauth_get_data_from_oauth_login_url(auth_method.login_page.clone().expect("Missing login_page"));
     let result = oauth_code_exchange_for_access_key(
         auth_method.oauth_client_token_endpoint.clone().expect("Missing auth_method.oauth_client_token_endpoint"),
         auth_method.oauth_client_id.clone().expect("Missing auth_method.oauth_client_id"),

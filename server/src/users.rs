@@ -101,7 +101,7 @@ pub async fn user_create(id_input: Option<String>, email_input: Option<String>) 
     })
 }
 
-pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: axum::http::HeaderMap) -> Result<UserAuthenticationPipelineResponse, Response> {
+pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &axum::http::HeaderMap) -> Result<UserAuthenticationPipelineResponse, Response> {
     // Match incoming hostname to configuration.
     let hostname_result = get_hostname(host.clone()).await;
     if hostname_result.is_err() == true {
@@ -127,7 +127,7 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
 
     if result != true {
         log::debug!("policy_authentication returned {}", result);
-        return Err(error_message(5002, axum::http::StatusCode::BAD_REQUEST, "Unauthorized (due to policy)".to_string()));
+        return Err(error_message(5002, axum::http::StatusCode::UNAUTHORIZED, "Unauthorized due to policy".to_string()));
     }
 
     return Ok(UserAuthenticationPipelineResponse {

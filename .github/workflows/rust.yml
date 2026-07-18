@@ -68,10 +68,10 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Linux native (amd64) — system MySQL client
+      # Linux native (amd64) — system MySQL client + OpenSSL
       - name: Install system dependencies (Linux native)
         if: matrix.os == 'ubuntu-latest' && !matrix.use-cross
-        run: sudo apt-get update -y && sudo apt-get install -y default-libmysqlclient-dev pkg-config
+        run: sudo apt-get update -y && sudo apt-get install -y default-libmysqlclient-dev pkg-config libssl-dev
 
       # Linux arm64 — cross-compile via cross
       - name: Install cross

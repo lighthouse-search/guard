@@ -64,16 +64,6 @@ async fn reverse_proxy_authentication(jar: CookieJar, remote_addr: SocketAddr, h
             }));
         }
 
-        // TODO: This is wildly messy, I'll fix it.
-
-        let mut device: Option<Value> = None;
-        if user_authentication_unwrapped.device.is_none() == false {
-            let device_unwrapped = user_authentication_unwrapped.device.unwrap();
-            device = Some(json!({
-                "id": device_unwrapped.id
-            }));
-        }
-
         return (
             axum::http::StatusCode::OK,
             Json(json!({

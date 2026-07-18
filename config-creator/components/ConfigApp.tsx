@@ -544,6 +544,23 @@ export default function ConfigApp() {
     });
   }
 
+  function applyQuickstart(preset: QuickstartPreset) {
+    const existingMethods = config.authentication_methods ?? {};
+    // Generate a unique key if the id already exists
+    let key = preset.authMethodId;
+    let suffix = 2;
+    while (existingMethods[key]) {
+      key = `${preset.authMethodId}_${suffix++}`;
+    }
+    updateConfig({
+      ...config,
+      authentication_methods: {
+        ...existingMethods,
+        [key]: preset.authMethod,
+      },
+    });
+  }
+
   const rpaEnabled = config.features?.reverse_proxy_authentication ?? false;
 
   return (

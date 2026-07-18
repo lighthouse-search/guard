@@ -89,12 +89,11 @@ jobs:
           echo "LIBRARY_PATH=$(brew --prefix mysql-client)/lib" >> $GITHUB_ENV
           echo "DYLD_LIBRARY_PATH=$(brew --prefix mysql-client)/lib" >> $GITHUB_ENV
 
-      # Windows — MySQL Connector/C via vcpkg
+      # Windows — MySQL 8.0 is pre-installed on windows-latest runners
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          vcpkg install libmysql:x64-windows
-          echo "MYSQLCLIENT_LIB_DIR=C:/vcpkg/installed/x64-windows/lib" >> $env:GITHUB_ENV
+          echo "MYSQLCLIENT_LIB_DIR=C:/Program Files/MySQL/MySQL Server 8.0/lib" >> $env:GITHUB_ENV
           echo "MYSQLCLIENT_VERSION=8.0" >> $env:GITHUB_ENV
 
       - name: Build (cross)

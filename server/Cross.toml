@@ -2,5 +2,5 @@
 pre-build = [
     "dpkg --add-architecture arm64",
     "apt-get update -y",
-    "apt-get install -y libssl-dev:arm64 pkg-config default-libmysqlclient-dev:arm64",
+    "apt-get install -y libssl-dev:arm64 pkg-config libmysqlclient-dev:arm64",
 ]

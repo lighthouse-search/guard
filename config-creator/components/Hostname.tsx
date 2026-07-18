@@ -12,12 +12,8 @@ export interface HostnameData {
   multistep_authentication_methods?: boolean;
 }
 
-interface Props {
-  id: string;
-  data: HostnameData;
-  onChange: (id: string, data: HostnameData) => void;
-  onRemove: (id: string) => void;
-}
+const LABEL = "text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
+const INPUT = "rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-500";
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -39,7 +35,93 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
-export default function HostnameComponent({ id, data, onChange, onRemove }: Props) {
+export function HostnameFields({
+  data,
+  onChange,
+  availableAuthMethods = [],
+  availablePolicies = [],
+}: {
+  data: HostnameData;
+  onChange: (d: HostnameData) => void;
+  availableAuthMethods?: string[];
+  availablePolicies?: string[];
+}) {
+  function update(partial: Partial<HostnameData>) {
+    onChange({ ...data, ...partial });
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className={LABEL}>Hostname</label>
+          <input
+            value={data.hostname ?? ""}
+            onChange={(e) => update({ hostname: e.target.value })}
+            placeholder="app.example.com"
+            className={`${INPUT} font-mono`}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className={LABEL}>
+            Alias{" "}
+            <span className="normal-case font-normal text-zinc-400 tracking-normal">(optional)</span>
+          </label>
+          <input
+            value={data.alias ?? ""}
+            onChange={(e) => update({ alias: e.target.value })}
+            placeholder="My App"
+            className={INPUT}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className={LABEL}>Authentication methods</label>
+        <TagInput
+          tags={data.authentication_methods ?? []}
+          onChange={(v) => update({ authentication_methods: v })}
+          placeholder="Select or type a method…"
+          suggestions={availableAuthMethods}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className={LABEL}>Applied policies</label>
+        <TagInput
+          tags={data.applied_policies ?? []}
+          onChange={(v) => update({ applied_policies: v })}
+          placeholder="Select or type a policy…"
+          suggestions={availablePolicies}
+        />
+      </div>
+
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={data.multistep_authentication_methods ?? false}
+          onChange={(e) => update({ multistep_authentication_methods: e.target.checked })}
+          className="w-4 h-4 accent-zinc-700 dark:accent-zinc-400"
+        />
+        <div>
+          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Multistep authentication</p>
+          <p className="text-xs text-zinc-400">Require all listed methods to pass, not just one</p>
+        </div>
+      </label>
+    </>
+  );
+}
+
+interface Props {
+  id: string;
+  data: HostnameData;
+  onChange: (id: string, data: HostnameData) => void;
+  onRemove: (id: string) => void;
+  availableAuthMethods?: string[];
+  availablePolicies?: string[];
+}
+
+export default function HostnameComponent({ id, data, onChange, onRemove, availableAuthMethods = [], availablePolicies = [] }: Props) {
   const [expanded, setExpanded] = useState(true);
   const isActive = data.active !== false;
 
@@ -53,7 +135,6 @@ export default function HostnameComponent({ id, data, onChange, onRemove }: Prop
         ? "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
         : "border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-950 opacity-60"
     }`}>
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <button
           type="button"
@@ -96,91 +177,12 @@ export default function HostnameComponent({ id, data, onChange, onRemove }: Prop
 
       {expanded && (
         <div className="px-4 pb-4 flex flex-col gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
-          {/* Hostname + Alias */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                Hostname
-              </label>
-              <input
-                value={data.hostname ?? ""}
-                onChange={(e) => update({ hostname: e.target.value })}
-                placeholder="app.example.com"
-                className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-500 font-mono"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                Alias{" "}
-                <span className="normal-case font-normal text-zinc-400 tracking-normal">
-                  (optional)
-                </span>
-              </label>
-              <input
-                value={data.alias ?? ""}
-                onChange={(e) => update({ alias: e.target.value })}
-                placeholder="My App"
-                className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-500"
-              />
-            </div>
-          </div>
-
-          {/* Authentication methods */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-              Authentication methods
-            </label>
-            <p className="text-xs text-zinc-400">
-              Enter method IDs (e.g.{" "}
-              <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-zinc-600 dark:text-zinc-300">
-                email
-              </code>
-              ). Press <kbd className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-zinc-500 text-[10px]">Enter</kbd> or{" "}
-              <kbd className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-zinc-500 text-[10px]">,</kbd> to add.
-            </p>
-            <TagInput
-              tags={data.authentication_methods ?? []}
-              onChange={(v) => update({ authentication_methods: v })}
-              placeholder="e.g. email, oauth_google…"
-            />
-          </div>
-
-          {/* Applied policies */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-              Applied policies
-            </label>
-            <p className="text-xs text-zinc-400">
-              Enter policy IDs (e.g.{" "}
-              <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-zinc-600 dark:text-zinc-300">
-                staff_only
-              </code>
-              ).
-            </p>
-            <TagInput
-              tags={data.applied_policies ?? []}
-              onChange={(v) => update({ applied_policies: v })}
-              placeholder="e.g. staff_only…"
-            />
-          </div>
-
-          {/* Multistep */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={data.multistep_authentication_methods ?? false}
-              onChange={(e) => update({ multistep_authentication_methods: e.target.checked })}
-              className="w-4 h-4 accent-zinc-700 dark:accent-zinc-400"
-            />
-            <div>
-              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Multistep authentication
-              </p>
-              <p className="text-xs text-zinc-400">
-                Require all listed methods to pass, not just one
-              </p>
-            </div>
-          </label>
+          <HostnameFields
+            data={data}
+            onChange={(d) => onChange(id, d)}
+            availableAuthMethods={availableAuthMethods}
+            availablePolicies={availablePolicies}
+          />
         </div>
       )}
     </div>

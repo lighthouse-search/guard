@@ -1,14 +1,13 @@
-FROM --platform=linux/amd64 rust:latest as build-stage
+FROM --platform=linux/amd64 rust:latest AS build-stage
 WORKDIR /builds
 
 RUN apt update -y
 RUN apt upgrade -y
-RUN apt install -y unzip tree
 
-COPY ./guard.zip /builds/guard.zip
-RUN tree /builds
-RUN unzip /builds/guard.zip -d /builds/release
-RUN tree /
+# The CI workflow unzips the platform artifact into ./release before this build,
+# so the release directory (guard-server binary + frontend/_static + example) is
+# copied straight in.
+COPY ./release /builds/release
 
 RUN adduser kube --disabled-login
 RUN usermod -s /bin/rbash kube
@@ -16,4 +15,4 @@ RUN usermod -s /bin/rbash kube
 # Run the application as kube user
 USER kube
 EXPOSE 8000
-CMD /builds/release/guard-server
+CMD ["/builds/release/guard-server"]

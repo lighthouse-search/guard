@@ -71,7 +71,7 @@ export default function TagInput({ tags, onChange, placeholder, suggestions = []
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { addTag(s); setOpen(true); }}
-              className="w-full px-3 py-1.5 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 font-mono"
+              className="w-full px-3 py-1.5 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
             >
               {s}
             </button>

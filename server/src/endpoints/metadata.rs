@@ -11,6 +11,16 @@ use crate::{error_message, AuthMethodPublic, FrontendMetadata, CONFIG_VALUE};
 
 // Endpoint root: /api/metadata
 
+// Rewrites a "media://<file>" reference into a path served by the local media
+// folder (config.frontend.media.folder mounted at /guard/media). Any other
+// value (e.g. a full http(s) URL) is returned unchanged.
+fn resolve_media_url(value: Option<String>) -> Option<String> {
+    value.map(|v| match v.strip_prefix("media://") {
+        Some(rest) => format!("/guard/media/{}", rest.trim_start_matches('/')),
+        None => v,
+    })
+}
+
 #[derive(Deserialize)]
 pub struct MetadataGet {
     hostname: Option<String>,
@@ -69,8 +79,8 @@ pub async fn metadata_get(params: Query<MetadataGet>) -> Response {
             "data": {
                 "alias": alias,
                 "public_description": public_description,
-                "logo": logo,
-                "image": image,
+                "logo": resolve_media_url(logo),
+                "image": resolve_media_url(image),
                 "motd_banner": motd_banner,
                 "domain_placeholder": domain_placeholder,
                 "username_placeholder": username_placeholder,

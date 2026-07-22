@@ -10,5 +10,13 @@
 }
 
 .input_with_header_input {
-    width: 94.2%;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    padding: 9px 11px;
+    font-size: 14px;
+    line-height: 1.2;
+    border: 1px solid rgb(204, 204, 204);
+    border-radius: 6px;
+    background-color: #fff;
 }

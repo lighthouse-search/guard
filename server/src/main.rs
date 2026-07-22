@@ -248,6 +248,17 @@ async fn start_web() {
         }
     }
 
+    // Serve a local media folder (config.frontend.media.folder) at /guard/media,
+    // letting config reference assets as "media://<file>" instead of external URLs.
+    if let Some(folder) = guard_config
+        .frontend.as_ref()
+        .and_then(|f| f.media.as_ref())
+        .and_then(|m| m.folder.as_ref())
+    {
+        log::info!("Serving media folder '{}' at /guard/media", folder);
+        app = app.nest_service("/guard/media", ServeDir::new(folder));
+    }
+
     let addr = SocketAddr::from(([0, 0, 0, 0], guard_port));
     log::info!("listening on {}", addr);
 

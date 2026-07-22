@@ -29,7 +29,7 @@ export default function AestheticMetadataPanel(props) {
     // We're going right into CSS here. Just some safety from bad inputs, we need to verify this is a real link.
     let link = null;
     try {
-        link = new URL(metadata.image).href;
+        link = new URL(metadata.image, window.location.origin).href;
     } catch (error) {
         // Invalid link, ignore.
     }
@@ -42,9 +42,9 @@ export default function AestheticMetadataPanel(props) {
     return (
         <div style={{ backgroundImage: `url(${link})`, backgroundColor: background_colour }} className='aesthetic_metadata_panel_left'>
             {metadata && <div className='aesthetic_metadata_panel_left_div'>
-                {metadata.logo && <img className='aesthetic_metadata_panel_left_logo' src={metadata.logo}/>}
-                {metadata.alias && <h2 className='aesthetic_metadata_panel_left_header'>{metadata.alias}</h2>}
-                <p>{metadata.public_description}</p>
+                {metadata.logo && <img className='max-w-[140px] max-h-[80px] mb-1' src={metadata.logo}/>}
+                {metadata.alias && <h2 className='text-white text-2xl font-semibold'>{metadata.alias}</h2>}
+                <p className='text-white text-base'>{metadata.public_description}</p>
             </div>}
         </div>
     )

@@ -25,12 +25,10 @@ const LABEL = "text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase 
 const INPUT = "rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400";
 
 export function AuthMethodFields({
-  methodId,
   data,
   onChange,
   availablePolicies = [],
 }: {
-  methodId: string;
   data: AuthMethodData;
   onChange: (d: AuthMethodData) => void;
   availablePolicies?: string[];
@@ -52,7 +50,7 @@ export function AuthMethodFields({
           onChange={(e) => update({ method_type: e.target.value as "email" | "oauth" })}
           className={INPUT}
         >
-          <option value="email">Email (magic link)</option>
+          <option value="email">Email (MagicLink)</option>
           <option value="oauth">OAuth</option>
         </select>
       </div>
@@ -80,16 +78,8 @@ export function AuthMethodFields({
               value={data.oauth_client_id ?? ""}
               onChange={(e) => update({ oauth_client_id: e.target.value })}
               placeholder="your-client-id"
-              className={`${INPUT} font-mono`}
+              className={`${INPUT}`}
             />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className={LABEL}>Client secret env var</label>
-            <div className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 px-3 py-1.5 text-sm text-zinc-500 dark:text-zinc-400 font-mono select-all">
-              {data.oauth_client_secret_env || generateClientSecretEnvVar(methodId)}
-            </div>
-            <p className="text-xs text-zinc-400">Auto-generated — set this env var to your OAuth client secret</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -98,7 +88,7 @@ export function AuthMethodFields({
               value={data.oauth_client_token_endpoint ?? ""}
               onChange={(e) => update({ oauth_client_token_endpoint: e.target.value })}
               placeholder="https://accounts.google.com/o/oauth2/token"
-              className={`${INPUT} font-mono`}
+              className={`${INPUT}`}
             />
           </div>
 
@@ -108,21 +98,24 @@ export function AuthMethodFields({
               value={data.oauth_client_user_info ?? ""}
               onChange={(e) => update({ oauth_client_user_info: e.target.value })}
               placeholder="https://www.googleapis.com/oauth2/v1/userinfo"
-              className={`${INPUT} font-mono`}
+              className={`${INPUT}`}
             />
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <label className={LABEL}>Applied policies</label>
+      {/* <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-0.5">
+          <label className={LABEL}>Applied policies</label>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">Only users who match these policies may authenticate with this method. E.g. when authenticating Google, ensure organisation is a company account. Applied policies serves as blanket authentication for a whole authentication method.</p>
+        </div>
         <TagInput
           tags={data.applied_policies ?? []}
           onChange={(v) => update({ applied_policies: v })}
           placeholder="Select or type a policy…"
           suggestions={availablePolicies}
         />
-      </div>
+      </div> */}
 
       <label className="flex items-center gap-3 cursor-pointer">
         <input
@@ -166,7 +159,7 @@ export default function AuthMethodComponent({ id, data, onChange, onRemove, avai
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-mono">{id}</span>
+            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{id}</span>
             <span className="text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-sans">
               {data.method_type ?? "email"}
             </span>
@@ -187,7 +180,7 @@ export default function AuthMethodComponent({ id, data, onChange, onRemove, avai
       {expanded && (
         <div className="px-4 pb-4 flex flex-col gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
           <AuthMethodFields
-            methodId={id}
+
             data={data}
             onChange={(d) => onChange(id, d)}
             availablePolicies={availablePolicies}

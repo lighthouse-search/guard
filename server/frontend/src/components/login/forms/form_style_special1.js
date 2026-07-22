@@ -101,7 +101,7 @@ export default function FormStyle_special_1(props) {
 
     if (fatal_error) {
         return (
-            <div className={`FormStyle_1 outline ${props.className}`} style={props.style}>
+            <div className={`FormStyle_1 ${props.className}`} style={props.style}>
                 {(props.header || props.description || props.logo) && <div className='column row_gap_4'>
                     {props.logo && <img className='FormStyle_1_logo' src={props.logo}/>}
                     {props.header && <h1 className='FormStyle_1_header'>{props.header}</h1>}
@@ -130,7 +130,7 @@ export default function FormStyle_special_1(props) {
         return <Authenticating_desktop_application code={decoded_base64} on_success={() => { should_run.current = true; passed_code_verification.current = true; set_state(null); }}/>
     } else if (state == "show_captcha") {
         return (
-            <div className={`FormStyle_1 outline ${props.className}`} style={props.style}>
+            <div className={`FormStyle_1 ${props.className}`} style={props.style}>
                 <div className='FormStyle_1_div'>
                     <HCaptcha
                         sitekey="9a1a8707-24b1-48f8-aa43-5f47f2a9e8cf"
@@ -142,7 +142,7 @@ export default function FormStyle_special_1(props) {
         );
     } else {
         return (
-            <div className={`FormStyle_1 outline ${props.className}`} style={props.style}>
+            <div className={`FormStyle_1 ${props.className}`} style={props.style}>
                 {(props.header || props.description || props.logo) && <div className='column row_gap_4'>
                     {props.logo && <img className='FormStyle_1_logo' src={props.logo}/>}
                     {props.header && <h1 className='FormStyle_1_header'>{props.header}</h1>}
@@ -152,7 +152,7 @@ export default function FormStyle_special_1(props) {
                 {loading == false && <div className='FormStyle_1_div'>
                     {error != null && <p className='FormStyle_1_div_error'>Error: {error}</p>}
                     {email_method && <div className='FormStyle_1_div_email'>
-                        <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }} autoCapitalize="off"/>
+                        <Input_with_header header="Email" placeholder={email_placeholder} value={email} onChange={(e) => { set_email(e.target.value); }} onKeyDown={(e) => { if (e.key == "Enter") { start_email_authentication(email_method.id, { email: email }); } }} autoCapitalize="off"/>
                         <button className='FormStyle_1_div_login_button' onClick={() => { start_email_authentication(email_method.id, { email: email }); }}>Login</button>
                     </div>}
                     {methods_ul.length > 1 && <Or_Bar/>}

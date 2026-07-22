@@ -155,6 +155,11 @@ async function logout(redirect) {
 }
 
 function get_routing_host(window) {
+  if (process.env.NEXT_PUBLIC_DEV_MOCK === 'true') {
+    const mockRedirect = new URL('http://localhost:8484/');
+    return { host: 'localhost:8484', href: 'http://localhost:8484/', redirect_url: mockRedirect, webpage_url: new URL(window.location.href) };
+  }
+
   let url = new URL(window.location.href);
   let host = window.location.host;
   let href = window.location.href;
@@ -211,6 +216,20 @@ async function is_authenticated() {
 }
 
 async function get_metadata() {
+  if (process.env.NEXT_PUBLIC_DEV_MOCK === 'true') {
+    return {
+      alias: process.env.NEXT_PUBLIC_DEV_ALIAS ?? null,
+      public_description: process.env.NEXT_PUBLIC_DEV_PUBLIC_DESCRIPTION ?? null,
+      logo: process.env.NEXT_PUBLIC_DEV_LOGO || null,
+      image: process.env.NEXT_PUBLIC_DEV_IMAGE || null,
+      motd_banner: process.env.NEXT_PUBLIC_DEV_MOTD_BANNER || null,
+      domain_placeholder: process.env.NEXT_PUBLIC_DEV_DOMAIN_PLACEHOLDER ?? null,
+      username_placeholder: process.env.NEXT_PUBLIC_DEV_USERNAME_PLACEHOLDER ?? null,
+      background_colour: process.env.NEXT_PUBLIC_DEV_BACKGROUND_COLOUR || null,
+      style: process.env.NEXT_PUBLIC_DEV_STYLE ?? "login_1"
+    };
+  }
+
   let routing_host = get_routing_host(window);
 
   const metadata_v = await Guard().metadata.get(routing_host.host);

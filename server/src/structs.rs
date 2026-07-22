@@ -43,7 +43,13 @@ pub struct ConfigReverseProxyAuthenticationConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConfigFrontend {
-    pub metadata: Option<FrontendMetadata>
+    pub metadata: Option<FrontendMetadata>,
+    pub media: Option<ConfigFrontendMedia>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ConfigFrontendMedia {
+    pub folder: Option<String>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -333,6 +339,7 @@ pub struct GuardPolicy {
     pub ends_with: Option<String>,
     pub not: Option<Vec<String>>,
     pub is: Option<Vec<String>>,
+    pub and: Option<Vec<String>>,
 }
 
 pub struct HandlingMagiclink {

@@ -26,6 +26,9 @@ export default function Login() {
 
   async function run() {
     const metadata_v = await get_metadata();
+    if (metadata_v && metadata_v.alias) {
+      window.document.title = `Login to ${metadata_v.alias}`;
+    }
     set_metadata(metadata_v);
   }
 

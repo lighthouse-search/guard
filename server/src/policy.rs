@@ -40,7 +40,14 @@ pub async fn policy_authentication(policies: Vec<GuardPolicy>, user: Value, ip: 
     }
 }
 
-pub async fn matches_policy(policy: GuardPolicy, user: Value, _ip: String) -> Result<bool, String> {
+pub async fn matches_policy(policy: GuardPolicy, user: Value, ip: String) -> Result<bool, String> {
+    Box::pin(matches_policy_chain(policy, user, ip, Vec::new())).await
+}
+
+// `chain` holds the ids of policies currently being evaluated up the `and`
+// recursion, so a cyclic reference (A -> B -> A) can be detected instead of
+// recursing forever.
+async fn matches_policy_chain(policy: GuardPolicy, user: Value, _ip: String, chain: Vec<String>) -> Result<bool, String> {
     let mut matches: bool = false;
     let mut property = String::new();
 
@@ -133,7 +140,44 @@ pub async fn matches_policy(policy: GuardPolicy, user: Value, _ip: String) -> Re
         };
     }
 
-    // TODO: .and doesn't work
+    // If "and" is supplied, every referenced policy must ALSO match for this
+    // policy to be honoured (logical conjunction). A referenced policy that
+    // doesn't exist, or that the user fails (including a missing property, which
+    // makes matches_policy return an Err), counts as a failure.
+    if matches == true {
+        if let Some(and_vec) = policy.and {
+            // Record this policy in the chain so downstream 'and' references that
+            // loop back to it can be detected as cycles.
+            let mut chain = chain;
+            if let Some(id) = policy.id.clone() {
+                chain.push(id);
+            }
+
+            for and_id in and_vec {
+                if chain.contains(&and_id) {
+                    log::warn!("Cyclic 'and' reference to policy '{}' detected; treating as failure.", and_id);
+                    matches = false;
+                    break;
+                }
+
+                let and_policy = match get_policy(and_id.clone()).await {
+                    Some(and_policy) => and_policy,
+                    None => {
+                        log::warn!("Policy '{}' referenced in 'and' does not exist; treating as failure.", and_id);
+                        matches = false;
+                        break;
+                    }
+                };
+
+                // Box::pin because matches_policy_chain is recursive and async.
+                let and_matches = Box::pin(matches_policy_chain(and_policy, user.clone(), _ip.clone(), chain.clone())).await;
+                if and_matches.unwrap_or(false) == false {
+                    matches = false;
+                    break;
+                }
+            }
+        }
+    }
 
     // If matches = true, the user will be authorised. This means they haven't failed any policies.
 

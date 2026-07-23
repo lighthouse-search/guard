@@ -9,10 +9,10 @@ use crate::protocols::oauth::pipeline::oauth_pipeline;
 use crate::{CONFIG_VALUE, responses::*};
 use crate::structs::*;
 
-pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &axum::http::HeaderMap) -> Result<ProtocolDecisionToPipelineOutput, Response> {
+pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, remote_addr: String, headers: &axum::http::HeaderMap, original_path_and_query: Option<String>) -> Result<ProtocolDecisionToPipelineOutput, Response> {
     let mut _authentication_type: Option<String> = None;
 
-    let authentication_metadata_status = get_guard_authentication_metadata(&jar, remote_addr.clone(), hostname.clone(), headers.clone()).await;
+    let authentication_metadata_status = get_guard_authentication_metadata(&jar, remote_addr.clone(), hostname.clone(), headers.clone(), original_path_and_query.clone()).await;
 
     if authentication_metadata_status.is_err() == true {
         let error = authentication_metadata_status.err().unwrap();
@@ -35,7 +35,7 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
             _authentication_type = Some(String::from("bearer_token"));
             // WARNING: OAuth client (e.g. Login with Microsoft, NOT "Login with Guard") doesn't check scope!
 
-            let oauth_status = oauth_pipeline(hostname, unverified_authentication_method.clone(), &jar, remote_addr, &headers).await;
+            let oauth_status = oauth_pipeline(hostname, unverified_authentication_method.clone(), &jar, remote_addr, &headers, original_path_and_query.clone()).await;
 
             // Check pipeline for response error.
             if oauth_status.is_err() == true {
@@ -99,20 +99,49 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
     }
 }
 
-pub fn redirect_to_login(hostname: GuardedHostname) -> Response {
+pub fn redirect_to_login(hostname: GuardedHostname, original_path_and_query: Option<String>) -> Response {
     let mut login_url = url::Url::parse(&format!("https://{}", CONFIG_VALUE.clone().frontend.unwrap().metadata.unwrap().instance_hostname.unwrap())).unwrap();
     login_url.set_path("/guard/frontend/login");
+
+    // The redirect base is built from hostname.host, which comes from the validated
+    // config (get_hostname only returns configured, active guarded hostnames). This
+    // means the scheme + host of the redirect target are always trusted.
     let redirect_host = if hostname.host.starts_with("https://") || hostname.host.starts_with("http://") {
         hostname.host.clone()
     } else {
         format!("https://{}", hostname.host)
     };
-    login_url.query_pairs_mut().append_pair("redirect", &redirect_host);
+    let mut redirect_target = url::Url::parse(&redirect_host).expect("Failed to parse guarded hostname URL");
+
+    // Preserve the full original pathname + query the client was trying to reach.
+    // We resolve it against the trusted base with the URL parser (never string
+    // concatenation) so a malicious path (e.g. "//evil.com" or "https://evil.com")
+    // cannot change the authority. As defense-in-depth we also require the resolved
+    // URL's host/port to still match the guarded hostname. If it doesn't (or the path
+    // is unparseable), we fail the whole flow rather than silently dropping the path,
+    // so a misconfigured/hijacked redirect surfaces to the user until it's fixed.
+    if let Some(path_and_query) = original_path_and_query {
+        match redirect_target.join(&path_and_query) {
+            Ok(resolved) if resolved.host_str() == redirect_target.host_str() && resolved.port() == redirect_target.port() => {
+                redirect_target = resolved;
+            }
+            Ok(resolved) => {
+                log::error!("Refusing login redirect: original request path '{}' resolves to '{}', a different host than the guarded hostname '{}'.", path_and_query, resolved, hostname.host);
+                return error_message(2005, axum::http::StatusCode::BAD_REQUEST, "The requested URL could not be safely redirected to the login page because it resolves to a host other than the guarded hostname. Please fix the URL and try again.".to_string());
+            }
+            Err(error) => {
+                log::error!("Refusing login redirect: original request path '{}' for guarded hostname '{}' could not be parsed: {}", path_and_query, hostname.host, error);
+                return error_message(2005, axum::http::StatusCode::BAD_REQUEST, "The requested URL could not be parsed for redirecting to the login page. Please fix the URL and try again.".to_string());
+            }
+        }
+    }
+
+    login_url.query_pairs_mut().append_pair("redirect", redirect_target.as_str());
 
     Redirect::temporary(login_url.as_str()).into_response()
 }
 
-pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, String>, _remote_addr: String, hostname: GuardedHostname, headers: axum::http::HeaderMap) -> Result<Option<GuardAuthenticationMetadata>, Response> {
+pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, String>, _remote_addr: String, hostname: GuardedHostname, headers: axum::http::HeaderMap, original_path_and_query: Option<String>) -> Result<Option<GuardAuthenticationMetadata>, Response> {
     // This cookie is used instead of [Guard hostname]_guard_static_auth because, for example, if we're using OAuth, there isn't a [Guard hostname]_guard_static_auth cookie.
 
     let mut _auth_metadata_string: String = String::new();
@@ -128,7 +157,7 @@ pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, 
             .unwrap_or(false);
         if incoming_host_header == hostname.host && accepts_html {
             // Client accepts HTML/CSS and needs to authenticate. Redirect to login page.
-            return Err(redirect_to_login(hostname));
+            return Err(redirect_to_login(hostname, original_path_and_query));
         } else { // Client is connecting via reverse proxy or other means. We probably can't return HTML/CSS.
             log::info!("neither (cookie) {} or header {} was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata"), &prepend_hostname_to_cookie("guard_authentication_metadata"));
             return Err(error_message(2001, axum::http::StatusCode::BAD_REQUEST, format!("neither cookies.{} or headers.guard_authentication_metadata was provided by the client.", &prepend_hostname_to_cookie("guard_authentication_metadata")).to_string()));

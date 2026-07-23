@@ -36,7 +36,7 @@ fn hash_token(token: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
-pub async fn oauth_pipeline(hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap) -> Result<OauthPipelineResponse, Response> {
+pub async fn oauth_pipeline(hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap, original_path_and_query: Option<String>) -> Result<OauthPipelineResponse, Response> {
     let mut _bearer_token: String = String::new();
 
     if headers.get("Authorization").is_none() == false {
@@ -67,7 +67,7 @@ pub async fn oauth_pipeline(hostname: GuardedHostname, auth_method: AuthMethod, 
     let user_info_result = oauth_userinfo(auth_method.oauth_client_user_info.unwrap(), _bearer_token).await;
     if user_info_result.is_err() == true {
         log::info!("Failed to get user-info");
-        return Err(redirect_to_login(hostname));
+        return Err(redirect_to_login(hostname, original_path_and_query));
     }
 
     let attempted_external_user: Value = user_info_result.expect("Failed to get oauth userinfo.");

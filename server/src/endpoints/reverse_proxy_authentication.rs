@@ -39,9 +39,20 @@ async fn reverse_proxy_authentication(jar: CookieJar, remote_addr: SocketAddr, h
     
     let host = get_current_valid_hostname(headers.clone(), Some(header_to_use)).await.expect("Invalid or missing hostname.");
 
+    // Preserve the full original pathname + query the client was trying to reach so an
+    // unauthenticated client can be redirected back to it after login. When the reverse
+    // proxy forwards the original URL (e.g. NGINX's x-original-url), original_url carries
+    // the pathname; otherwise it's just the hostname and this resolves to no extra path.
+    let original_path_and_query = url::Url::parse(&host.original_url).ok().map(|url| {
+        match url.query() {
+            Some(query) => format!("{}?{}", url.path(), query),
+            None => url.path().to_string(),
+        }
+    });
+
     // (result, user_result, device, authentication_method_wrapped, error_to_respond_with)
 
-    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(&jar), remote_addr.to_string(), host.domain_port, &headers).await;
+    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &jar_to_indexmap(&jar), remote_addr.to_string(), host.domain_port, &headers, original_path_and_query).await;
     
     // TODO: In the future athentication_method won't be returned as optional from user_authentication_pipelne (user_authentication_pipeline will be changed to from truple to Result<>). This is a temporary fix :)
     if user_authentication.is_ok() == true {

@@ -1,0 +1,269 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    system-ui, sans-serif;
+  font-size: 13px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  /* Transparent so the popover's rounded card floats on the desktop. */
+  background: transparent;
+}
+
+.popover {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  /* Solid background. The window itself is transparent, so only this rounded
+     rectangle paints — keeping clean corners without any blur/vibrancy. */
+  background: #f5f5f7;
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  color: #1d1d1f;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* ---- Header ---- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Bare icon button — the gear is the button, no default chrome. */
+.icon-button {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: #8e8e93;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.icon-button:hover {
+  color: #1d1d1f;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.brand-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #4f8cff, #2a5bd7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.2px;
+}
+
+.pill--disconnected {
+  background: rgba(120, 120, 128, 0.16);
+  color: #6e6e73;
+}
+
+.pill--connecting {
+  background: rgba(255, 179, 64, 0.2);
+  color: #b26a00;
+}
+
+.pill--connected {
+  background: rgba(52, 199, 89, 0.18);
+  color: #248a3d;
+}
+
+/* ---- Shield / status card ---- */
+.shield {
+  text-align: center;
+  padding: 18px 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  transition: background 0.25s ease;
+}
+
+.shield--connected {
+  background: rgba(52, 199, 89, 0.1);
+}
+
+.shield-icon {
+  font-size: 30px;
+  line-height: 1;
+  color: #8e8e93;
+}
+
+/* Connected: solid green disc with a white tick stacked on top. Stacking
+   avoids Font Awesome's circle-check knockout, whose tick can vanish against
+   a similar-colored background. */
+.check-badge {
+  position: relative;
+  display: inline-block;
+}
+
+.check-badge-disc {
+  color: #34c759;
+}
+
+.check-badge-tick {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.5em;
+  color: #fff;
+}
+
+.shield-title {
+  margin: 8px 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.shield-sub {
+  margin: 0;
+  font-size: 12px;
+  color: #6e6e73;
+}
+
+/* ---- Toggle button ---- */
+.toggle {
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  background: #0a84ff;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.toggle:hover {
+  background: #0a78e6;
+}
+
+.toggle--on {
+  background: #ff3b30;
+}
+
+.toggle--on:hover {
+  background: #e5352b;
+}
+
+.toggle:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ---- Tunnel details ---- */
+.tunnel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+}
+
+.tunnel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.tunnel-key {
+  color: #6e6e73;
+}
+
+.tunnel-val {
+  font-weight: 500;
+}
+
+.mono {
+  font-family: "SF Mono", ui-monospace, "Menlo", monospace;
+  font-size: 11px;
+}
+
+/* ---- Footer ---- */
+.footer {
+  margin-top: auto;
+  text-align: center;
+}
+
+.footer-hint {
+  font-size: 10px;
+  color: #a1a1a6;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* ---- Dark mode ---- */
+@media (prefers-color-scheme: dark) {
+  .popover {
+    background: #1e1e20;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f5f5f7;
+  }
+
+  .shield,
+  .tunnel {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .icon-button:hover {
+    color: #f5f5f7;
+  }
+
+  .shield--connected {
+    background: rgba(52, 199, 89, 0.14);
+  }
+
+  .shield-sub,
+  .tunnel-key {
+    color: #98989d;
+  }
+
+  .pill--disconnected {
+    background: rgba(120, 120, 128, 0.24);
+    color: #aeaeb2;
+  }
+}

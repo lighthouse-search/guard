@@ -39,10 +39,26 @@ fn hash_token(token: &str) -> String {
 pub async fn oauth_pipeline(hostname: GuardedHostname, auth_method: AuthMethod, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap, original_path_and_query: Option<String>) -> Result<OauthPipelineResponse, Response> {
     let mut _bearer_token: String = String::new();
 
-    if headers.get("Authorization").is_none() == false {
-        _bearer_token = headers.get("Authorization").expect("Missing Authorization header.").to_str().unwrap().to_string();
-    } else if jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).is_none() == false {
+    if jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).is_none() == false {
+        // Prefer Guard's own cookie. A proxied application behind Guard may
+        // legitimately send its own `Authorization: Bearer <token>` for its
+        // backend; we must not consume that as Guard's OAuth token, or Guard
+        // would validate the application's token against the identity provider
+        // (e.g. Discord /users/@me) and fail, 307-ing an already-authenticated
+        // user back to login. The header is still forwarded downstream untouched
+        // (see request_proxy), so the application keeps receiving it.
         _bearer_token = jar.get(&prepend_hostname_to_cookie("guard_oauth_access_token")).expect("Failed to parse guard_oauth_access_token.").to_string();
+    } else if headers.get("Authorization").is_none() == false {
+        // Fall back to the standard Authorization header (checked last, by
+        // design). Strip an optional "Bearer " scheme prefix so we store the raw
+        // token — oauth_userinfo re-adds "Bearer " itself, otherwise we'd send
+        // "Bearer Bearer <token>".
+        let raw = headers.get("Authorization").expect("Missing Authorization header.").to_str().unwrap().trim().to_string();
+        _bearer_token = raw
+            .strip_prefix("Bearer ")
+            .or_else(|| raw.strip_prefix("bearer "))
+            .map(|token| token.trim().to_string())
+            .unwrap_or(raw);
     } else {
         log::info!("Bearer token not provided by client.");
         return Err(error_message(6001, axum::http::StatusCode::BAD_REQUEST, "Bearer token is null or whitespace - please provide a Bearer token in your request when authenticating with OAuth.".to_string()));

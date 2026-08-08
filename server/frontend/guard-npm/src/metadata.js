@@ -43,9 +43,33 @@ async function get_authentication_methods(hostname) {
     })
     
     const data = response.json();
-    
+
     return data;
 }
 
-const metadata = { get, get_authentication_methods };
+// Device authentication methods are general (no hostname) — configured under
+// [device_authentication] on the server.
+async function get_device_authentication_methods() {
+    if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEV_MOCK === 'true') {
+        return { ok: true, data: [{ active: true, id: "email", alias: null, icon: null, method_type: "email", login_page: null }] };
+    }
+
+    const response = await Guard(await getCreds()).fetch_wrapper(`${getGuardApiURL()}/metadata/get-device-authentication-methods`, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'default',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        redirect: 'error',
+        referrerPolicy: 'no-referrer',
+    })
+
+    const data = response.json();
+
+    return data;
+}
+
+const metadata = { get, get_authentication_methods, get_device_authentication_methods };
 export default metadata;

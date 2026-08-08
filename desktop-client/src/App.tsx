@@ -1,10 +1,17 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircle, faCheck, faGear } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCircle,
+  faCheck,
+  faGear,
+  faChevronLeft,
+} from "@fortawesome/free-solid-svg-icons";
 import Login, { Session } from "./Login";
 import "./App.css";
 
 type Status = "disconnected" | "connecting" | "connected";
+type View = "dashboard" | "settings";
 
 // Placeholder tunnel data — wire this up to the WireGuard backend later.
 const TUNNEL = {
@@ -17,6 +24,7 @@ const TUNNEL = {
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<Status>("disconnected");
+  const [view, setView] = useState<View>("dashboard");
 
   const isBusy = status === "connecting";
   const isConnected = status === "connected";
@@ -26,6 +34,60 @@ function App() {
   }
 
   const greetingName = session.email.split("@")[0] || "there";
+
+  async function logout() {
+    // Forget the device key so the next sign-in enrolls fresh.
+    try {
+      await invoke("logout");
+    } catch {
+      // Best effort — sign out locally regardless.
+    }
+    setStatus("disconnected");
+    setView("dashboard");
+    setSession(null);
+  }
+
+  if (view === "settings") {
+    return (
+      <main className="popover">
+        <header className="header">
+          <div className="brand">
+            <button
+              className="icon-button"
+              aria-label="Back"
+              onClick={() => setView("dashboard")}
+            >
+              <FontAwesomeIcon icon={faChevronLeft} />
+            </button>
+            <span className="brand-name">Settings</span>
+          </div>
+        </header>
+
+        <section className="tunnel">
+          <div className="tunnel-row">
+            <span className="tunnel-key">Account</span>
+            <span className="tunnel-val">{session.email || "—"}</span>
+          </div>
+          <div className="tunnel-row">
+            <span className="tunnel-key">Instance</span>
+            <span className="tunnel-val mono">{session.host}</span>
+          </div>
+          <div className="tunnel-row">
+            <span className="tunnel-key">Device</span>
+            <span className="tunnel-val mono">{session.deviceId ?? "—"}</span>
+          </div>
+        </section>
+
+        <button className="toggle toggle--on" onClick={logout}>
+          Log out
+        </button>
+
+        <footer className="footer">
+          <span className="footer-hint">Guard</span>
+        </footer>
+      </main>
+    );
+  }
 
   function toggle() {
     if (isBusy) return;
@@ -55,7 +117,11 @@ function App() {
 
         <div className="flex">
           <span className={`pill pill--${status}`}>{statusLabel}</span>
-          <button className="icon-button" aria-label="Settings">
+          <button
+            className="icon-button"
+            aria-label="Settings"
+            onClick={() => setView("settings")}
+          >
             <FontAwesomeIcon icon={faGear} />
           </button>
         </div>

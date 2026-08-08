@@ -1,4 +1,5 @@
 mod auth;
+mod callback_server;
 
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -27,14 +28,28 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             // When the auth web page finishes, it deep-links back as
-            // `guard://…?state=…&token=…`. Forward the raw callback URL to the
-            // frontend, which matches `state` and completes the login.
+            // `guard://…?state=…&setup_token=…`. Forward the raw callback URL to
+            // the frontend, which matches `state` and enrolls the device.
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
                 for url in event.urls() {
                     let _ = handle.emit("auth-callback", url.to_string());
                 }
             });
+            // Register the `guard://` scheme at runtime (Linux/Windows, and dev
+            // where the app isn't installed as a bundle). On macOS the scheme is
+            // registered via Info.plist when the app is bundled.
+            let _ = app.deep_link().register_all();
+
+            // Loopback callback server — the reliable path that also works in
+            // dev (unlike the macOS deep link). The web page redirects here.
+            match callback_server::start(app.handle().clone()) {
+                Ok(port) => {
+                    println!("Callback server listening on 127.0.0.1:{port}");
+                    app.manage(callback_server::CallbackServer { port });
+                }
+                Err(error) => eprintln!("Failed to start callback server: {error}"),
+            }
 
             let open_i = MenuItem::with_id(app, "open", "Open Guard", true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
@@ -95,6 +110,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             auth::discover_guard_instance,
             auth::start_device_authentication,
+            auth::enroll_device,
+            auth::logout,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

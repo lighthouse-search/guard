@@ -97,6 +97,45 @@ pub async fn is_valid_authentication_method_for_hostname(hostname: GuardedHostna
     Ok(is_valid_hostname_authentication_method)
 }
 
+// Build a synthetic hostname representing "device authentication". Devices
+// authenticate generally rather than against a [hostname.*], so we adapt the
+// configured device-auth methods/policies into a GuardedHostname and reuse the
+// whole per-hostname pipeline (auth-method validation, policies, magiclink,
+// device_create). The `host` is the instance itself (used for the magiclink
+// redirect + cookie scoping).
+pub fn device_authentication_hostname() -> Result<GuardedHostname, String> {
+    let device = CONFIG_VALUE
+        .device_authentication
+        .clone()
+        .ok_or_else(|| "Device authentication is not configured (missing [device_authentication]).".to_string())?;
+
+    let frontend_metadata: FrontendMetadata = CONFIG_VALUE
+        .frontend
+        .clone()
+        .and_then(|f| f.metadata)
+        .ok_or_else(|| "Missing config.frontend.metadata".to_string())?;
+
+    Ok(GuardedHostname {
+        active: true,
+        host: frontend_metadata
+            .instance_hostname
+            .ok_or_else(|| "Missing config.frontend.metadata.instance_hostname".to_string())?,
+        proxy_to: None,
+        authentication_methods: device.authentication_methods.unwrap_or_default(),
+        multistep_authentication_methods: false,
+        applied_policies: device.applied_policies.unwrap_or_default(),
+        alias: frontend_metadata.alias,
+        public_description: frontend_metadata.public_description,
+        logo: frontend_metadata.logo,
+        image: frontend_metadata.image,
+        motd_banner: frontend_metadata.motd_banner,
+        background_colour: frontend_metadata.background_colour,
+        domain_placeholder: frontend_metadata.domain_placeholder,
+        username_placeholder: frontend_metadata.username_placeholder,
+        style: frontend_metadata.style,
+    })
+}
+
 pub async fn get_hostname(hostname: String) -> Result<GuardedHostname, String> {
     let hostnames = get_active_hostnames().await;
     

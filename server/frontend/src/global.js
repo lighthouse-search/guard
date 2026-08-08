@@ -1,5 +1,4 @@
-import { Guard } from "@oracularhades/guard";
-import { static_auth_sign } from "hades-auth";
+import { Guard, signStaticCredential } from "@oracularhades/guard";
 import { Cookies } from 'react-cookie';
 
 const cookies = new Cookies();
@@ -9,16 +8,16 @@ function ab2str(buf) {
 }
 
 async function generatePublicPrivateKey() {
+  // ed25519 keypair for RFC 9421 HTTP Message Signatures. The public key is
+  // exported "raw" (32 bytes) to match what Guard stores/verifies; the private
+  // key is exported as PKCS#8 for the signer to re-import.
   const keyPair = await crypto.subtle.generateKey(
-  {
-    name: "ECDSA",
-    namedCurve: "P-521",
-  },
+    { name: "Ed25519" },
     true,
     ["sign", "verify"]
   )
   const publicexported = await crypto.subtle.exportKey(
-    "spki",
+    "raw",
     keyPair.publicKey
   );
   const publicexportedAsString = ab2str(publicexported);
@@ -82,7 +81,13 @@ async function handle_new_static_auth(auth_data, private_key) {
     throw "device_id not provided.";
   }
 
-  let result = await static_auth_sign({ device_id: device_id }, private_key);
+  // Build an RFC 9421 static device credential (empty covered-components list)
+  // and store it in the cookie, so browser navigations Guard reverse-proxies
+  // can prove device identity without setting Signature headers. The credential
+  // JSON is base64url-encoded so it only uses URL-unreserved characters and
+  // round-trips cleanly through cookie encoders on both ends.
+  const credential = await signStaticCredential({ deviceId: device_id, privateKeyPkcs8Base64: private_key });
+  let result = btoa(unescape(encodeURIComponent(JSON.stringify(credential)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   let expirationDate = new Date();
   expirationDate.setFullYear(expirationDate.getFullYear() + 10);
@@ -207,6 +212,61 @@ async function auth_init_params(authentication_method, window) {
   return confirm_metadata_item;
 }
 
+// Like auth_init_params, but for the desktop device-authentication flow. We
+// carry the desktop's deeplink `state` through the email round-trip via
+// confirm_metadata, so the magiclink completion can deep-link a one-time setup
+// token back. The desktop then enrolls its own public key with that token — the
+// key is never handled here. Device auth targets the Guard instance itself, so
+// there is no `?redirect=`.
+async function device_auth_init_params(authentication_method, device_context) {
+  const state = generateRandomID();
+  const redirect_url = `https://${window.location.host}`;
+
+  const confirm_metadata_item = {
+    authentication_method,
+    state,
+    redirect_url,
+    device_authentication: true,
+    deeplink_state: device_context.deeplink_state,
+    callback: device_context.callback
+  };
+
+  let confirm_metadata = await localStorage.getItem("confirm_metadata") ? JSON.parse(await localStorage.getItem("confirm_metadata")) : [];
+  if (Array.isArray(confirm_metadata) == false) {
+    confirm_metadata = [confirm_metadata];
+  }
+  confirm_metadata.push(confirm_metadata_item);
+
+  await localStorage.setItem("confirm_metadata", JSON.stringify(confirm_metadata));
+
+  return confirm_metadata_item;
+}
+
+// The device-authentication callback is where the one-time setup token is handed
+// back to the desktop app. It MUST be a loopback HTTP address and nothing else —
+// a non-loopback callback (e.g. presetting `?callback=https://evil.com` in a
+// phishing link) would exfiltrate the setup token to an attacker, who could then
+// enroll their own device under the victim. Only 127.0.0.0/8, localhost and ::1
+// over http are trusted; the desktop always uses http://127.0.0.1:<port>.
+function is_loopback_callback(callback) {
+  if (!callback) { return false; }
+
+  let url = null;
+  try {
+    url = new URL(callback);
+  } catch (error) {
+    return false;
+  }
+
+  // Loopback is never served over TLS; the desktop's local server is plain http.
+  if (url.protocol != "http:") { return false; }
+
+  const host = url.hostname.toLowerCase();
+  if (host == "localhost" || host == "::1" || host == "[::1]") { return true; }
+  // 127.0.0.0/8 — the whole loopback range, not just 127.0.0.1.
+  return /^127(?:\.\d{1,3}){3}$/.test(host);
+}
+
 async function is_authenticated() {
   if (await localStorage.getItem("auth") != null || await localStorage.getItem("auth_local") != null || cookies.get(prepend_hostname_to_cookie("guard_authentication_metadata"))) {
     return true;
@@ -236,4 +296,4 @@ async function get_metadata() {
   return metadata_v.data;
 }
 
-export { generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, is_authenticated, get_metadata, guard_authentication_metadata };
+export { generatePublicPrivateKey, handle_new, credentials_object, logout, get_routing_host, handle_new_oauth_access_token, handle_new_static_auth, auth_init_params, device_auth_init_params, is_authenticated, get_metadata, guard_authentication_metadata, is_loopback_callback };

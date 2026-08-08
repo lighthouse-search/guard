@@ -35,6 +35,32 @@
   margin-top: 6px;
 }
 
+.login-input.login-input--api {
+  flex: none;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 9px;
+  font-size: 11px;
+}
+
+.login-hint {
+  align-self: flex-start;
+  margin: 5px 0 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 11px;
+  color: #0a84ff;
+  cursor: pointer;
+}
+
+.login-hint:hover {
+  text-decoration: underline;
+}
+
 .login-input {
   flex: 1;
   min-width: 0;
@@ -80,6 +106,10 @@
   font-size: 12px;
   color: #ff3b30;
   max-width: 260px;
+  /* Selectable so the error can be copied (the popover disables selection). */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 /* ---- Awaiting browser ---- */

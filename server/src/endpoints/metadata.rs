@@ -6,7 +6,7 @@ use axum::extract::Query;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::hostname::{get_hostname, get_hostname_authentication_methods};
+use crate::hostname::{device_authentication_hostname, get_hostname, get_hostname_authentication_methods};
 use crate::{error_message, AuthMethodPublic, FrontendMetadata, CONFIG_VALUE};
 
 // Endpoint root: /api/metadata
@@ -108,7 +108,31 @@ pub async fn metadata_get_authentication_methods(params: Query<MetadataGetAuthen
     for auth_method in &active_authentication_methods_data {
         auth_methods_public.push(auth_method.clone().into());
     }
-    
+
+    (
+        StatusCode::OK,
+        serde_json::to_string(&json!({
+            "ok": true,
+            "data": auth_methods_public
+        })).unwrap(),
+    ).into_response()
+}
+
+// Authentication methods available for device authentication (no hostname —
+// devices authenticate generally). Configured under [device_authentication].
+pub async fn metadata_get_device_authentication_methods() -> Response {
+    let hostname = match device_authentication_hostname() {
+        Ok(hostname) => hostname,
+        Err(error) => return error_message(1002, StatusCode::BAD_REQUEST, error),
+    };
+
+    let active_authentication_methods_data = get_hostname_authentication_methods(hostname, true).await;
+
+    let mut auth_methods_public: Vec<AuthMethodPublic> = Vec::new();
+    for auth_method in &active_authentication_methods_data {
+        auth_methods_public.push(auth_method.clone().into());
+    }
+
     (
         StatusCode::OK,
         serde_json::to_string(&json!({

@@ -52,9 +52,10 @@ pub async fn protocol_decision_to_pipeline(required_scopes: Vec<&str>, hostname:
             });
         } else if unverified_authentication_method.method_type == "email" {
             _authentication_type = Some(String::from("static_auth"));
-            // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
+            // Guard device authentication via RFC 9421 HTTP Message Signatures, used with
+            // email authentication. Much more secure than bearer tokens as everything is signed.
 
-            let device_pipeline_status = device_pipeline_static_auth(required_scopes, hostname, &jar, remote_addr, &headers).await;
+            let device_pipeline_status = device_pipeline_static_auth(required_scopes, hostname, &jar, remote_addr, &headers, original_path_and_query.clone()).await;
 
             // Check pipeline for response error.
             // TODO: Check this err returns successfully.

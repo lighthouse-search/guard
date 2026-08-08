@@ -4,9 +4,40 @@ use crate::global::get_authentication_method;
 use crate::responses::{self, *};
 use crate::structs::*;
 
-use crate::device::{device_signed_authentication, device_guard_static_auth_from_cookies};
+use crate::device::{device_http_signature_authentication, device_guard_static_auth_from_cookies, parse_static_auth_cookie};
+use crate::http_signature::RequestContext;
 use crate::users::user_get;
 use crate::hostname::{is_valid_authentication_method_for_hostname, prepend_hostname_to_cookie};
+
+// Read a header as an owned String, erroring if it is missing or not valid UTF-8.
+fn header_string(headers: &axum::http::HeaderMap, name: &str) -> Result<String, Response> {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.to_string())
+        .ok_or_else(|| error_message(9003, axum::http::StatusCode::BAD_REQUEST, format!("Missing or invalid '{}' header.", name)))
+}
+
+// Reduce a configured guarded hostname (which may include a scheme and/or path)
+// to a bare `host[:port]` authority for the RFC 9421 `@authority` component.
+fn authority_of(host: &str) -> String {
+    let without_scheme = host
+        .strip_prefix("https://")
+        .or_else(|| host.strip_prefix("http://"))
+        .unwrap_or(host);
+    without_scheme.split('/').next().unwrap_or(without_scheme).to_ascii_lowercase()
+}
+
+// Split a forwarded original "path?query" into its `@path` and `@query` parts.
+fn split_path_and_query(path_and_query: Option<&str>) -> (String, Option<String>) {
+    match path_and_query {
+        Some(value) => match value.split_once('?') {
+            Some((path, query)) => (path.to_string(), Some(query.to_string())),
+            None => (value.to_string(), None),
+        },
+        None => ("/".to_string(), None),
+    }
+}
 
 pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: GuardedHostname, _jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap) -> Result<(Option<GuardUser>, Option<GuardDevices>, Option<AuthMethod>), Response> {
     // This relates to OAuth server applications, but is easily confused with oauth_pipeline and even conflicts. This needs to be re-worked. This function checks bearer tokens match a hashed value in Guard's database and returns the matched user.
@@ -49,20 +80,52 @@ pub async fn device_pipeline_server_oauth(required_scopes: Vec<&str>, hostname: 
     return Ok((Some(user), None, Some(using_authentication_method)));
 }
 
-pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, _headers: &axum::http::HeaderMap) -> Result<DevicePipelineStaticAuthResponse, Response> {
-    // Guard device authentication. Uses Hades-Auth and is used with email authentication. Much more secure than bearer tokens as everything is signed.
+pub async fn device_pipeline_static_auth(_required_scopes: Vec<&str>, hostname: GuardedHostname, jar: &indexmap::IndexMap<String, String>, _remote_addr: String, headers: &axum::http::HeaderMap, original_path_and_query: Option<String>) -> Result<DevicePipelineStaticAuthResponse, Response> {
+    // Guard device authentication. The client proves device identity with an
+    // RFC 9421 HTTP Message Signature. Programmatic clients send `Signature` /
+    // `Signature-Input` (covering the live request); browser navigations, which
+    // cannot set those headers, carry an equivalent signature in the
+    // guard_static_auth cookie (empty covered-components list).
 
-    let signed_data = device_guard_static_auth_from_cookies(jar);
-    if signed_data.is_none() == true {
-        log::info!("missing {}", prepend_hostname_to_cookie("guard_static_auth"));
-        return Err(error_message(9001, axum::http::StatusCode::BAD_REQUEST, format!("missing {}", prepend_hostname_to_cookie("guard_static_auth"))));
-    }
+    let device = if headers.get("signature-input").is_some() && headers.get("signature").is_some() {
+        // Per-request signature carried in headers. Reconstruct the covered
+        // request components from what Guard reliably has in the reverse-proxy
+        // auth flow: the forwarded original method + URL and the Content-Digest
+        // header. (The proxy must forward the original method as
+        // `x-original-method` and the original URL via the configured header.)
+        let signature_input = header_string(headers, "signature-input")?;
+        let signature = header_string(headers, "signature")?;
 
-    let device_authentication = device_signed_authentication(signed_data.unwrap()).await;
-    if device_authentication.is_err() == true {
-        return Err(error_message(9002, axum::http::StatusCode::BAD_REQUEST, "device signed authentication failed.".to_string()));
-    }
-    let (device, _additional_data) = device_authentication.unwrap();
+        let method = headers.get("x-original-method").and_then(|value| value.to_str().ok()).unwrap_or("GET").to_string();
+        let authority = authority_of(&hostname.host);
+        let (path, query) = split_path_and_query(original_path_and_query.as_deref());
+        let content_digest = headers.get("content-digest").and_then(|value| value.to_str().ok()).map(|value| value.to_string());
+
+        let ctx = RequestContext {
+            method: &method,
+            authority: &authority,
+            path: &path,
+            query: query.as_deref(),
+            content_digest: content_digest.as_deref(),
+            body: None,
+        };
+
+        // Freshness: reject per-request signatures older than five minutes.
+        device_http_signature_authentication(&signature_input, &signature, Some(&ctx), Some(300)).await?
+    } else {
+        // Static credential carried in the guard_static_auth cookie.
+        let cookie_value = device_guard_static_auth_from_cookies(jar);
+        if cookie_value.is_none() == true {
+            log::info!("missing {} and no Signature header", prepend_hostname_to_cookie("guard_static_auth"));
+            return Err(error_message(9001, axum::http::StatusCode::BAD_REQUEST, format!("missing {}", prepend_hostname_to_cookie("guard_static_auth"))));
+        }
+        let credential = parse_static_auth_cookie(&cookie_value.unwrap()).map_err(|error| {
+            log::info!("Failed to parse guard_static_auth cookie: {}", error);
+            error_message(9002, axum::http::StatusCode::BAD_REQUEST, "Malformed guard_static_auth cookie.".to_string())
+        })?;
+
+        device_http_signature_authentication(&credential.signature_input, &credential.signature, None, None).await?
+    };
 
     let device_authentication_method = get_authentication_method(device.authentication_method.clone(), true).await.expect("Invalid or missing authentication method.");
     

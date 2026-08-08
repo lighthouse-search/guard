@@ -10,7 +10,6 @@
   "author": "Oracularhades",
   "license": "Apache-2.0",
   "dependencies": {
-    "hades-auth": "latest",
     "jose": "latest"
   }
 }

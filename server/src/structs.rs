@@ -20,7 +20,17 @@ pub struct Config {
     pub captcha: Option<ConfigCaptcha>,
     pub authentication_methods: Option<HashMap<String, AuthMethod>>,
     pub policies: Option<HashMap<String, GuardPolicy>>,
-    pub hostname: Option<HashMap<String, GuardedHostname>>
+    pub hostname: Option<HashMap<String, GuardedHostname>>,
+    // Devices authenticate generally (not per hostname), so their allowed
+    // authentication methods and policies are configured here rather than under
+    // a [hostname.*] entry.
+    pub device_authentication: Option<ConfigDeviceAuthentication>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ConfigDeviceAuthentication {
+    pub authentication_methods: Option<Vec<String>>,
+    pub applied_policies: Option<Vec<String>>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -28,7 +38,11 @@ pub struct ConfigFeatures {
     pub proxy: Option<bool>,
     pub reverse_proxy_authentication: Option<bool>,
     pub oauth_server: Option<bool>,
-    pub tls: Option<bool>
+    pub tls: Option<bool>,
+    // Extra browser origins allowed to call the /guard/api endpoints cross-origin
+    // (e.g. a separate frontend dev server). Same-origin production requests
+    // don't need this. In debug builds localhost:8484 is allowed automatically.
+    pub cors_allowed_origins: Option<Vec<String>>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

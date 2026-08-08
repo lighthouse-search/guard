@@ -1,4 +1,3 @@
-use serde_json::{Value, json};
 
 use diesel::sql_query;
 use diesel::prelude::*;
@@ -37,22 +36,23 @@ pub async fn request_email(email: String, authentication_method: AuthMethod, req
 
     let code = generate_longer_random_id();
 
-    let state: Option<String> = request_data.state;
-
-    let params: Value = json!({
-        "authentication_method": authentication_method.id,
-        "magiclink_code": code,
-        "redirect": format!("https://{}", host.host),
-        "state": state.unwrap_or("none".to_string())
-    });
-
-    let output_params = serde_urlencoded::to_string(params).expect("Failed to encode URL parameters");
+    let state: String = request_data.state.unwrap_or("none".to_string());
+    let authentication_method_id = authentication_method.id.clone().expect("Missing authentication method id");
 
     let frontend_metadata: FrontendMetadata = CONFIG_VALUE.clone().frontend.and_then(|f| f.metadata).expect("Failed to parse");
+    let instance_hostname = frontend_metadata.instance_hostname.expect("Missing instance_hostname");
 
-    let mut url = Url::parse(&format!("https://example.com/guard/frontend/magiclink?{}", output_params)).unwrap();
-    // Update the hostname
-    url.set_host(Some(&frontend_metadata.instance_hostname.expect("Missing instance_hostname"))).unwrap();
+    // Build the URL with the url crate's builder: the host/path are fixed and
+    // each query value is percent-encoded by the library, so no value can break
+    // out of the query (inject extra params, alter the path, etc). Using the
+    // full authority also keeps any :port in instance_hostname.
+    let mut url = Url::parse(&format!("https://{}/guard/frontend/magiclink", instance_hostname))
+        .expect("Failed to build magiclink base URL");
+    url.query_pairs_mut()
+        .append_pair("authentication_method", &authentication_method_id)
+        .append_pair("magiclink_code", &code)
+        .append_pair("redirect", &format!("https://{}", host.host))
+        .append_pair("state", &state);
 
     // FUTURE: Magiclink codes should be encrypted (via a public-key), so if you get access to the SQL database, it's not possible to use magiclink codes you find via the DB....but it would still be possible to update the account email address if you had access, which is why this is "future".
     // TODO: This should be a function called "request" under misc/magicink.rs

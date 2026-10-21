@@ -21,29 +21,12 @@
     background-blend-mode: overlay;
 }
 
-.aesthetic_metadata_panel_left h2 {
-    color: white;
-}
-
-.aesthetic_metadata_panel_left p {
-    color: white;
-}
-
 .aesthetic_metadata_panel_left_div {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     row-gap: 6px;
     min-width: 380px;
-}
-
-.aesthetic_metadata_panel_left_logo {
-    max-width: 140px;
-    max-height: 80px;
-    margin-bottom: 4px;
-}
-
-.aesthetic_metadata_panel_left_header {
 }
 
 .aesthetic_metadata_panel_right {

@@ -9,6 +9,9 @@ mod auth_method_handling;
 mod users;
 mod policy;
 mod device;
+mod http_signature;
+mod signed_token;
+mod setup_token;
 mod database;
 mod authentication_misc;
 mod hostname;
@@ -129,6 +132,16 @@ fn get_config() -> Result<Config, String> {
 async fn main() {
     env_logger::init();
 
+    // rustls 0.23 can't auto-select a crypto provider when both aws-lc-rs and
+    // ring are present in the dependency tree (they are, via reqwest and
+    // axum-server), so install one explicitly before any TLS work.
+    if rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .is_err()
+    {
+        log::warn!("rustls crypto provider was already installed.");
+    }
+
     validate_sql_table_inputs(CONFIG_VALUE.sql.clone().expect("Missing config.sql").tables.expect("mssing config.sql.tables")).await.expect("Config validation failed.");
 
     if ARGUMENTS.modes.len() > 0 {
@@ -217,8 +230,12 @@ async fn start_web() {
     .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()).fallback(html_fallback))
     .route("/guard/api/metadata", get(metadata_get))
     .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
+    .route("/guard/api/metadata/get-device-authentication-methods", get(crate::endpoints::metadata::metadata_get_device_authentication_methods))
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))
+    .route("/guard/api/auth/device/request", post(crate::endpoints::auth::auth_device_request))
+    .route("/guard/api/auth/device/authenticate", post(crate::endpoints::auth::auth_device_authenticate))
+    .route("/guard/api/auth/device/enroll", post(crate::endpoints::auth::auth_device_enroll))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
     // TODO: need to make this path not /ws and catch all, but: .route("/ws", any(crate::request_proxy::ws_handler))
     .fallback(root_handler)
@@ -245,6 +262,64 @@ async fn start_web() {
 
         if features.oauth_server.unwrap_or(false) == true {
             app = app.route("/guard/api/oauth/server/token", post(oauth_server_token));
+        }
+    }
+
+    // Serve a local media folder (config.frontend.media.folder) at /guard/media,
+    // letting config reference assets as "media://<file>" instead of external URLs.
+    if let Some(folder) = guard_config
+        .frontend.as_ref()
+        .and_then(|f| f.media.as_ref())
+        .and_then(|m| m.folder.as_ref())
+    {
+        log::info!("Serving media folder '{}' at /guard/media", folder);
+        app = app.nest_service("/guard/media", ServeDir::new(folder));
+    }
+
+    // CORS: the frontend is same-origin in production, but a separate dev
+    // server (or any origin in config.features.cors_allowed_origins) needs
+    // explicit CORS headers to call /guard/api. localhost:8484 (the Next dev
+    // server) is allowed automatically in debug builds.
+    {
+        use axum::http::{header, HeaderName, HeaderValue, Method};
+        use tower_http::cors::CorsLayer;
+
+        let mut origins: Vec<HeaderValue> = Vec::new();
+        if let Some(list) = CONFIG_VALUE.features.as_ref().and_then(|f| f.cors_allowed_origins.clone()) {
+            for origin in list {
+                match HeaderValue::from_str(&origin) {
+                    Ok(value) => origins.push(value),
+                    Err(_) => log::warn!("Ignoring invalid cors_allowed_origins entry: {}", origin),
+                }
+            }
+        }
+        #[cfg(debug_assertions)]
+        for dev_origin in [
+            "https://127.0.0.1:8484",
+            "https://localhost:8484",
+            "http://127.0.0.1:8484",
+            "http://localhost:8484",
+        ] {
+            origins.push(HeaderValue::from_static(dev_origin));
+        }
+
+        if origins.is_empty() == false {
+            log::info!("Enabling CORS for {} allowed origin(s).", origins.len());
+            let cors = CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods([
+                    Method::GET, Method::POST, Method::PUT, Method::DELETE,
+                    Method::PATCH, Method::HEAD, Method::OPTIONS,
+                ])
+                .allow_headers([
+                    header::CONTENT_TYPE,
+                    header::AUTHORIZATION,
+                    HeaderName::from_static("signature"),
+                    HeaderName::from_static("signature-input"),
+                    HeaderName::from_static("content-digest"),
+                ])
+                .allow_credentials(true);
+            app = app.layer(cors);
         }
     }
 

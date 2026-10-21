@@ -51,9 +51,61 @@ async function authenticate(host, authentication_method, request_data) {
     if (data.error == true) {
         throw data;
     }
-    
+
     return data;
 }
 
-const auth = { request, authenticate }
+// Device authentication is general (not per host), so these carry no `host`.
+// The server resolves the auth context from [device_authentication].
+async function device_request(authentication_method, request_data) {
+    const response = await Guard(await getCreds()).fetch_wrapper(`${getGuardApiURL()}/auth/device/request`, {
+        method: 'POST',
+        mode: 'cors',
+        cache: 'default',
+        credentials: 'same-origin',
+        referrerPolicy: 'no-referrer',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            authentication_method,
+            request_data
+        })
+    })
+
+    const data = response.json();
+
+    if (data.error == true) {
+        throw data;
+    }
+
+    return data;
+}
+
+async function device_authenticate(authentication_method, request_data) {
+    const response = await Guard(await getCreds()).fetch_wrapper(`${getGuardApiURL()}/auth/device/authenticate`, {
+        method: 'POST',
+        mode: 'cors',
+        cache: 'default',
+        credentials: 'same-origin',
+        referrerPolicy: 'no-referrer',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            authentication_method,
+            request_data
+        })
+    })
+
+    const data = response.json();
+
+    if (data.error == true) {
+        throw data;
+    }
+
+    return data;
+}
+
+const auth = { request, authenticate, device_request, device_authenticate }
 export default auth;

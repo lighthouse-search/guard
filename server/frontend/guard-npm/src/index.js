@@ -3,6 +3,7 @@ import general from "./general.js";
 import metadata from "./metadata.js";
 import auth from './lib.js';
 import oauth from "./protocols/oauth.js";
+import { signStaticCredential, signDataToken } from "./http_signature.js";
 
 let deviceIDG = null;
 let privateKeyG = null;
@@ -10,12 +11,11 @@ let typeG = null;
 let additional_data = null;
 
 async function getCreds() {
-    const pemHeader = "-----BEGIN PRIVATE KEY-----";
-    const pemFooter = "-----END PRIVATE KEY-----";
-
+    // privatekey is the device ed25519 private key as base64-encoded PKCS#8 DER
+    // (WebCrypto exportKey("pkcs8", ...)); the RFC 9421 signer imports it directly.
     return {
         deviceid: deviceIDG,
-        privatekey: pemHeader+privateKeyG+pemFooter,
+        privatekey: privateKeyG,
         additional_data: additional_data,
         type: typeG
     };
@@ -40,4 +40,4 @@ function Guard(credsObject) {
     };
 }
 
-export { Guard, getCreds }
+export { Guard, getCreds, signStaticCredential, signDataToken }

@@ -59,7 +59,7 @@ export function HostnameFields({
             value={data.hostname ?? ""}
             onChange={(e) => update({ hostname: e.target.value })}
             placeholder="app.example.com"
-            className={`${INPUT} font-mono`}
+            className={`${INPUT}`}
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -87,7 +87,10 @@ export function HostnameFields({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className={LABEL}>Applied policies</label>
+        <div className="flex flex-col gap-0.5">
+          <label className={LABEL}>Applied policies</label>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">Only users who match these policies may access this hostname. Applied policies serve as blanket access control for all traffic to a hostname.</p>
+        </div>
         <TagInput
           tags={data.applied_policies ?? []}
           onChange={(v) => update({ applied_policies: v })}
@@ -147,7 +150,7 @@ export default function HostnameComponent({ id, data, onChange, onRemove, availa
         </button>
 
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-mono truncate block">
+          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate block">
             {data.hostname || (
               <span className="text-zinc-400 font-sans font-normal italic">new hostname</span>
             )}

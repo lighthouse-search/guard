@@ -101,7 +101,7 @@ pub async fn user_create(id_input: Option<String>, email_input: Option<String>) 
     })
 }
 
-pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &axum::http::HeaderMap) -> Result<UserAuthenticationPipelineResponse, Response> {
+pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &indexmap::IndexMap<String, String>, remote_addr: String, host: String, headers: &axum::http::HeaderMap, original_path_and_query: Option<String>) -> Result<UserAuthenticationPipelineResponse, Response> {
     // Match incoming hostname to configuration.
     let hostname_result = get_hostname(host.clone()).await;
     if hostname_result.is_err() == true {
@@ -111,7 +111,7 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
     let hostname = hostname_result.unwrap();
     
     // Authenticate user for specific authentication method.
-    let protocol_decision_status = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers).await;
+    let protocol_decision_status = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers, original_path_and_query).await;
     // Check pipeline for response error.
     if protocol_decision_status.is_err() == true {
         // TODO: This looks like it could potentially return unsafe error data? Will need to test. It's not directly against a web endpoint so should be fine for now.

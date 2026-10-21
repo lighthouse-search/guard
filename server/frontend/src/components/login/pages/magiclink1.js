@@ -5,12 +5,13 @@ import Frame_AestheticMetadataPanel from '@/components/miscellaneous/frame_aesth
 import './css/magiclink1.css';
 import './../../global.css';
 import FormStyle_1 from '../forms/form_style1';
-import { generatePublicPrivateKey, handle_new, handle_new_oauth_access_token, handle_new_static_auth } from '@/global';
+import { generatePublicPrivateKey, handle_new, handle_new_oauth_access_token, handle_new_static_auth, is_loopback_callback } from '@/global';
 import { useRouter } from 'next/router';
 
 export default function Magiclink1() {
   const router = useRouter();
   const [error, set_error] = useState(null);
+  const [done, set_done] = useState(null);
 
   const shouldSend = useRef(true);
 
@@ -50,6 +51,51 @@ export default function Magiclink1() {
 
     let hostname = null;
     if (params.get("magiclink_code")) {
+      // Device-authentication flow (opened from /device-authentication). We do
+      // NOT generate or handle the device key here. On success the server issues
+      // a one-time setup token, which we deep-link to the desktop app; the app
+      // enrolls its own public key with that token.
+      if (relevant_state.device_authentication) {
+        let authentication_data = {
+          code: params.get("magiclink_code")
+        };
+
+        let response = null;
+        try {
+          response = await Guard().auth.device_authenticate(authentication_method_id, authentication_data);
+        } catch (error) {
+          console.log(error);
+          set_error(error.message);
+          return;
+        }
+
+        // Consume the state so the link can't be replayed.
+        let updated = confirm_metadata;
+        updated.splice(updated.indexOf(relevant_state), 1);
+        await localStorage.setItem("confirm_metadata", JSON.stringify(updated));
+
+        const callback_params = new URLSearchParams({
+          state: relevant_state.deeplink_state || "",
+          setup_token: response.setup_token
+        });
+        // Prefer the desktop's loopback server (reliable, works in dev); fall
+        // back to the guard:// deep link when no callback was provided. Re-check
+        // the callback is loopback here too — this is the moment the setup token
+        // is exposed, so we never hand it to a non-loopback URL even if a bad
+        // value somehow reached confirm_metadata.
+        if (relevant_state.callback && is_loopback_callback(relevant_state.callback) == false) {
+          set_error("Invalid callback — refusing to send the setup token off this machine.");
+          return;
+        }
+        if (relevant_state.callback) {
+          window.location.href = `${relevant_state.callback}?${callback_params.toString()}`;
+        } else {
+          window.location.href = `guard://auth-callback?${callback_params.toString()}`;
+        }
+        set_done("You're all set — return to the Guard app.");
+        return;
+      }
+
       const keys = await generatePublicPrivateKey();
 
       let authentication_data = {
@@ -98,9 +144,11 @@ export default function Magiclink1() {
       let hostname_url = new URL("https://"+hostname.host);
       if (hostname_url.host == redirect_url.host) {
         window.location.href = redirect_url.href;
+      } else {
+        set_error("Sorry, we couldn't redirect you. Just manually go to the page you want.");
       }
     } else {
-      alert("Sorry, we couldn't redirect you. Just manually go to the page you want.")
+      set_error("Sorry, we couldn't redirect you. Just manually go to the page you want.");
     }
   }
 
@@ -110,15 +158,26 @@ export default function Magiclink1() {
 
     const params = new URLSearchParams(document.location.search);
 
-    send_magiclink(params);
+    // send_magiclink has awaits outside its inner try/catch blocks; without this
+    // catch, any throw would silently reject and leave the UI stuck on the
+    // "Opening the portal..." loading view with no error state.
+    send_magiclink(params).catch((error) => {
+      console.log(error);
+      set_error(typeof error === "string" ? error : (error?.message || "Something went wrong."));
+    });
   });
 
   return (
     <Frame_AestheticMetadataPanel>
-      {error == null && <FormStyle_1 header={false} className="magiclink_form" style={{ rowGap: 5 }}>
+      {error == null && done == null && <FormStyle_1 header={false} className="magiclink_form" style={{ rowGap: 5 }}>
         <img className='magiclink_img' src="/guard/frontend/assets/crystalball.png"/>
         <h2 className='magiclink_checkyouremail'>Opening the portal...</h2>
         <p className='magiclink_wesentalink'>Logging you in, just a moment.</p>
+      </FormStyle_1>}
+
+      {done && <FormStyle_1 header={false} className="magiclink_form" style={{ rowGap: 5 }}>
+        <h2 className='magiclink_checkyouremail'>Device authorized</h2>
+        <p className='magiclink_wesentalink greyText'>{done}</p>
       </FormStyle_1>}
 
       {error && <FormStyle_1 header={false} className="magiclink_form" style={{ rowGap: 5 }}>

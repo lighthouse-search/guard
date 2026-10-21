@@ -7,10 +7,18 @@ instance_hostname = "127.0.0.1:4080"
 alias = "Example configuration"
 public_description = "This server supports Email (SMTP) and OAuth authentication, accepts emails ending in @example.com"
 image = "https://images.unsplash.com/photo-1739609579483-00b49437cc45?q=80&w=2942&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+# Alternatively, reference a file from the local media folder (see [frontend.media]):
+# image = "media://background.jpg"
 background_colour = "#0b040e"
 domain_placeholder="example.com"
 username_placeholder="username"
 acess_denied_header=""
+
+# Serve local media (images, logos) instead of hosting them externally.
+# Files in this folder are served at /guard/media and can be referenced above
+# as "media://<filename>".
+# [frontend.media]
+# folder = "/srv/guard/media"
 
 [authentication_methods.email]
 active = true

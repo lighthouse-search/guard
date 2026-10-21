@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import TagInput from "./TagInput";
 
 export interface PolicyData {
   active?: boolean;
@@ -9,6 +10,9 @@ export interface PolicyData {
   alias?: string;
   starts_with?: string;
   ends_with?: string;
+  is?: string[];
+  not?: string[];
+  and?: string[];
 }
 
 const LABEL = "text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide";
@@ -17,13 +21,19 @@ const INPUT = "rounded-md border border-zinc-300 dark:border-zinc-700 bg-white d
 export function PolicyFields({
   data,
   onChange,
+  availablePolicies = [],
+  selfId,
 }: {
   data: PolicyData;
   onChange: (d: PolicyData) => void;
+  availablePolicies?: string[];
+  selfId?: string;
 }) {
   function update(partial: Partial<PolicyData>) {
     onChange({ ...data, ...partial });
   }
+
+  const andSuggestions = availablePolicies.filter((p) => p !== selfId);
 
   return (
     <>
@@ -45,7 +55,7 @@ export function PolicyFields({
             value={data.property ?? ""}
             onChange={(e) => update({ property: e.target.value || undefined })}
             placeholder="email"
-            className={`${INPUT} font-mono`}
+            className={`${INPUT}`}
           />
         </div>
       </div>
@@ -60,7 +70,7 @@ export function PolicyFields({
             value={data.starts_with ?? ""}
             onChange={(e) => update({ starts_with: e.target.value || undefined })}
             placeholder="admin."
-            className={`${INPUT} font-mono`}
+            className={`${INPUT}`}
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -72,9 +82,49 @@ export function PolicyFields({
             value={data.ends_with ?? ""}
             onChange={(e) => update({ ends_with: e.target.value || undefined })}
             placeholder="@example.com"
-            className={`${INPUT} font-mono`}
+            className={`${INPUT}`}
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className={LABEL}>
+            Is{" "}
+            <span className="normal-case font-normal text-zinc-400 tracking-normal">(any of, optional)</span>
+          </label>
+          <TagInput
+            tags={data.is ?? []}
+            onChange={(t) => update({ is: t.length ? t : undefined })}
+            placeholder="senior"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className={LABEL}>
+            Not{" "}
+            <span className="normal-case font-normal text-zinc-400 tracking-normal">(none of, optional)</span>
+          </label>
+          <TagInput
+            tags={data.not ?? []}
+            onChange={(t) => update({ not: t.length ? t : undefined })}
+            placeholder="banned"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className={LABEL}>
+          And{" "}
+          <span className="normal-case font-normal text-zinc-400 tracking-normal">
+            (also require these policies, optional)
+          </span>
+        </label>
+        <TagInput
+          tags={data.and ?? []}
+          onChange={(t) => update({ and: t.length ? t : undefined })}
+          suggestions={andSuggestions}
+          placeholder="senior_staff"
+        />
       </div>
     </>
   );
@@ -85,9 +135,10 @@ interface Props {
   data: PolicyData;
   onChange: (id: string, data: PolicyData) => void;
   onRemove: (id: string) => void;
+  availablePolicies?: string[];
 }
 
-export default function PolicyComponent({ id, data, onChange, onRemove }: Props) {
+export default function PolicyComponent({ id, data, onChange, onRemove, availablePolicies }: Props) {
   const [expanded, setExpanded] = useState(true);
   const isBlock = data.action === "block";
 
@@ -105,7 +156,7 @@ export default function PolicyComponent({ id, data, onChange, onRemove }: Props)
         </button>
 
         <div className="flex-1 min-w-0 flex items-center gap-2">
-          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-mono">{id}</span>
+          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{id}</span>
           <span className={`text-xs px-1.5 py-0.5 rounded font-medium font-sans ${
             isBlock
               ? "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400"
@@ -132,7 +183,12 @@ export default function PolicyComponent({ id, data, onChange, onRemove }: Props)
 
       {expanded && (
         <div className="px-4 pb-4 flex flex-col gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
-          <PolicyFields data={data} onChange={(d) => onChange(id, d)} />
+          <PolicyFields
+            data={data}
+            onChange={(d) => onChange(id, d)}
+            availablePolicies={availablePolicies}
+            selfId={id}
+          />
         </div>
       )}
     </div>

@@ -63,7 +63,11 @@ pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body:
         None => return (StatusCode::BAD_REQUEST, "Invalid or missing hostname.").into_response(),
     };
 
-    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &&crate::global::jar_to_indexmap(&jar), remote_addr.to_string(), hostname.domain_port.clone(), &req_headers.clone()).await;
+    // Preserve the full original pathname + query so, if the client is unauthenticated,
+    // the login redirect can send them back to exactly where they were trying to go.
+    let original_path_and_query = req.uri().path_and_query().map(|pq| pq.to_string());
+
+    let user_authentication = user_authentication_pipeline(vec!["access_applications"], &&crate::global::jar_to_indexmap(&jar), remote_addr.to_string(), hostname.domain_port.clone(), &req_headers.clone(), original_path_and_query).await;
 
     // TODO: In the future athentication_method won't be returned as optional from user_authentication_pipelne (user_authentication_pipeline will be changed to from truple to Result<>). This is a temporary fix :)
     if user_authentication.is_ok() == true {

@@ -1,0 +1,43 @@
+[package]
+name = "desktop-client"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "desktop_client_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-opener = "2"
+tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
+tauri-plugin-deep-link = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# DNS discovery of the Guard instance from the user's email domain.
+hickory-resolver = "0.24"
+psl = "2"
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+# Device identity: ed25519 keypair for RFC 9421 HTTP Message Signatures. The
+# private key lives in the OS keychain; only the public key is sent to Guard.
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+rand = "0.8"
+base64 = "0.22"
+keyring = { version = "3", features = ["apple-native"] }
+# native-roots: trust the OS store (so a locally-trusted mkcert CA is accepted
+# in release builds), not just the baked-in Mozilla webpki roots.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json"] }
+# Loopback callback server (an alternative to the guard:// deep link).
+tiny_http = "0.12"
+

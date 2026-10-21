@@ -5,8 +5,35 @@ on:
     branches: [ "main", "nightly", "cicd-changed" ]
   workflow_dispatch:
 
+  # Callable by .github/workflows/auto-update.yml so scheduled dependency and
+  # base-image refreshes reuse this exact build instead of duplicating it.
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref (branch, tag or SHA) to build. Defaults to the triggering commit."
+        type: string
+        required: false
+        default: ""
+      channel:
+        description: "Release channel used for tagging and the prerelease flag. Defaults to the triggering branch."
+        type: string
+        required: false
+        default: ""
+      fresh-base-image:
+        description: "Build the container image with no cache and a freshly pulled base image, so OS/apt security updates are picked up."
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
 env:
   CARGO_TERM_COLOR: always
+  # On push/workflow_dispatch `inputs` is empty, so these fall back to the event.
+  BUILD_REF: ${{ inputs.ref || github.sha }}
+  CHANNEL: ${{ inputs.channel || github.ref_name }}
 
 jobs:
   # Build the server frontend once; all platform jobs download this artifact.
@@ -14,6 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - uses: actions/setup-node@v4
         with:
@@ -62,6 +91,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -158,6 +189,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Get version
         run: |
@@ -177,7 +210,7 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "${{ env.VERSION }}"
-          prerelease: ${{ github.ref_name != 'main' }}
+          prerelease: ${{ env.CHANNEL != 'main' }}
           title: Release ${{ env.VERSION }}
           files: dist/*.zip
 
@@ -187,6 +220,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -217,6 +252,10 @@ jobs:
           context: .
           file: ./server/Dockerfile
           push: true
+          # Discard the layer cache and re-pull ubuntu:24.04 so the Dockerfile's
+          # `apt-get update && apt-get install` resolves against current packages.
+          pull: ${{ inputs.fresh-base-image || false }}
+          no-cache: ${{ inputs.fresh-base-image || false }}
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && env.VERSION || format('{0}-latest', github.ref_name) }}
-            ghcr.io/${{ github.repository }}:${{ github.ref_name == 'main' && 'latest' || format('{0}-latest', github.ref_name) }}
+            ghcr.io/${{ github.repository }}:${{ env.CHANNEL == 'main' && env.VERSION || format('{0}-latest', env.CHANNEL) }}
+            ghcr.io/${{ github.repository }}:${{ env.CHANNEL == 'main' && 'latest' || format('{0}-latest', env.CHANNEL) }}

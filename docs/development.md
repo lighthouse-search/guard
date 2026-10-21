@@ -52,3 +52,26 @@ docker build -t guard .
 ```
 docker run -e guard_config="$guard_config" -e example_user_mysql_password="$example_user_mysql_password" -e smtp_password="$smtp_password" guard
 ```
+
+## Serving local media (backgrounds, logos)
+Instead of hosting login-page images on an external service (e.g. an S3 bucket),
+you can point Guard at a folder on disk and reference files from config.
+
+Set the media folder:
+```toml
+[frontend.media]
+folder = "/srv/guard/media"
+```
+
+Then reference any file in that folder with the `media://` prefix from the
+frontend metadata (works for `image` and `logo`, both globally and per-hostname):
+```toml
+[frontend.metadata]
+image = "media://background.jpg"
+logo = "media://logo.png"
+```
+
+The folder is served at `/guard/media` (so `media://background.jpg` resolves to
+`/guard/media/background.jpg`). Values that are already full `http(s)` URLs are
+left unchanged, so existing configs keep working.
+```

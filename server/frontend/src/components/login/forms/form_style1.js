@@ -8,7 +8,7 @@ export default function FormStyle_1(props) {
     }
 
     return (
-        <div className={`FormStyle_1 outline ${props.className}`} style={props.style}>
+        <div className={`FormStyle_1 ${props.className}`} style={props.style}>
             {(props.header || props.description || props.logo) && <div className='column row_gap_4'>
                 {props.header && <h1 className='FormStyle_1_header'>{props.header}</h1>}
                 {props.description && <p className='FormStyle_1_description'>{props.description}</p>}

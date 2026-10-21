@@ -37,6 +37,9 @@ interface GuardConfig {
       domain_placeholder?: string;
       username_placeholder?: string;
     };
+    media?: {
+      folder?: string;
+    };
   };
   database?: {
     mysql?: {
@@ -644,7 +647,7 @@ export default function ConfigApp() {
                     value={qsMethodId}
                     onChange={(e) => setQsMethodId(e.target.value)}
                     placeholder={selectedPreset.authMethodId}
-                    className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
+                    className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400"
                   />
                 </div>
 
@@ -658,18 +661,8 @@ export default function ConfigApp() {
                         value={qsClientId}
                         onChange={(e) => setQsClientId(e.target.value)}
                         placeholder="your-client-id"
-                        className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
+                        className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400"
                       />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                        Client secret env var
-                      </label>
-                      <div className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-500 dark:text-zinc-400 font-mono select-all">
-                        {generateClientSecretEnvVar(qsMethodId.trim() || selectedPreset.authMethodId)}
-                      </div>
-                      <p className="text-xs text-zinc-400">Auto-generated — set this env var to your OAuth client secret</p>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -679,8 +672,17 @@ export default function ConfigApp() {
                       <input
                         value={qsTokenEndpoint}
                         onChange={(e) => setQsTokenEndpoint(e.target.value)}
-                        className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
+                        className={`rounded-md border px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 bg-white dark:bg-zinc-900 ${
+                          qsTokenEndpoint.includes("{tenant-id}")
+                            ? "border-amber-400 dark:border-amber-500 focus:ring-amber-400"
+                            : "border-zinc-300 dark:border-zinc-700 focus:ring-zinc-400"
+                        }`}
                       />
+                      {qsTokenEndpoint.includes("{tenant-id}") && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Replace <span className="font-mono">{"{tenant-id}"}</span> with your Microsoft Entra tenant ID.
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -690,7 +692,7 @@ export default function ConfigApp() {
                       <input
                         value={qsUserInfo}
                         onChange={(e) => setQsUserInfo(e.target.value)}
-                        className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
+                        className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400"
                       />
                     </div>
                   </>
@@ -720,7 +722,7 @@ export default function ConfigApp() {
           <CollapsibleSection title="Features" description="Enable or disable feature flags" open={featuresOpen} onOpenChange={setFeaturesOpen}>
             <FeatureToggle
               label="Proxy authentication"
-              description="Guard will proxy reqeusts and enforce authentication."
+              description="Guard will act as an authenticated reverse proxy before your application. E.g. grafana.example.com -> Guard Login -> Grafana."
               checked={config.features?.request_proxy ?? false}
               onChange={(v) =>
                 updateConfig({
@@ -771,7 +773,7 @@ export default function ConfigApp() {
             />
             <FeatureToggle
               label="TLS"
-              description="Setup TLS for Guard webserver"
+              description="Setup TLS"
               checked={config.features?.tls ?? false}
               onChange={(v) =>
                 updateConfig({
@@ -825,6 +827,7 @@ export default function ConfigApp() {
             <Input
               optional
               header="Image URL"
+              description="A full URL, or media://filename.jpg to load from the media folder below."
               placeholder="https://example.com/background.jpg"
               value={config.frontend?.metadata?.image ?? ""}
               onChange={(v: string) =>
@@ -833,6 +836,22 @@ export default function ConfigApp() {
                   frontend: {
                     ...config.frontend,
                     metadata: { ...config.frontend?.metadata, image: v },
+                  },
+                })
+              }
+            />
+            <Input
+              optional
+              header="Media folder"
+              description="Absolute path on the server. Files here are served at /guard/media and can be referenced as media://filename."
+              placeholder="/srv/guard/media"
+              value={config.frontend?.media?.folder ?? ""}
+              onChange={(v: string) =>
+                updateConfig({
+                  ...config,
+                  frontend: {
+                    ...config.frontend,
+                    media: { ...config.frontend?.media, folder: v },
                   },
                 })
               }
@@ -1122,6 +1141,7 @@ export default function ConfigApp() {
                 data={data}
                 onChange={updatePolicy}
                 onRemove={removePolicy}
+                availablePolicies={Object.keys(config.policies ?? {})}
               />
             ))}
             <button
@@ -1223,12 +1243,14 @@ export default function ConfigApp() {
               onChange={(e) => setPolicyDialog((d) => ({ ...d, id: e.target.value }))}
               onKeyDown={(e) => { if (e.key === "Enter" && policyDialog.id.trim()) commitPolicy(); }}
               placeholder="e.g. staff_only"
-              className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
+              className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400"
             />
           </div>
           <PolicyFields
             data={policyDialog.data}
             onChange={(d) => setPolicyDialog((s) => ({ ...s, data: d }))}
+            availablePolicies={Object.keys(config.policies ?? {})}
+            selfId={policyDialog.id}
           />
         </Dialog>
       )}
@@ -1243,13 +1265,13 @@ export default function ConfigApp() {
           confirmDisabled={!hostnameDialog.id.trim()}
         >
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Config ID</label>
+            <label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Hostname ID</label>
             <input
               autoFocus
               value={hostnameDialog.id}
               onChange={(e) => setHostnameDialog((d) => ({ ...d, id: e.target.value }))}
               placeholder="e.g. grafana"
-              className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
+              className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400"
             />
           </div>
           <HostnameFields
@@ -1277,11 +1299,11 @@ export default function ConfigApp() {
               value={methodDialog.id}
               onChange={(e) => setMethodDialog((d) => ({ ...d, id: e.target.value }))}
               placeholder="e.g. google"
-              className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400 font-mono"
+              className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-400"
             />
           </div>
           <AuthMethodFields
-            methodId={methodDialog.id}
+
             data={methodDialog.data}
             onChange={(d) => setMethodDialog((s) => ({ ...s, data: d }))}
             availablePolicies={Object.keys(config.policies ?? {})}
@@ -1324,7 +1346,7 @@ export default function ConfigApp() {
             {/* Script block */}
             <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-950 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
-                <span className="text-xs text-zinc-500 font-mono">
+                <span className="text-xs text-zinc-500">
                   {scriptTab === "bash" ? "install.sh" : "install.ps1"}
                 </span>
                 <div className="flex items-center gap-3">
@@ -1353,7 +1375,7 @@ export default function ConfigApp() {
                   </button>
                 </div>
               </div>
-              <pre className="p-4 text-xs text-zinc-300 font-mono overflow-x-auto whitespace-pre leading-relaxed max-h-72 overflow-y-auto">
+              <pre className="p-4 text-xs text-zinc-300 overflow-x-auto whitespace-pre leading-relaxed max-h-72 overflow-y-auto">
                 {script}
               </pre>
             </div>

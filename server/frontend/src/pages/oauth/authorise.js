@@ -12,7 +12,7 @@ import Base from "@/components/base";
 import Input_with_header from "@/components/input/input_with_header";
 
 import Link from "next/link";
-import { static_auth_sign } from "hades-auth";
+import { signDataToken } from "@oracularhades/guard";
 
 export default function Oauth_authorise() {
     const router = useRouter();
@@ -52,7 +52,7 @@ export default function Oauth_authorise() {
         const search_params = routing_url.webpage_url.searchParams;
 
         let credentials_object_v = await credentials_object();
-        const code = await static_auth_sign({ device_id: credentials_object_v.deviceid, client_id: oauth.client_id, scope: search_params.get("scope"), redirect_uri: search_params.get("redirect_uri"), grant_type: search_params.get("grant_type"), nonce: new Date()+Math.floor(Math.random()) * 1000 }, credentials_object_v.privatekey);
+        const code = await signDataToken({ device_id: credentials_object_v.deviceid, client_id: oauth.client_id, scope: search_params.get("scope"), redirect_uri: search_params.get("redirect_uri"), grant_type: search_params.get("grant_type"), nonce: new Date()+Math.floor(Math.random()) * 1000, created: Math.floor(Date.now() / 1000) }, credentials_object_v.privatekey);
 
         let redirect_url = new URL(search_params.get("redirect_uri"));
         redirect_url.searchParams.set("code", code);

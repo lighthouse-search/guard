@@ -1,0 +1,263 @@
+name: Auto update
+
+# Keeps published releases and container images current with upstream changes:
+#   * Rust crates          -> `cargo update` against server/Cargo.lock
+#   * npm packages         -> `npm update` against the frontend lockfiles
+#   * OS / apt packages    -> fresh `ubuntu:24.04` pull + cache-free image build
+#
+# Nothing is merged into the target branch until the full build in rust.yml
+# (compile + tests on every target, release, image push) has succeeded, so a
+# dependency bump that does not build can never land on main.
+
+on:
+  schedule:
+    # Mondays, 04:17 UTC. Scheduled runs always use the default branch.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to update and release from."
+        type: string
+        required: false
+        default: ""
+      bump:
+        description: "How to move release.json's version. 'none' republishes over the existing tag."
+        type: choice
+        required: false
+        default: patch
+        options: [patch, minor, none]
+      force:
+        description: "Build and release even when no dependency or base image changed."
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
+# One auto-update at a time, and never cancel one mid-release.
+concurrency:
+  group: auto-update
+  cancel-in-progress: false
+
+jobs:
+  # Refresh every lockfile, work out whether anything actually moved, and park
+  # the result on a throwaway staging branch for the build to validate.
+  refresh:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.decide.outputs.changed }}
+      sha: ${{ steps.commit.outputs.sha }}
+      version: ${{ steps.bump.outputs.version }}
+      target: ${{ steps.setup.outputs.target }}
+      staging: ${{ steps.setup.outputs.staging }}
+    steps:
+      - name: Resolve target branch
+        id: setup
+        run: |
+          target="${{ inputs.branch || github.ref_name }}"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "staging=auto-update/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.setup.outputs.target }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Moves transitive and in-range direct dependencies. Pinned exact
+      # versions in Cargo.toml / package.json are deliberately left alone —
+      # use Dependabot for those major bumps.
+      - name: Update Rust dependencies
+        working-directory: server
+        run: cargo update
+
+      - name: Update npm dependencies
+        run: |
+          # guard-npm is a `file:` dependency of the frontend, so refresh it first.
+          (cd server/frontend/guard-npm && npm update)
+          (cd server/frontend && npm update)
+
+      # The Dockerfile runs `apt-get update && apt-get install` at build time, so
+      # OS updates arrive with a new base image digest. Record the digest so a
+      # rebuilt image is only published when there is something new in it.
+      - name: Check base image digests
+        id: base
+        run: |
+          lock=.github/base-images.lock
+          seeded=false
+          [ -f "$lock" ] || seeded=true
+
+          # `FROM --platform=linux/amd64 ubuntu:24.04 AS runtime` -> `ubuntu:24.04`
+          images=$(sed -nE 's/^[[:space:]]*[Ff][Rr][Oo][Mm][[:space:]]+//p' server/Dockerfile \
+            | sed -E 's/(^|[[:space:]])--[^[:space:]]+//g' \
+            | awk 'NF {print $1}' | sort -u)
+
+          : > "$lock.new"
+          for image in $images; do
+            if ! digest=$(docker buildx imagetools inspect "$image" --format '{{ .Manifest.Digest }}' 2>&1); then
+              echo "::error::could not resolve a digest for '$image': $digest"
+              exit 1
+            fi
+            echo "$image $digest" >> "$lock.new"
+            echo "$image -> $digest"
+          done
+          mv "$lock.new" "$lock"
+
+          echo "seeded=$seeded" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether to build
+        id: decide
+        run: |
+          deps=$(git status --porcelain -- \
+            server/Cargo.lock \
+            server/frontend/package-lock.json \
+            server/frontend/guard-npm/package-lock.json)
+
+          # A first run writes base-images.lock from scratch; that is a baseline,
+          # not an update, so it must not trigger a release on its own.
+          base=""
+          if [ "${{ steps.base.outputs.seeded }}" != "true" ]; then
+            base=$(git status --porcelain -- .github/base-images.lock)
+          fi
+
+          changed=false
+          if [ -n "$deps$base" ] || [ "${{ inputs.force }}" = "true" ]; then
+            changed=true
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Auto update"
+            echo
+            if [ "$changed" != "true" ]; then
+              echo "Everything is already current — nothing to release."
+            else
+              [ -n "$deps" ] && echo "- Dependency lockfiles updated" || true
+              [ -n "$base" ] && echo "- Container base image moved" || true
+              [ "${{ inputs.force }}" = "true" ] && echo "- Forced rebuild requested" || true
+            fi
+            echo
+            echo '```'
+            git status --porcelain
+            git --no-pager diff --stat
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Bump version
+        id: bump
+        if: steps.decide.outputs.changed == 'true'
+        run: |
+          current=$(jq -r '.version' release.json)
+          bump="${{ inputs.bump || 'patch' }}"
+          new="$current"
+
+          if [ "$bump" != "none" ]; then
+            core=${current#v}
+            if ! printf '%s' "$core" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::release.json version '$current' is not v<major>.<minor>.<patch>, so it cannot be bumped automatically. Re-run with bump=none."
+              exit 1
+            fi
+            major=${core%%.*}; rest=${core#*.}; minor=${rest%%.*}; patch=${rest#*.}
+            case "$bump" in
+              patch) patch=$((patch + 1)) ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+            esac
+            case "$current" in v*) prefix=v ;; *) prefix= ;; esac
+            new="${prefix}${major}.${minor}.${patch}"
+
+            jq --arg v "$new" '.version = $v' release.json > release.json.new
+            mv release.json.new release.json
+          fi
+
+          echo "version=$new" >> "$GITHUB_OUTPUT"
+          echo "Releasing $new (was $current)"
+
+      - name: Push staging branch
+        id: commit
+        if: steps.decide.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for f in server/Cargo.lock \
+                   server/frontend/package-lock.json \
+                   server/frontend/guard-npm/package-lock.json \
+                   .github/base-images.lock \
+                   release.json; do
+            [ -e "$f" ] && git add -- "$f"
+          done
+
+          if git diff --cached --quiet; then
+            # Only reachable via force with nothing to change; release the
+            # target branch as-is.
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            echo "No changes to commit; building ${{ steps.setup.outputs.target }} as-is."
+            exit 0
+          fi
+
+          git commit -m "chore: auto-update dependencies for ${{ steps.bump.outputs.version }}" \
+                     -m "Refreshed by the Auto update workflow (run ${{ github.run_id }})."
+          git push origin "HEAD:refs/heads/${{ steps.setup.outputs.staging }}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # Full build, test, GitHub release and container image push, from the staged
+  # commit. fresh-base-image forces an uncached image build on a re-pulled base
+  # so the apt layer actually picks up OS updates.
+  build:
+    needs: refresh
+    if: needs.refresh.outputs.changed == 'true'
+    uses: ./.github/workflows/rust.yml
+    with:
+      ref: ${{ needs.refresh.outputs.sha }}
+      channel: ${{ needs.refresh.outputs.target }}
+      fresh-base-image: true
+
+  # The build passed, so move the target branch onto the commit that produced
+  # the release. If the branch is protected or has moved on, fall back to a PR.
+  promote:
+    needs: [refresh, build]
+    if: needs.refresh.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fast-forward ${{ needs.refresh.outputs.target }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET: ${{ needs.refresh.outputs.target }}
+          STAGING: ${{ needs.refresh.outputs.staging }}
+          SHA: ${{ needs.refresh.outputs.sha }}
+        run: |
+          if gh api -X PATCH "repos/${{ github.repository }}/git/refs/heads/$TARGET" \
+               -f sha="$SHA" >/dev/null 2>gh.err; then
+            echo "$TARGET now points at $SHA."
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$STAGING" >/dev/null || true
+            echo "Merged into \`$TARGET\`." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          cat gh.err
+          echo "::warning::Could not fast-forward $TARGET (branch protection, or it moved during the run). Opening a pull request instead."
+          url=$(gh pr create --base "$TARGET" --head "$STAGING" \
+            --title "chore: auto-update dependencies for ${{ needs.refresh.outputs.version }}" \
+            --body "Automated dependency and base-image refresh. The full build, tests, release and container image for \`${{ needs.refresh.outputs.version }}\` already passed on this commit in [run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).")
+          echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
+
+  # Build failed or was cancelled: drop the staging branch so it does not pile up.
+  cleanup:
+    needs: [refresh, build]
+    if: always() && needs.refresh.outputs.changed == 'true' && needs.build.result != 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete staging branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X DELETE \
+            "repos/${{ github.repository }}/git/refs/heads/${{ needs.refresh.outputs.staging }}" >/dev/null || true
+          echo "::warning::Build did not succeed; discarded the staged dependency update."

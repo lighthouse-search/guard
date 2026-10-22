@@ -373,8 +373,14 @@ jobs:
           name: guard-linux-amd64
           path: .
 
+      # Extract into ./release, which is what the Dockerfile COPYs. The archive
+      # holds guard-server, frontend/ and example/ at its root (so a user can
+      # unzip and run it directly), and this job has already checked out the
+      # repo — so extracting into the working directory would collide with the
+      # repo's own example/, prompt for overwrite, and fail on EOF in CI.
+      # -o: never prompt.
       - name: Unzip Linux amd64 artifact
-        run: unzip guard-linux-amd64.zip
+        run: unzip -o guard-linux-amd64.zip -d release
 
       # Taken from the release job rather than re-read from release.json, which by
       # now is one commit ahead of the ref this job checked out.

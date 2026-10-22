@@ -1,9 +1,9 @@
-*Guard is in alpha release, please visit [TODO](#whats-on-the-todo-list) to see what's happening before beta*
+*Guard is a proof-of-concept and is not ready for production use. Please visit [The Roadmap](https://github.com/lighthouse-search/guard/projects) to see what's happening before beta*
 
 # Why
 Writing and mantaining an authentication proxy for each project (e.g. grafana.example.com) is complex and exhausting. Solutions like Cloudflare Access and TailScale exist but you are deeply integrated into their networks while sacraficing administrative control. Guard aims to be a convinient and self-hostable solution to Identity Access Management, without managing your own complex authentication codebases.
 
-I'm concerned Microsoft, Google and Okta/Auth0 control large portions of authentication to sensitive infrastructure. If any of those services were breached or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data), the internet's independence would be severely undermined for the rest of us.
+Microsoft, Google and Okta/Auth0 control large portions of authentication to sensitive infrastructure. If those services were breached or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data), the internet's independence would be undermined for the rest of us.
 
 If anything, this is a proof of concept and something I needed to build regardless. I became sick of mantaining a hardcoded NGINX Subrequest responder codebase for each project.
 

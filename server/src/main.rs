@@ -185,16 +185,21 @@ async fn start_web() {
     let mut frontend_path: PathBuf = env::current_exe().expect("Failed to get current directory");
 
     if cfg!(debug_assertions) {
-        // Program is debug (cargo run).
-        // guard/server/frontend/_static
+        // Debug (cargo run): the exe is at guard/server/target/debug/guard-server,
+        // so climb to the repo root and read the frontend's build output in place.
+        // guard/web/_static
         frontend_path.pop();
         frontend_path.pop();
         frontend_path.pop();
-        frontend_path.push("frontend");
+        frontend_path.pop();
+        frontend_path.push("web");
         frontend_path.push("_static");
     } else {
-        // Program is release (cargo build)
-        // guard/frontend/_static (use packaged assets)
+        // Release: use the packaged assets sitting beside the binary. This stays
+        // "frontend" regardless of where the source lives (web/) — it is the
+        // layout inside guard.zip and the container image, which the makefile and
+        // CI assemble, not a source path.
+        // <release>/frontend/_static
         frontend_path.pop();
         frontend_path.push("frontend");
         frontend_path.push("_static");

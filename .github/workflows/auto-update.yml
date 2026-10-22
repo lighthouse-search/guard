@@ -21,12 +21,14 @@ name: Auto update
 
 on:
   schedule:
-    # Mondays, 04:17 UTC. Scheduled runs always use the default branch.
+    # Mondays, 04:17 UTC. A cron run always executes the workflow file from the
+    # DEFAULT branch, but the job below targets `nightly` — dependency bumps land
+    # there first and reach main through the usual merge.
     - cron: "17 4 * * 1"
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to update and release from."
+        description: "Branch to update and release from. Defaults to nightly."
         type: string
         required: false
         default: ""
@@ -60,7 +62,9 @@ jobs:
       - name: Resolve target branch
         id: setup
         run: |
-          target="${{ inputs.branch || github.ref_name }}"
+          # Default to nightly, NOT github.ref_name: a scheduled run reports the
+          # default branch (main), which would release straight from main.
+          target="${{ inputs.branch || 'nightly' }}"
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "staging=auto-update/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
@@ -226,9 +230,11 @@ jobs:
           TARGET: ${{ needs.refresh.outputs.target }}
           STAGING: ${{ needs.refresh.outputs.staging }}
         run: |
-          # Not refresh's recorded SHA: the release job committed the release.json
-          # increment onto the staging branch, so promote the branch tip
-          # instead, or that bump would be lost and the next run would reuse the version.
+          # Promote the staging branch's current tip rather than the SHA refresh
+          # recorded, so anything the build added on top comes with it. Only a
+          # main-targeted run adds a commit (the release.json bump); nightly runs
+          # never write release.json, so for those the tip equals the recorded SHA
+          # and this is a no-op.
           SHA=$(gh api "repos/${{ github.repository }}/git/ref/heads/$STAGING" --jq '.object.sha')
           if gh api -X PATCH "repos/${{ github.repository }}/git/refs/heads/$TARGET" \
                -f sha="$SHA" >/dev/null 2>gh.err; then

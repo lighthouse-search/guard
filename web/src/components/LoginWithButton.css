@@ -1,0 +1,17 @@
+/* Styles the button directly. It used to be wrapped in an <a> that had no href,
+   so the anchor carried the sizing and the button carried the layout. */
+.login_with {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    column-gap: 6px;
+    width: 100%;
+    padding: 8px;
+    font-size: 15px;
+    text-decoration: none;
+}
+
+.login_with img {
+    width: 22px;
+    height: 22px;
+}

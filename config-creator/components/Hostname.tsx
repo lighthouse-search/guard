@@ -5,7 +5,9 @@ import TagInput from "./TagInput";
 
 export interface HostnameData {
   active?: boolean;
-  hostname?: string;
+  // Guard's GuardedHostname field is `host`, and it is required (not Option), so
+  // the old key here produced a config Guard could not deserialize at all.
+  host?: string;
   alias?: string;
   authentication_methods?: string[];
   applied_policies?: string[];
@@ -56,8 +58,8 @@ export function HostnameFields({
         <div className="flex flex-col gap-1.5">
           <label className={LABEL}>Hostname</label>
           <input
-            value={data.hostname ?? ""}
-            onChange={(e) => update({ hostname: e.target.value })}
+            value={data.host ?? ""}
+            onChange={(e) => update({ host: e.target.value })}
             placeholder="app.example.com"
             className={`${INPUT}`}
           />
@@ -151,7 +153,7 @@ export default function HostnameComponent({ id, data, onChange, onRemove, availa
 
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate block">
-            {data.hostname || (
+            {data.host || (
               <span className="text-zinc-400 font-sans font-normal italic">new hostname</span>
             )}
           </span>

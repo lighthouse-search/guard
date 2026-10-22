@@ -68,15 +68,18 @@ jobs:
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "staging=auto-update/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ steps.setup.outputs.target }}
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Node 24: LTS through April 2028, and matches the node24 runtime the
+          # actions themselves now use. Node 20 reached EOL on 2026-04-30 and
+          # Node 22 is maintenance-only (EOL 2027-04-30).
+          node-version: 24
 
       # Moves transitive and in-range direct dependencies. Pinned exact
       # versions in Cargo.toml / package.json are deliberately left alone —

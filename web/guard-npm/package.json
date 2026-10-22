@@ -1,0 +1,28 @@
+{
+  "name": "@oracularhades/guard",
+  "version": "1.0.85",
+  "description": "Client library for the Guard authentication server.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "tsc"
+  },
+  "author": "Oracularhades",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

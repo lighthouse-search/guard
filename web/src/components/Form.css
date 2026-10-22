@@ -1,0 +1,89 @@
+.FormStyle_1 {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    /* height: 400px; */
+    padding: 15px;
+    /* padding-top: 15px;
+    padding-bottom: 15px;
+    padding-left: 12px;
+    padding-right: 12px; */
+    row-gap: 12px;
+    background-color: rgb(235, 235, 235);
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+@media only screen and (max-width: 415px) {
+    .FormStyle_1 {
+        width: 89%;
+    }
+}
+
+.FormStyle_1_header {
+    font-size: 20px;
+}
+
+.FormStyle_1_description {
+    font-size: 14px;
+}
+
+.FormStyle_1_logo {
+    display: flex;
+    flex-direction: column;
+    max-width: 120px;
+    max-height: 120px;
+}
+
+.FormStyle_1_logo img {
+    max-width: 120px;
+    max-height: 120px;
+}
+
+.FormStyle_1_div {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    row-gap: 8px;
+}
+
+.FormStyle_1_div_email {
+    display: flex;
+    flex-direction: column;
+    row-gap: 8px;
+}
+
+.FormStyle_1_div_error {
+    font-size: 13px;
+    font-weight: bold;
+    color: rgb(255, 38, 38);
+}
+
+.FormStyle_1_div_login_button {
+    padding: 9px 14px;
+    border: none;
+    border-radius: 6px;
+    background-color: #3a3a3a;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 120ms ease, transform 60ms ease;
+}
+
+.FormStyle_1_div_login_button:hover {
+    background-color: #2b2b2b;
+}
+
+.FormStyle_1_div_login_button:active {
+    transform: translateY(1px);
+}
+
+/* Bottom text under the login form (metadata.form.bottom_text). */
+.you_agree_to {
+    font-size: 11px;
+}
+
+.you_agree_to a {
+    font-weight: bold;
+}

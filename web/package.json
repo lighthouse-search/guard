@@ -1,0 +1,30 @@
+{
+  "private": true,
+  "scripts": {
+    "build:lib": "tsc -p guard-npm",
+    "dev": "npm run build:lib && next dev --port 8484 --experimental-https",
+    "build": "npm run build:lib && next build",
+    "start": "next start",
+    "typecheck": "npm run build:lib && tsc --noEmit"
+  },
+  "dependencies": {
+    "@marsidev/react-turnstile": "^1.5.0",
+    "@oracularhades/guard": "file:guard-npm",
+    "@tailwindcss/postcss": "^4.2.2",
+    "next": "^16.2.3",
+    "postcss": "^8.5.9",
+    "react": "19.2.5",
+    "react-cookie": "8.1.0",
+    "react-dom": "19.2.5",
+    "tailwindcss": "^4.2.2"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "~5.9.3"
+  }
+}

@@ -41,7 +41,7 @@ pub async fn device_get(id: String) -> Result<Option<GuardDevices>, Box<dyn Erro
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
     let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
 
-    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created FROM {} WHERE id=?", sql.device.unwrap());
+    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created, wireguard_public_key, wireguard_ip FROM {} WHERE id=?", sql.device.unwrap());
 
     let result: Vec<GuardDevices> = sql_query(query)
     .bind::<Text, _>(id)
@@ -56,6 +56,75 @@ pub async fn device_get(id: String) -> Result<Option<GuardDevices>, Box<dyn Erro
     let device = result[0].clone();
 
     Ok(Some(device))
+}
+
+// Look up a device by its registered WireGuard public key. Used to enforce that
+// a given WireGuard key belongs to exactly one device (a second device claiming
+// the same key is rejected).
+pub async fn device_get_by_wireguard_public_key(wireguard_public_key: &str) -> Result<Option<GuardDevices>, Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
+
+    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created, wireguard_public_key, wireguard_ip FROM {} WHERE wireguard_public_key=?", sql.device.unwrap());
+
+    let result: Vec<GuardDevices> = sql_query(query)
+    .bind::<Text, _>(wireguard_public_key.to_string())
+    .load::<GuardDevices>(&mut db)
+    .expect("Something went wrong querying the DB.");
+
+    Ok(result.into_iter().next())
+}
+
+// Every tunnel address currently allocated to a device, so the allocator can
+// pick the next free one in the configured peer subnet.
+pub async fn device_list_wireguard_ips() -> Result<Vec<String>, Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
+
+    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created, wireguard_public_key, wireguard_ip FROM {} WHERE wireguard_ip IS NOT NULL", sql.device.unwrap());
+
+    let result: Vec<GuardDevices> = sql_query(query)
+    .load::<GuardDevices>(&mut db)
+    .expect("Something went wrong querying the DB.");
+
+    Ok(result.into_iter().filter_map(|device| device.wireguard_ip).collect())
+}
+
+// Every registered WireGuard peer (public key + tunnel address), so Guard can
+// rebuild the interface config and restore peers on startup.
+pub async fn device_list_wireguard_peers() -> Result<Vec<(String, String)>, Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
+
+    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created, wireguard_public_key, wireguard_ip FROM {} WHERE wireguard_public_key IS NOT NULL AND wireguard_ip IS NOT NULL", sql.device.unwrap());
+
+    let result: Vec<GuardDevices> = sql_query(query)
+    .load::<GuardDevices>(&mut db)
+    .expect("Something went wrong querying the DB.");
+
+    Ok(result
+        .into_iter()
+        .filter_map(|device| match (device.wireguard_public_key, device.wireguard_ip) {
+            (Some(public_key), Some(ip)) => Some((public_key, ip)),
+            _ => None,
+        })
+        .collect())
+}
+
+// Bind a WireGuard public key + allocated tunnel address to a device.
+pub async fn device_set_wireguard(device_id: &str, wireguard_public_key: &str, wireguard_ip: &str) -> Result<(), Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
+
+    let query = format!("UPDATE {} SET wireguard_public_key=?, wireguard_ip=? WHERE id=?", sql.device.unwrap());
+    sql_query(query)
+    .bind::<Text, _>(wireguard_public_key.to_string())
+    .bind::<Text, _>(wireguard_ip.to_string())
+    .bind::<Text, _>(device_id.to_string())
+    .execute(&mut db)
+    .expect("Something went wrong querying the DB.");
+
+    Ok(())
 }
 
 pub async fn device_create(user_id: String, authentication_method_id: String, collateral: Option<String>, public_key: String) -> Result<String, Box<dyn Error>> {

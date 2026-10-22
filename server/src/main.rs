@@ -15,11 +15,13 @@ mod setup_token;
 mod database;
 mod authentication_misc;
 mod hostname;
+mod wireguard;
 
 pub mod endpoints {
     pub mod auth;
     pub mod metadata;
     pub mod reverse_proxy_authentication;
+    pub mod wireguard;
 }
 pub mod globals {
     pub mod environment_variables;
@@ -75,7 +77,7 @@ use toml::Value;
 
 use std::{env, net::SocketAddr, path::PathBuf};
 
-use crate::{endpoints::{auth::authenticate, metadata::{metadata_get, metadata_get_authentication_methods}, reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put}}, protocols::oauth::endpoint::{client::oauth_exchange_code, server::oauth_server_token}};
+use crate::{endpoints::{auth::authenticate, metadata::{metadata_get, metadata_get_authentication_methods}, reverse_proxy_authentication::{reverse_proxy_authentication_delete, reverse_proxy_authentication_get, reverse_proxy_authentication_head, reverse_proxy_authentication_options, reverse_proxy_authentication_patch, reverse_proxy_authentication_post, reverse_proxy_authentication_put}}, protocols::oauth::endpoint::{client::{oauth_exchange_code, oauth_device_exchange_code}, server::oauth_server_token}};
 use crate::database::validate_sql_table_inputs;
 use crate::structs::*;
 use crate::responses::*;
@@ -170,6 +172,16 @@ async fn start_web() {
         log::info!("Not using TLS configuration.");
     }
 
+    // If WireGuard is configured, set up and bring the interface up ourselves.
+    // A failure here shouldn't stop Guard from serving — WireGuard registration
+    // will just report as unavailable until the host can bring it up.
+    if CONFIG_VALUE.wireguard.is_some() {
+        match crate::wireguard::ensure_interface().await {
+            Ok(()) => log::info!("WireGuard interface ready."),
+            Err(error) => log::error!("Could not bring up the WireGuard interface: {}", error),
+        }
+    }
+
     let mut frontend_path: PathBuf = env::current_exe().expect("Failed to get current directory");
 
     if cfg!(debug_assertions) {
@@ -230,13 +242,14 @@ async fn start_web() {
     .nest_service("/guard/frontend", ServeDir::new(frontend_path.display().to_string()).fallback(html_fallback))
     .route("/guard/api/metadata", get(metadata_get))
     .route("/guard/api/metadata/get-authentication-methods", get(metadata_get_authentication_methods))
-    .route("/guard/api/metadata/get-device-authentication-methods", get(crate::endpoints::metadata::metadata_get_device_authentication_methods))
     .route("/guard/api/auth/request", post(crate::endpoints::auth::auth_method_request))
     .route("/guard/api/auth/authenticate", post(authenticate))
     .route("/guard/api/auth/device/request", post(crate::endpoints::auth::auth_device_request))
     .route("/guard/api/auth/device/authenticate", post(crate::endpoints::auth::auth_device_authenticate))
     .route("/guard/api/auth/device/enroll", post(crate::endpoints::auth::auth_device_enroll))
     .route("/guard/api/oauth/exchange-code", get(oauth_exchange_code))
+    .route("/guard/api/auth/device/oauth/exchange-code", get(oauth_device_exchange_code))
+    .route("/guard/api/wireguard/register", post(crate::endpoints::wireguard::wireguard_register))
     // TODO: need to make this path not /ws and catch all, but: .route("/ws", any(crate::request_proxy::ws_handler))
     .fallback(root_handler)
     .layer(axum::middleware::from_fn_with_state(client.clone(), guard_namespace_middleware))

@@ -8,7 +8,7 @@ import { Guard } from '@oracularhades/guard';
 import Or_Bar from './or_bar';
 import FormStyle_1 from './form_style1';
 import LoadingSpinner from '@/components/miscellaneous/loadingspinner';
-import { get_routing_host, auth_init_params } from '@/global';
+import { get_routing_host, auth_init_params, device_auth_init_params } from '@/global';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import Check_your_email from './special_styles/check_your_email';
 import Authenticating_desktop_application from './special_styles/authenticating_desktop_application';
@@ -16,6 +16,11 @@ import Authenticating_desktop_application from './special_styles/authenticating_
 export default function FormStyle_special_1(props) {
     const should_run = useRef(true);
     const metadata = props.metadata;
+    // When set (opened by the Guard desktop app), this same form drives the
+    // device-authentication flow: methods come from [device_authentication], and
+    // each method hands a one-time setup token back to the desktop instead of
+    // logging the browser in. Shape: { deeplink_state, callback }.
+    const device_context = props.device_context;
     const [magiclink, set_magiclink] = useState(false);
     const [email, set_email] = useState(null);
     const [authentication_methods, set_authentication_methods] = useState([]);
@@ -26,10 +31,13 @@ export default function FormStyle_special_1(props) {
     const passed_code_verification = useRef(false);
 
     async function get_authentication_methods() {
-        let routing_host = get_routing_host(window);
-
         try {
-            const authentication_methods_v = await Guard().metadata.get_authentication_methods(routing_host.host);
+            // Device auth has no client-supplied host (methods come from
+            // [device_authentication]); normal login resolves the host from
+            // ?redirect=.
+            const authentication_methods_v = device_context
+                ? await Guard().metadata.get_authentication_methods(null, { device_authentication: true })
+                : await Guard().metadata.get_authentication_methods(get_routing_host(window).host);
             set_authentication_methods(authentication_methods_v.data);
         } catch (error) {
             set_error(error.message);
@@ -40,16 +48,6 @@ export default function FormStyle_special_1(props) {
     useEffect(() => {
         if (should_run.current != true) { return; }
         should_run.current = false;
-
-        let routing_host = get_routing_host(window);
-        // if ((routing_host.redirect_url.hostname == "localhost" || routing_host.redirect_url.hostname == "127.0.0.1") && passed_code_verification.current == false) {
-        //     if (!routing_host.webpage_url.searchParams.get("code")) {
-        //         set_fatal_error("Redirect is a local address, missing params.code");
-        //         return;
-        //     }
-        //     set_state("desktop_application");
-        //     return;
-        // }
 
         get_authentication_methods();
     })
@@ -69,12 +67,18 @@ export default function FormStyle_special_1(props) {
         set_loading(true);
         set_error(null);
 
-        const auth_init_params_v = await auth_init_params(authentication_method.id, window);
-        request_data.state = auth_init_params_v.state;
+        // Both flows carry `state` through confirm_metadata so the magiclink
+        // completion can match it; device auth additionally stashes the deeplink
+        // state + loopback callback so it can hand the setup token to the desktop.
+        const init = device_context
+            ? await device_auth_init_params(authentication_method, { deeplink_state: device_context.deeplink_state, callback: device_context.callback })
+            : await auth_init_params(authentication_method, window);
+        request_data.state = init.state;
 
-        let routing_host = get_routing_host(window);
         try {
-            const response = await Guard().auth.request(routing_host.host, authentication_method, request_data);
+            const response = device_context
+                ? await Guard().auth.device_request(authentication_method, request_data)
+                : await Guard().auth.request(get_routing_host(window).host, authentication_method, request_data);
             if (response.ok == true) {
                 set_state("check_your_email");
                 return;
@@ -95,7 +99,7 @@ export default function FormStyle_special_1(props) {
         }
 
         return (
-            <Login_With authentication_method={data}/>
+            <Login_With authentication_method={data} device_context={device_context}/>
         )
     });
 

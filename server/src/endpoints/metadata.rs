@@ -94,36 +94,26 @@ pub async fn metadata_get(params: Query<MetadataGet>) -> Response {
 #[derive(Deserialize)]
 pub struct MetadataGetAuthenticationMethods {
     hostname: Option<String>,
+    // When true, resolve the general [device_authentication] context instead of a
+    // client-supplied [hostname.*]. Kept as one endpoint (rather than a separate
+    // /get-device-authentication-methods) so auth-method exposure logic can't be
+    // applied to one flow and forgotten on the other.
+    device_authentication: Option<bool>,
 }
 
 pub async fn metadata_get_authentication_methods(params: Query<MetadataGetAuthenticationMethods>) -> Response {
-    let hostname_data = get_hostname(params.hostname.clone().unwrap()).await;
-    if hostname_data.is_err() == true {
-        return error_message(1001, StatusCode::BAD_REQUEST, "Invalid hostname.".to_string());
-    }
-
-    let active_authentication_methods_data = get_hostname_authentication_methods(hostname_data.unwrap(), true).await;
-
-    let mut auth_methods_public: Vec<AuthMethodPublic> = Vec::new();
-    for auth_method in &active_authentication_methods_data {
-        auth_methods_public.push(auth_method.clone().into());
-    }
-
-    (
-        StatusCode::OK,
-        serde_json::to_string(&json!({
-            "ok": true,
-            "data": auth_methods_public
-        })).unwrap(),
-    ).into_response()
-}
-
-// Authentication methods available for device authentication (no hostname —
-// devices authenticate generally). Configured under [device_authentication].
-pub async fn metadata_get_device_authentication_methods() -> Response {
-    let hostname = match device_authentication_hostname() {
-        Ok(hostname) => hostname,
-        Err(error) => return error_message(1002, StatusCode::BAD_REQUEST, error),
+    let hostname = if params.device_authentication == Some(true) {
+        // Device authentication has no client-supplied host; the context comes
+        // from [device_authentication].
+        match device_authentication_hostname() {
+            Ok(hostname) => hostname,
+            Err(error) => return error_message(1002, StatusCode::BAD_REQUEST, error),
+        }
+    } else {
+        match get_hostname(params.hostname.clone().unwrap_or_default()).await {
+            Ok(hostname) => hostname,
+            Err(_) => return error_message(1001, StatusCode::BAD_REQUEST, "Invalid hostname.".to_string()),
+        }
     };
 
     let active_authentication_methods_data = get_hostname_authentication_methods(hostname, true).await;

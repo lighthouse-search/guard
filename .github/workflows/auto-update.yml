@@ -1,9 +1,16 @@
 name: Auto update
 
 # Keeps published releases and container images current with upstream changes:
-#   * Rust crates          -> `cargo update` against server/Cargo.lock
-#   * npm packages         -> `npm update` against the frontend lockfiles
+#   * Rust crates          -> `cargo update` on every Cargo.toml in the repo
+#   * npm packages         -> `npm update` on every package.json in the repo
 #   * OS / apt packages    -> fresh `ubuntu:24.04` pull + cache-free image build
+#
+# It also audits every manifest for known advisories before and after the
+# refresh and reports what the refresh could not fix. The case worth calling
+# out is an advisory whose patched release is NOT a breaking change but is held
+# back by an exact version pin: the lockfile never moves, so a lockfile-changed
+# check alone would never notice it. Those appear in the run summary under
+# "Non-breaking security fixes being held back".
 #
 # Nothing is merged into the target branch until the full build in rust.yml
 # (compile + tests on every target, release, image push) has succeeded, so a
@@ -74,15 +81,36 @@ jobs:
       # Moves transitive and in-range direct dependencies. Pinned exact
       # versions in Cargo.toml / package.json are deliberately left alone —
       # use Dependabot for those major bumps.
-      - name: Update Rust dependencies
-        working-directory: server
-        run: cargo update
+      # cargo-audit supplies the RustSec advisory data used by the audit steps.
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
 
-      - name: Update npm dependencies
+      - name: Audit dependencies (before)
+        run: python3 .github/scripts/dep_audit.py audit --out /tmp/audit-before.json
+
+      # Moves transitive and in-range direct dependencies across every manifest
+      # in the repo. Exact pins are left alone; the report below calls out any
+      # pin that is holding back a non-breaking security fix.
+      - name: Update all dependencies
+        run: python3 .github/scripts/dep_audit.py update
+
+      - name: Audit dependencies (after)
+        run: python3 .github/scripts/dep_audit.py audit --out /tmp/audit-after.json
+
+      - name: Security audit report
+        id: audit
         run: |
-          # guard-npm is a `file:` dependency of the frontend, so refresh it first.
-          (cd server/frontend/guard-npm && npm update)
-          (cd server/frontend && npm update)
+          python3 .github/scripts/dep_audit.py report \
+            /tmp/audit-before.json /tmp/audit-after.json \
+            --summary /tmp/audit.md --github-output "$GITHUB_OUTPUT"
+          cat /tmp/audit.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Flag security fixes blocked by exact pins
+        if: steps.audit.outputs.blocked_count != '0'
+        run: |
+          echo "::warning::${{ steps.audit.outputs.blocked_count }} advisory(ies) have a non-breaking patched release that an exact version pin is holding back. See the run summary for the packages and which pins to relax."
 
       # The Dockerfile runs `apt-get update && apt-get install` at build time, so
       # OS updates arrive with a new base image digest. Record the digest so a
@@ -115,10 +143,7 @@ jobs:
       - name: Decide whether to build
         id: decide
         run: |
-          deps=$(git status --porcelain -- \
-            server/Cargo.lock \
-            server/frontend/package-lock.json \
-            server/frontend/guard-npm/package-lock.json)
+          deps=$(git status --porcelain -- '*Cargo.lock' '*package-lock.json')
 
           # A first run writes base-images.lock from scratch; that is a baseline,
           # not an update, so it must not trigger a release on its own.
@@ -186,11 +211,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          for f in server/Cargo.lock \
-                   server/frontend/package-lock.json \
-                   server/frontend/guard-npm/package-lock.json \
-                   .github/base-images.lock \
-                   release.json; do
+          git add -- '*Cargo.lock' '*package-lock.json' 2>/dev/null || true
+          for f in .github/base-images.lock release.json; do
             [ -e "$f" ] && git add -- "$f"
           done
 

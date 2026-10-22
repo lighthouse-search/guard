@@ -1,9 +1,9 @@
 *Guard is a proof-of-concept and is not ready for production use. Please visit [The Roadmap](https://github.com/lighthouse-search/guard/projects) to see what's happening before beta*.
 
 # Why
-Writing and mantaining an authentication proxy for each project (e.g. grafana.example.com) is complex and exhausting. Solutions like Cloudflare Access and TailScale exist but you are deeply integrated into their networks while sacraficing administrative control. Guard aims to be a convinient and self-hostable solution to Identity Access Management, without managing your own complex authentication codebases.
+Writing and mantaining an authentication proxy for each project (e.g. grafana.example.com) is complex and exhausting. Solutions like Cloudflare Access and Tailscale exist but you're deeply integrated into those networks while sacraficing administrative control. Guard aims to be a convinient and self-hostable solution to Identity Access Management without managing your own complex authentication codebases.
 
-Microsoft, Google and Okta/Auth0 control large portions of authentication to sensitive infrastructure. If those services were breached or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data), the internet's independence would be undermined for the rest of us.
+Microsoft, Google and Okta/Auth0 control large portions of authentication to sensitive infrastructure, if those services were breached or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data) the internet's independence would be undermined for the rest of us.
 
 If anything, this is a proof of concept and something I needed to build regardless. I became sick of mantaining a hardcoded NGINX Subrequest responder codebase for each project.
 
@@ -12,58 +12,6 @@ Guard's core mission is:
 - Act as an authentication server for all major authentication protocols (OAuth, SAML, Kerberos)
 - Act as an app's authentication. Either via library support in major programming languages or proxying requests to an application.
 - Authenticate reverse proxies (e.g. [Guard + NGINX](#integration-examples))
-
-# Quickstart
-Grab the archive for your platform from the [latest release](https://github.com/lighthouse-search/guard/releases/latest):
-
-| Platform | Asset |
-| --- | --- |
-| Linux x86-64 | [`guard-linux-amd64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-linux-amd64.zip) |
-| Linux arm64 | [`guard-linux-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-linux-arm64.zip) |
-| macOS (Apple silicon) | [`guard-darwin-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-darwin-arm64.zip) |
-| Windows x86-64 | [`guard-windows-amd64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-windows-amd64.zip) |
-| Windows arm64 | [`guard-windows-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-windows-arm64.zip) |
-
-Each archive unzips to a `guard-server` binary alongside `frontend/` (the login
-pages) and `example/` (starter configs). Keep them together — the server reads
-the frontend from beside the binary.
-
-`guard_config` takes the **contents** of a config file, not a path to one.
-
-## Linux / macOS
-```sh
-unzip guard-linux-amd64.zip -d guard && cd guard
-export guard_config=$(cat ./example/email-config.toml)
-./guard-server
-```
-
-## Windows
-```powershell
-Expand-Archive guard-windows-amd64.zip -DestinationPath guard; cd guard
-$env:guard_config = Get-Content -Raw .\example\email-config.toml
-.\guard-server.exe
-```
-
-Guard listens on port 8000; pass `--port <n>` to change it.
-
-`email-config.toml` expects a MySQL database and an SMTP server. Fill in the
-`[YOUR ...]` placeholders first — note that `password_env` holds the *name* of
-an environment variable, not the password itself, so Guard never needs the
-secret written into the config:
-```sh
-export smtp_password='...'   # [smtp].password_env is already set to this name
-```
-To build a config of your own, use the [Config Creator](https://lighthouse-search.github.io/guard)
-or start from one of the [`example/`](example/) files. For a local development
-setup, see [docs/development.md](docs/development.md).
-
-## Docker
-```sh
-docker run -p 8000:8000 -e guard_config="$(cat ./example/email-config.toml)" ghcr.io/lighthouse-search/guard:latest
-```
-`:latest` tracks releases from `main`; `:nightly-latest` tracks the nightly
-branch. See [Guard + Docker](#guard--docker-guard-as-the-proxy) for a compose
-setup where Guard authenticates and proxies to another container.
 
 # Example
 Guard allows you to create great, styled, authentication with a simple configuration.
@@ -126,6 +74,58 @@ authentication_methods = ["email"]
 multistep_authentication_methods = false
 applied_policies = ["staff_only"]
 ```
+
+# Quickstart
+Grab the archive for your platform from the [latest release](https://github.com/lighthouse-search/guard/releases/latest):
+
+| Platform | Asset |
+| --- | --- |
+| Linux x86-64 | [`guard-linux-amd64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-linux-amd64.zip) |
+| Linux arm64 | [`guard-linux-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-linux-arm64.zip) |
+| macOS (Apple silicon) | [`guard-darwin-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-darwin-arm64.zip) |
+| Windows x86-64 | [`guard-windows-amd64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-windows-amd64.zip) |
+| Windows arm64 | [`guard-windows-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-windows-arm64.zip) |
+
+Each archive unzips to a `guard-server` binary alongside `frontend/` (the login
+pages) and `example/` (starter configs). Keep them together — the server reads
+the frontend from beside the binary.
+
+`guard_config` takes the **contents** of a config file, not a path to one.
+
+## Linux / macOS
+```sh
+unzip guard-linux-amd64.zip -d guard && cd guard
+export guard_config=$(cat ./example/email-config.toml)
+./guard-server
+```
+
+## Windows
+```powershell
+Expand-Archive guard-windows-amd64.zip -DestinationPath guard; cd guard
+$env:guard_config = Get-Content -Raw .\example\email-config.toml
+.\guard-server.exe
+```
+
+Guard listens on port 8000; pass `--port <n>` to change it.
+
+`email-config.toml` expects a MySQL database and an SMTP server. Fill in the
+`[YOUR ...]` placeholders first — note that `password_env` holds the *name* of
+an environment variable, not the password itself, so Guard never needs the
+secret written into the config:
+```sh
+export smtp_password='...'   # [smtp].password_env is already set to this name
+```
+To build a config of your own, use the [Config Creator](https://lighthouse-search.github.io/guard)
+or start from one of the [`example/`](example/) files. For a local development
+setup, see [docs/development.md](docs/development.md).
+
+## Docker
+```sh
+docker run -p 8000:8000 -e guard_config="$(cat ./example/email-config.toml)" ghcr.io/lighthouse-search/guard:latest
+```
+`:latest` tracks releases from `main`; `:nightly-latest` tracks the nightly
+branch. See [Guard + Docker](#guard--docker-guard-as-the-proxy) for a compose
+setup where Guard authenticates and proxies to another container.
 
 # Integration examples
 Guard has two integration models, controlled by `[features]`:

@@ -21,12 +21,14 @@ name: Auto update
 
 on:
   schedule:
-    # Mondays, 04:17 UTC. Scheduled runs always use the default branch.
+    # Mondays, 04:17 UTC. A cron run always executes the workflow file from the
+    # DEFAULT branch, but the job below targets `nightly` — dependency bumps land
+    # there first and reach main through the usual merge.
     - cron: "17 4 * * 1"
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to update and release from."
+        description: "Branch to update and release from. Defaults to nightly."
         type: string
         required: false
         default: ""
@@ -60,7 +62,9 @@ jobs:
       - name: Resolve target branch
         id: setup
         run: |
-          target="${{ inputs.branch || github.ref_name }}"
+          # Default to nightly, NOT github.ref_name: a scheduled run reports the
+          # default branch (main), which would release straight from main.
+          target="${{ inputs.branch || 'nightly' }}"
           echo "target=$target" >> "$GITHUB_OUTPUT"
           echo "staging=auto-update/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 

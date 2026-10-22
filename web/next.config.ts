@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   // /guard/frontend/login and /guard/frontend/magiclink directly, so page
   // routes and this basePath have to stay in sync with the server.
   basePath: "/guard/frontend",
+  allowedDevOrigins: ['127.0.0.1'],
 };
 
 export default nextConfig;

@@ -293,7 +293,10 @@ pub struct AuthMethod {
     // pub user_info_reference_key: Option<String>,
     pub oauth_client_api: Option<String>,
     pub oauth_client_user_info: Option<String>,
-    // pub oauth_client_user_info_id: Option<String>,
+    // Which claim in the userinfo response carries the provider's stable user
+    // id. Not standardised across providers, so it has to be configurable —
+    // see oauth_user_id_from_userinfo in protocols/oauth/endpoint/client.rs.
+    pub oauth_client_user_info_id: Option<String>,
     pub oauth_client_token_endpoint: Option<String>,
     // pub oauth_token_endpoint_redirect_uri: Option<String>,
     // pub oauth_scope: Option<String>,

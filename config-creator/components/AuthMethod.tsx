@@ -21,6 +21,7 @@ export interface AuthMethodData {
   oauth_client_secret_env?: string;
   oauth_client_token_endpoint?: string;
   oauth_client_user_info?: string;
+  oauth_client_user_info_id?: string;
   oauth_client_api?: string;
 }
 
@@ -101,6 +102,22 @@ export function AuthMethodFields({
               value={data.oauth_client_user_info ?? ""}
               onChange={(e) => update({ oauth_client_user_info: e.target.value })}
               placeholder="https://www.googleapis.com/oauth2/v1/userinfo"
+              className={`${INPUT}`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-0.5">
+              <label className={LABEL}>
+                User id claim{" "}
+                <span className="normal-case font-normal text-zinc-400 tracking-normal">(optional)</span>
+              </label>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">Which field in the user info response holds the provider&apos;s stable user id. OpenID Connect endpoints (Microsoft&apos;s /oidc/userinfo, Google&apos;s v3 userinfo) return &quot;sub&quot;; provider-specific ones (GitHub /user, Microsoft Graph /v1.0/me) return &quot;id&quot;. Leave blank to try &quot;id&quot; then &quot;sub&quot;.</p>
+            </div>
+            <input
+              value={data.oauth_client_user_info_id ?? ""}
+              onChange={(e) => update({ oauth_client_user_info_id: e.target.value })}
+              placeholder="sub"
               className={`${INPUT}`}
             />
           </div>

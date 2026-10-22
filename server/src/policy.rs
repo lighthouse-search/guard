@@ -22,7 +22,20 @@ pub async fn policy_authentication(policies: Vec<GuardPolicy>, user: Value, ip: 
     let mut action: String = "block".to_string();
 
     for policy in policies {
-        let matches_output: bool = matches_policy(policy.clone(), user.clone(), ip.clone()).await.expect("Failed to match policy.");
+        // matches_policy returns Err when the policy's property is absent from the
+        // user data the authentication method returned (providers differ in which
+        // claims they expose). That is "this policy does not match", not a reason to
+        // unwind the request — and since `action` stays "block" unless an allow
+        // policy matches, treating it as a non-match keeps the deny-by-default
+        // behaviour. This matches how the nested 'and' evaluation below already
+        // handles the same Err (`and_matches.unwrap_or(false)`).
+        let matches_output: bool = match matches_policy(policy.clone(), user.clone(), ip.clone()).await {
+            Ok(matches_output) => matches_output,
+            Err(error) => {
+                log::info!("Policy '{}' could not be evaluated, treating as no match: {}", policy.id.clone().unwrap_or_default(), error);
+                false
+            }
+        };
         if matches_output == true {
             action = policy.action.clone();
             if action == "block" {

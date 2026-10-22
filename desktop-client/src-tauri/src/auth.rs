@@ -24,13 +24,13 @@ use crate::callback_server::CallbackServer;
 const GUARD_SUBDOMAIN: &str = "guard";
 
 /// OS keychain coordinates for the device's ed25519 signing key.
-const KEYCHAIN_SERVICE: &str = "com.guard.desktop-client";
+pub(crate) const KEYCHAIN_SERVICE: &str = "com.guard.desktop-client";
 const KEYCHAIN_ACCOUNT: &str = "device-signing-key";
 
 /// Load the device's ed25519 signing key from the OS keychain, creating and
 /// persisting a new one on first use. The private key never leaves the device;
 /// only its public key is registered with Guard.
-fn load_or_create_signing_key() -> Result<SigningKey, String> {
+pub(crate) fn load_or_create_signing_key() -> Result<SigningKey, String> {
     let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)
         .map_err(|e| format!("Keychain unavailable: {e}"))?;
 
@@ -195,7 +195,7 @@ struct EnrollResponse {
 
 /// Flatten an error's source chain — reqwest's top-level message ("error sending
 /// request for url …") hides the real cause (TLS, connection refused, etc.).
-fn error_chain(err: impl std::error::Error) -> String {
+pub(crate) fn error_chain(err: impl std::error::Error) -> String {
     let mut message = err.to_string();
     let mut source = err.source();
     while let Some(inner) = source {

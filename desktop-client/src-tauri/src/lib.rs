@@ -1,5 +1,6 @@
 mod auth;
 mod callback_server;
+mod wireguard;
 
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -112,6 +113,10 @@ pub fn run() {
             auth::start_device_authentication,
             auth::enroll_device,
             auth::logout,
+            wireguard::register_wireguard,
+            wireguard::wireguard_connect,
+            wireguard::wireguard_disconnect,
+            wireguard::wireguard_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

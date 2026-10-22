@@ -15,6 +15,35 @@ export default function Magiclink1() {
 
   const shouldSend = useRef(true);
 
+  // Both device-auth methods (email magiclink, "login with X") end the same way:
+  // the server issued a one-time setup token, and we hand it to the desktop over
+  // its loopback callback (preferred) or the guard:// deep link. The desktop
+  // enrolls its own ed25519 key with it — the browser never sees the device key.
+  function deliver_setup_token(relevant_state, setup_token, confirm_metadata) {
+    // Consume the state so the link can't be replayed.
+    const updated = confirm_metadata;
+    updated.splice(updated.indexOf(relevant_state), 1);
+    localStorage.setItem("confirm_metadata", JSON.stringify(updated));
+
+    const callback_params = new URLSearchParams({
+      state: relevant_state.deeplink_state || "",
+      setup_token
+    });
+    // Re-check the callback is loopback here too — this is the moment the setup
+    // token is exposed, so we never hand it to a non-loopback URL even if a bad
+    // value somehow reached confirm_metadata.
+    if (relevant_state.callback && is_loopback_callback(relevant_state.callback) == false) {
+      set_error("Invalid callback — refusing to send the setup token off this machine.");
+      return;
+    }
+    if (relevant_state.callback) {
+      window.location.href = `${relevant_state.callback}?${callback_params.toString()}`;
+    } else {
+      window.location.href = `guard://auth-callback?${callback_params.toString()}`;
+    }
+    set_done("You're all set — return to the Guard app.");
+  }
+
   async function send_magiclink(params) {
     if (!params.get("state")) {
       set_error("Missing state param.");
@@ -69,30 +98,7 @@ export default function Magiclink1() {
           return;
         }
 
-        // Consume the state so the link can't be replayed.
-        let updated = confirm_metadata;
-        updated.splice(updated.indexOf(relevant_state), 1);
-        await localStorage.setItem("confirm_metadata", JSON.stringify(updated));
-
-        const callback_params = new URLSearchParams({
-          state: relevant_state.deeplink_state || "",
-          setup_token: response.setup_token
-        });
-        // Prefer the desktop's loopback server (reliable, works in dev); fall
-        // back to the guard:// deep link when no callback was provided. Re-check
-        // the callback is loopback here too — this is the moment the setup token
-        // is exposed, so we never hand it to a non-loopback URL even if a bad
-        // value somehow reached confirm_metadata.
-        if (relevant_state.callback && is_loopback_callback(relevant_state.callback) == false) {
-          set_error("Invalid callback — refusing to send the setup token off this machine.");
-          return;
-        }
-        if (relevant_state.callback) {
-          window.location.href = `${relevant_state.callback}?${callback_params.toString()}`;
-        } else {
-          window.location.href = `guard://auth-callback?${callback_params.toString()}`;
-        }
-        set_done("You're all set — return to the Guard app.");
+        deliver_setup_token(relevant_state, response.setup_token, confirm_metadata);
         return;
       }
 
@@ -118,6 +124,23 @@ export default function Magiclink1() {
       await handle_new(auth_data, auth_metadata, private_key);
       await handle_new_static_auth(auth_data, private_key);
     } else if (params.get("code")) {
+      // Device-authentication OAuth ("login with X" opened from the desktop app).
+      // The server resolves the external user and issues a one-time setup token
+      // (no access token, no browser login); we hand it to the desktop.
+      if (relevant_state.device_authentication) {
+        let response = null;
+        try {
+          response = await Guard().oauth.device_exchange_code(authentication_method_id, params.get("code"));
+        } catch (error) {
+          console.log(error);
+          set_error(error.message);
+          return;
+        }
+
+        deliver_setup_token(relevant_state, response.setup_token, confirm_metadata);
+        return;
+      }
+
       let response = null;
       try {
         response = await Guard().oauth.exchange_code(host, authentication_method_id, params.get("code"));

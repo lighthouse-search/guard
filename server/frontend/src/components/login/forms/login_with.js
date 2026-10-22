@@ -1,15 +1,21 @@
 import './css/login_with.css';
 import './../../global.css';
-import { auth_init_params } from '@/global';
+import { auth_init_params, device_auth_init_params } from '@/global';
 
 export default function Login_With(props) {
     const authentication_method = props.authentication_method;
+    const device_context = props.device_context;
 
     async function handle_out() {
-        const auth_init_params_v = await auth_init_params(authentication_method.id, window);
+        // In device mode, carry the deeplink state + loopback callback through the
+        // OAuth round-trip so the magiclink completion can hand the setup token
+        // back to the desktop; otherwise it's a normal browser login.
+        const init = device_context
+            ? await device_auth_init_params(authentication_method.id, { deeplink_state: device_context.deeplink_state, callback: device_context.callback })
+            : await auth_init_params(authentication_method.id, window);
         let login_page = new URL(authentication_method.login_page);
-        login_page.searchParams.set("state", auth_init_params_v.state);
-        // login_page.searchParams.set("fallback_domain", auth_init_params_v.redirect_url);
+        login_page.searchParams.set("state", init.state);
+        // login_page.searchParams.set("fallback_domain", init.redirect_url);
 
         window.location.href = login_page.href;
     }

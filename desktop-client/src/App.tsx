@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -10,24 +10,64 @@ import {
 import Login, { Session } from "./Login";
 import "./App.css";
 
-type Status = "disconnected" | "connecting" | "connected";
+type Status = "disconnected" | "connecting" | "connected" | "disconnecting";
 type View = "dashboard" | "settings";
 
-// Placeholder tunnel data — wire this up to the WireGuard backend later.
-const TUNNEL = {
-  name: "Company Limited",
-  endpoint: "guard.example.com",
-  address: "10.8.0.4/32",
-  ping: 27
+// Tunnel parameters Guard returns from WireGuard registration.
+type Registration = {
+  address: string | null;
+  server_public_key: string | null;
+  server_address: string | null;
+  endpoint: string | null;
+  allowed_ips: string | null;
+  dns: string | null;
+  persistent_keepalive: number | null;
 };
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<Status>("disconnected");
   const [view, setView] = useState<View>("dashboard");
+  const [registration, setRegistration] = useState<Registration | null>(null);
+  const [ping, setPing] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const isBusy = status === "connecting";
+  const isBusy = status === "connecting" || status === "disconnecting";
   const isConnected = status === "connected";
+
+  // Fetch tunnel parameters up front (idempotent registration) so the dashboard
+  // shows accurate endpoint/address before the user connects.
+  const host = session?.host;
+  const deviceId = session?.deviceId ?? null;
+  useEffect(() => {
+    if (!host || !deviceId) return;
+    let active = true;
+    invoke<Registration>("register_wireguard", { host, deviceId })
+      .then((reg) => { if (active) setRegistration(reg); })
+      .catch(() => { /* leave info blank; surfaced on connect if it really fails */ });
+    return () => { active = false; };
+  }, [host, deviceId]);
+
+  // While connected, poll the in-tunnel gateway for a live ping.
+  const gateway = registration?.server_address ?? null;
+  useEffect(() => {
+    if (status !== "connected") return;
+    let active = true;
+    async function poll() {
+      try {
+        const s = await invoke<{ connected: boolean; ping_ms: number | null }>(
+          "wireguard_status",
+          { gateway },
+        );
+        if (active) setPing(s.ping_ms);
+      } catch {
+        if (active) setPing(null);
+      }
+    }
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { active = false; clearInterval(id); };
+  }, [status, gateway]);
 
   if (!session) {
     return <Login onAuthenticated={setSession} />;
@@ -42,7 +82,16 @@ function App() {
     } catch {
       // Best effort — sign out locally regardless.
     }
+    // Best effort: drop the tunnel before forgetting the session.
+    try {
+      await invoke("wireguard_disconnect");
+    } catch {
+      // ignore
+    }
     setStatus("disconnected");
+    setRegistration(null);
+    setPing(null);
+    setError(null);
     setView("dashboard");
     setSession(null);
   }
@@ -89,15 +138,40 @@ function App() {
     );
   }
 
-  function toggle() {
+  async function toggle() {
     if (isBusy) return;
+    setError(null);
+
     if (isConnected) {
-      setStatus("disconnected");
+      setStatus("disconnecting");
+      try {
+        await invoke("wireguard_disconnect");
+        setStatus("disconnected");
+        setPing(null);
+      } catch (e) {
+        // Still up — surface why it wouldn't come down.
+        setError(String(e));
+        setStatus("connected");
+      }
       return;
     }
-    // Simulated connect handshake — replace with `invoke("connect", …)`.
+
+    if (!session!.deviceId) {
+      setError("This device isn't enrolled yet — sign in again.");
+      return;
+    }
     setStatus("connecting");
-    setTimeout(() => setStatus("connected"), 900);
+    try {
+      const reg = await invoke<Registration>("wireguard_connect", {
+        host: session!.host,
+        deviceId: session!.deviceId,
+      });
+      setRegistration(reg);
+      setStatus("connected");
+    } catch (e) {
+      setError(String(e));
+      setStatus("disconnected");
+    }
   }
 
   const statusLabel =
@@ -105,7 +179,9 @@ function App() {
       ? "Connected"
       : status === "connecting"
         ? "Connecting…"
-        : "Disconnected";
+        : status === "disconnecting"
+          ? "Disconnecting…"
+          : "Disconnected";
 
   return (
     <main className="popover">
@@ -142,9 +218,11 @@ function App() {
           {isConnected ? "Connected" : "Not connected"}
         </p>
         <p className="shield-sub">
-          {isConnected
-            ? "Everything looks good!"
-            : "Internal applications may be unavailable."}
+          {error
+            ? error
+            : isConnected
+              ? "Everything looks good!"
+              : "Internal applications may be unavailable."}
         </p>
       </section>
 
@@ -153,25 +231,35 @@ function App() {
         onClick={toggle}
         disabled={isBusy}
       >
-        {isConnected ? "Disconnect" : isBusy ? "Connecting…" : "Connect"}
+        {status === "connected"
+          ? "Disconnect"
+          : status === "connecting"
+            ? "Connecting…"
+            : status === "disconnecting"
+              ? "Disconnecting…"
+              : "Connect"}
       </button>
 
       <section className="tunnel">
         <div className="tunnel-row">
           <span className="tunnel-key">Tunnel</span>
-          <span className="tunnel-val">{TUNNEL.name}</span>
+          <span className="tunnel-val mono">{session.host}</span>
         </div>
         <div className="tunnel-row">
           <span className="tunnel-key">Endpoint</span>
-          <span className="tunnel-val">{TUNNEL.endpoint}</span>
+          <span className="tunnel-val">{registration?.endpoint ?? "—"}</span>
         </div>
         <div className="tunnel-row">
           <span className="tunnel-key">Address</span>
-          <span className="tunnel-val">{TUNNEL.address}</span>
+          <span className="tunnel-val mono">
+            {registration?.address ? `${registration.address}/32` : "—"}
+          </span>
         </div>
         <div className="tunnel-row">
           <span className="tunnel-key">Ping</span>
-          <span className="tunnel-val">{TUNNEL.ping} ms</span>
+          <span className="tunnel-val">
+            {isConnected && ping !== null ? `${ping} ms` : "—"}
+          </span>
         </div>
       </section>
 

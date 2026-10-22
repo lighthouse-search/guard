@@ -12,7 +12,9 @@ diesel::table! {
         authentication_method -> Text,
         collateral -> Nullable<Text>,
         public_key -> Text,
-        created -> Nullable<BigInt>
+        created -> Nullable<BigInt>,
+        wireguard_public_key -> Nullable<Text>,
+        wireguard_ip -> Nullable<Text>
     }
 }
 

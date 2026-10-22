@@ -34,10 +34,16 @@ url = "2"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 rand = "0.8"
 base64 = "0.22"
+# Content-Digest (RFC 9530) over the WireGuard registration body, covered by the
+# request's RFC 9421 signature.
+sha2 = "0.10"
 keyring = { version = "3", features = ["apple-native"] }
 # native-roots: trust the OS store (so a locally-trusted mkcert CA is accepted
 # in release builds), not just the baked-in Mozilla webpki roots.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json"] }
 # Loopback callback server (an alternative to the guard:// deep link).
 tiny_http = "0.12"
+# Bringing the tunnel up/down (elevated wg-quick) and pinging the gateway without
+# blocking the async runtime.
+tokio = { version = "1", features = ["process"] }
 

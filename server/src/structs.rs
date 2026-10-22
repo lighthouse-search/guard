@@ -24,7 +24,42 @@ pub struct Config {
     // Devices authenticate generally (not per hostname), so their allowed
     // authentication methods and policies are configured here rather than under
     // a [hostname.*] entry.
-    pub device_authentication: Option<ConfigDeviceAuthentication>
+    pub device_authentication: Option<ConfigDeviceAuthentication>,
+    // WireGuard server Guard manages peers for. Optional — the wireguard
+    // registration endpoint is only available when this is configured.
+    pub wireguard: Option<ConfigWireguard>
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ConfigWireguard {
+    // The WireGuard interface Guard applies peers to, e.g. "wg0". Guard must run
+    // on this host with permission to run `wg`.
+    pub interface: Option<String>,
+    // CIDR the tunnel addresses of peers are allocated from, e.g. "10.8.0.0/24".
+    // Guard hands out the next free host address (skipping `server_address`).
+    pub peer_subnet: Option<String>,
+    // The server's own tunnel address within `peer_subnet` (never handed out),
+    // e.g. "10.8.0.1".
+    pub server_address: Option<String>,
+    // The UDP port the interface listens on. Defaults to 51820.
+    pub listen_port: Option<u16>,
+    // Where Guard stores the interface's generated private key. Defaults to
+    // /etc/wireguard/<interface>.key. Guard generates it on first run and reuses
+    // it thereafter, so the server public key stays stable across restarts.
+    pub key_path: Option<String>,
+    // Optional override for the server's WireGuard public key returned to
+    // clients. Normally left unset — Guard derives it from the key it manages.
+    pub server_public_key: Option<String>,
+    // The public "host:port" clients dial to reach the WireGuard server, e.g.
+    // "vpn.example.com:51820".
+    pub endpoint: Option<String>,
+    // What the client should route through the tunnel (its peer AllowedIPs).
+    // Defaults to `peer_subnet` when unset — enough to reach the gateway and
+    // other peers (split tunnel). Set to "0.0.0.0/0" for a full tunnel.
+    pub allowed_ips: Option<String>,
+    // Optional tunnel DNS + keepalive returned to clients for their config.
+    pub dns: Option<String>,
+    pub persistent_keepalive: Option<u32>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -158,7 +193,12 @@ pub struct GuardDevices {
     pub authentication_method: String,
     pub collateral: Option<String>,
     pub public_key: String,
-    pub created: Option<i64>
+    pub created: Option<i64>,
+    // At most one WireGuard public key per device (enforced at registration to
+    // stop a device claiming multiple/forged peers). NULL until the device
+    // registers a WireGuard key. `wireguard_ip` is its allocated tunnel address.
+    pub wireguard_public_key: Option<String>,
+    pub wireguard_ip: Option<String>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Queryable, Insertable, Selectable, QueryableByName)]

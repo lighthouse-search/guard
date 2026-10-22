@@ -16,7 +16,10 @@ style="login_1"
 active = true
 method_type = "email"
 handoff = "https://example.com/handoff"
-applied_policies = ["staff_only"]
+# applied_policies is not read for an authentication method — AuthMethod has no such
+# field (see server/src/structs.rs) and Guard does not reject unknown config keys, so
+# this silently enforced nothing. Policies apply per hostname: [hostname.*].applied_policies.
+# applied_policies = ["staff_only"]
 login_page = "https://example.com/failure"
 validation_endpoint = "https://example.com/success"
 should_create_new_users = true
@@ -24,7 +27,10 @@ should_create_new_users = true
 [authentication_methods.microsoft_entra]
 active = true
 method_type = "oauth"
-applied_policies = ["staff_only"]
+# applied_policies is not read for an authentication method — AuthMethod has no such
+# field (see server/src/structs.rs) and Guard does not reject unknown config keys, so
+# this silently enforced nothing. Policies apply per hostname: [hostname.*].applied_policies.
+# applied_policies = ["staff_only"]
 login_page = "https://login.microsoftonline.com/[YOUR TENANT ID]/oauth2/v2.0/authorize?client_id=[YOUR CLIENT ID]&response_type=code&scope=[YOUR SCOPES]&redirect_uri=[YOUR REDIRECT URI]"
 should_create_new_users = true
 ratelimit = 5

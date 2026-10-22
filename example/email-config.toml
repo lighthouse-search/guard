@@ -24,7 +24,10 @@ acess_denied_header=""
 active = true
 method_type = "email"
 handoff = "https://example.com/handoff"
-applied_policies = ["staff_only"]
+# applied_policies is not read for an authentication method — AuthMethod has no such
+# field (see server/src/structs.rs) and Guard does not reject unknown config keys, so
+# this silently enforced nothing. Policies apply per hostname: [hostname.*].applied_policies.
+# applied_policies = ["staff_only"]
 
 [policies.staff_only]
 active = true

@@ -17,7 +17,15 @@ hex = "0.4"
 hex-literal = "0.4.1"
 toml = "0.8.12"
 serde_urlencoded = "0.7.1"
-lettre = "0.11.7"
+# rustls, not lettre's default native-tls backend. native-tls was the only thing
+# pulling openssl-sys into the tree, and openssl-sys >= 0.9.112 refuses to build
+# against OpenSSL 1.0.2 — which is what the aarch64 `cross` image ships, so the
+# arm64 release build failed on it. Using rustls drops openssl entirely (also
+# removing its advisories) and matches the rest of Guard, which is rustls
+# throughout: axum-server tls-rustls, reqwest rustls-tls, and the aws-lc-rs
+# provider installed explicitly at startup in main.rs.
+# Default features minus native-tls: smtp-transport, pool, hostname, builder.
+lettre = { version = "0.11.7", default-features = false, features = ["smtp-transport", "pool", "hostname", "builder", "rustls-tls"] }
 reqwest = { version = "0.12.4", default-features = false, features = ["rustls-tls"] }
 argon2 = "0.5.3"
 base64 = "0.22.1"

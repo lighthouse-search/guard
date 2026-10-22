@@ -41,6 +41,75 @@ def run(cmd, cwd, timeout=900):
         return 1, "", str(e)
 
 
+
+# RustSec advisories carry a CVSS v3.1 *vector string* (`cvss = "CVSS:3.1/AV:N/..."`)
+# and, for non-vulnerabilities, an `informational` kind. There is no `severity`
+# field, so it has to be derived. Scored offline per the CVSS v3.1 spec; verified
+# against the published scores for RUSTSEC-2024-0336 (7.5), 2026-0285 (5.3),
+# 2023-0053 (7.5) and 2020-0071 (6.2).
+_AV = {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2}
+_AC = {"L": 0.77, "H": 0.44}
+_PR_U = {"N": 0.85, "L": 0.62, "H": 0.27}
+_PR_C = {"N": 0.85, "L": 0.68, "H": 0.50}
+_UI = {"N": 0.85, "R": 0.62}
+_CIA = {"H": 0.56, "L": 0.22, "N": 0.0}
+
+
+def _roundup(x):
+    """CVSS v3.1 Appendix A roundup: integer arithmetic, avoids float drift."""
+    i = int(round(x * 100000))
+    return i / 100000.0 if i % 10000 == 0 else (i // 10000 + 1) / 10.0
+
+
+def cvss31_base_score(vector):
+    m = dict(part.split(":", 1) for part in str(vector).split("/") if ":" in part)
+    try:
+        av, ac, ui = _AV[m["AV"]], _AC[m["AC"]], _UI[m["UI"]]
+        changed = m["S"] == "C"
+        pr = (_PR_C if changed else _PR_U)[m["PR"]]
+        c, i_, a = _CIA[m["C"]], _CIA[m["I"]], _CIA[m["A"]]
+    except KeyError:
+        return None
+    iss = 1 - ((1 - c) * (1 - i_) * (1 - a))
+    impact = (7.52 * (iss - 0.029) - 3.25 * (iss - 0.02) ** 15) if changed else 6.42 * iss
+    if impact <= 0:
+        return 0.0
+    expl = 8.22 * av * ac * pr * ui
+    return _roundup(min((impact + expl) * (1.08 if changed else 1.0), 10))
+
+
+def severity_from_advisory(adv):
+    """CVSS band, or the informational kind for advisories that are not CVEs."""
+    score = cvss31_base_score(adv.get("cvss")) if adv.get("cvss") else None
+    if score is not None:
+        if score == 0:   return "none", score
+        if score < 4.0:  return "low", score
+        if score < 7.0:  return "moderate", score
+        if score < 9.0:  return "high", score
+        return "critical", score
+    info = adv.get("informational")
+    # unmaintained / unsound / notice are advisories, but not rated vulnerabilities.
+    return (str(info) if info else "unknown"), None
+
+
+def cargo_constrained_by(d, name, version):
+    """Which dependents hold `name` at `version` — i.e. why the refresh can't move it."""
+    code, out, _ = run(["cargo", "tree", "--invert", f"{name}@{version}",
+                        "--depth", "1", "--prefix", "none"], ROOT / d, timeout=180)
+    if code != 0:
+        return []
+    out_lines = out.split("\n")[1:]
+    seen, uniq = set(), []
+    for line in out_lines:
+        tok = line.strip().split(" ")
+        if not tok or not tok[0] or tok[0] == name:
+            continue
+        label = " ".join(tok[:2])
+        if label not in seen:
+            seen.add(label); uniq.append(label)
+    return uniq[:4]
+
+
 # ---------------------------------------------------------------- update
 
 def cmd_update(args):
@@ -99,10 +168,10 @@ def audit_npm(d):
         elif isinstance(fa, dict):
             # Non-breaking fix exists. If an exact pin sits on the package that
             # needs bumping, that pin is what stopped `npm update` taking it.
-            cls = "pin_blocked" if pin else "fixable"
+            cls = "pin_blocked" if pin else "constrained"
             fix = f"{fa.get('name')}@{fa.get('version')}"
         else:
-            cls, fix = ("pin_blocked" if pin else "fixable"), "available"
+            cls, fix = ("pin_blocked" if pin else "constrained"), "available"
         titles = sorted({x.get("title") for x in (v.get("via") or [])
                          if isinstance(x, dict) and x.get("title")})
         findings.append({
@@ -124,28 +193,40 @@ def audit_cargo(d):
         toml = (ROOT / d / "Cargo.toml").read_text()
     except Exception:
         toml = ""
-    findings = []
+    findings, parents_cache = [], {}
     for item in ((data.get("vulnerabilities") or {}).get("list") or []):
         adv, pkg = item.get("advisory") or {}, item.get("package") or {}
         patched = (item.get("versions") or {}).get("patched") or []
         name, ver = pkg.get("name", "?"), pkg.get("version", "?")
-        # An exact `=x.y.z` requirement in Cargo.toml blocks `cargo update`.
+        severity, score = severity_from_advisory(adv)
+
         pinned = re.search(rf'^\s*{re.escape(name)}\s*=\s*"=\s*([^"]+)"', toml, re.M)
         same_major = any(p.lstrip("^>=~ ").split(".")[0] == ver.split(".")[0] for p in patched)
+
+        constrained_by = []
         if not patched:
             cls = "no_fix"
         elif pinned:
             cls = "pin_blocked"
         elif same_major:
-            cls = "fixable"
+            # A patched release exists in the same major, yet `cargo update` has
+            # already run and left this version in place — so a dependency
+            # requirement is holding it back. Name it rather than claiming the fix
+            # is simply "available but not taken".
+            key = (name, ver)
+            if key not in parents_cache:
+                parents_cache[key] = cargo_constrained_by(d, name, ver)
+            constrained_by = parents_cache[key]
+            cls = "constrained"
         else:
             cls = "major_needed"
+
         findings.append({
-            "package": name, "severity": (adv.get("severity") or "unknown"),
+            "package": name, "version": ver, "severity": severity, "score": score,
             "class": cls, "fix": ", ".join(patched) or None,
             "titles": [adv.get("title", "")][:1],
             "blocking_pin": pinned.group(1) if pinned else None,
-            "id": adv.get("id"),
+            "id": adv.get("id"), "constrained_by": constrained_by,
         })
     return {"error": None, "findings": findings}
 
@@ -166,6 +247,16 @@ def cmd_audit(args):
 
 
 # ---------------------------------------------------------------- report
+
+def _label(f):
+    """`crate 1.2.3` (RUSTSEC-xxxx, high 7.5) — enough to act on and to tell
+    two findings for the same crate apart."""
+    ver = f" `{f['version']}`" if f.get("version") else ""
+    bits = [b for b in (f.get("id"), f.get("severity")) if b]
+    if f.get("score") is not None:
+        bits[-1] = f"{f['severity']} {f['score']}"
+    return f"`{f['package']}`{ver}" + (f" ({', '.join(bits)})" if bits else "")
+
 
 SEV = ["critical", "high", "moderate", "medium", "low", "unknown", None]
 
@@ -203,8 +294,8 @@ def cmd_report(args):
             if b or a:
                 lines.append(f"| `{d or '.'}` ({eco}) | {b} | {a} |")
 
-    blocked, fixable, major, nofix, errors = [], [], [], [], []
-    buckets = {"pin_blocked": blocked, "fixable": fixable, "major_needed": major}
+    blocked, constrained, major, nofix, errors = [], [], [], [], []
+    buckets = {"pin_blocked": blocked, "constrained": constrained, "major_needed": major}
     for eco in ("cargo", "npm"):
         for d, r in sorted(after.get(eco, {}).items()):
             if r.get("error"):
@@ -219,24 +310,26 @@ def cmd_report(args):
                   "Relax the pin (e.g. `\"1.2.3\"` -> `\"^1.2.3\"`) so future runs pick it up.", ""]
         for d, eco, f in blocked:
             pin = f" (pinned at `{f['blocking_pin']}`)" if f.get("blocking_pin") else ""
-            lines.append(f"- **{f['severity']}** `{f['package']}` in `{d or '.'}`{pin} — fix: `{f['fix']}`")
+            lines.append(f"- {_label(f)} in `{d or '.'}`{pin} — fix: `{f['fix']}`")
             for t in f.get("titles", [])[:2]:
                 if t:
                     lines.append(f"  - {t}")
-    if fixable:
-        lines += ["", "### Fix available but not taken by the refresh", "",
-                  "A non-breaking patched release exists. No exact pin was found, so this is "
-                  "usually a transitive dependency its parent has not yet released a bump for.", ""]
-        for d, eco, f in fixable:
-            lines.append(f"- {f['severity']} `{f['package']}` in `{d or '.'}` — fix: `{f['fix']}`")
+    if constrained:
+        lines += ["", "### Held back by a dependency requirement", "",
+                  "A patched release exists, but the refresh already ran and could not move to "
+                  "it: a dependency pins the version shown. These are not fixable by updating — "
+                  "they need the named dependent to release a bump, or that dependent replaced.", ""]
+        for d, eco, f in constrained:
+            why = f" — held by {', '.join(f'`{x}`' for x in f['constrained_by'])}" if f.get("constrained_by") else ""
+            lines.append(f"- {_label(f)} in `{d or '.'}` -> needs `{f['fix']}`{why}")
     if major:
         lines += ["", "### Needs a major-version bump (human decision)", ""]
         for d, eco, f in major:
-            lines.append(f"- {f['severity']} `{f['package']}` in `{d or '.'}` — fix: `{f['fix']}`")
+            lines.append(f"- {_label(f)} in `{d or '.'}` — fix: `{f['fix']}`")
     if nofix:
         lines += ["", "### No upstream fix available (informational)", ""]
         for d, eco, f in nofix:
-            lines.append(f"- {f['severity']} `{f['package']}` in `{d or '.'}`")
+            lines.append(f"- {_label(f)} in `{d or '.'}`")
     if errors:
         lines += ["", "### Audit could not run", ""] + [f"- {e}" for e in errors]
 
@@ -248,7 +341,7 @@ def cmd_report(args):
     if args.github_output:
         with open(args.github_output, "a") as fh:
             fh.write(f"blocked_count={len(blocked)}\n")
-            fh.write(f"fixable_count={len(fixable)}\n")
+            fh.write(f"constrained_count={len(constrained)}\n")
             fh.write(f"vuln_total_before={sum(tb.values())}\n")
             fh.write(f"vuln_total_after={sum(ta.values())}\n")
     return 0

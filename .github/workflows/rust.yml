@@ -29,11 +29,21 @@ permissions:
   contents: write
   packages: write
 
+# Releases must not overlap: two runs racing here would compute the same next
+# version. Queue them per channel instead of cancelling, so no build is dropped.
+concurrency:
+  group: release-${{ inputs.channel || github.ref_name }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
   # On push/workflow_dispatch `inputs` is empty, so these fall back to the event.
   BUILD_REF: ${{ inputs.ref || github.sha }}
   CHANNEL: ${{ inputs.channel || github.ref_name }}
+  # Where the incremented release.json is pushed. On push/dispatch that is the
+  # branch that triggered the run; a caller passing `ref` must pass a BRANCH name
+  # (not a SHA) so the bump has somewhere to land.
+  VERSION_BRANCH: ${{ inputs.ref || github.ref_name }}
 
 jobs:
   # Build the server frontend once; all platform jobs download this artifact.
@@ -187,18 +197,71 @@ jobs:
           retention-days: 1
 
   # Create the GitHub release with all platform archives.
+  #
+  # release.json holds the LAST published version. Every release increments it,
+  # publishes the new version, and commits the bump back — so a version is never
+  # reused and no existing release can be overwritten.
   release:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.BUILD_REF }}
+          # A token that can push the release.json bump back.
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get version
+      - name: Determine next version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          sudo apt-get install -y jq
-          echo "VERSION=$(jq -r '.version' release.json)" >> $GITHUB_ENV
+          current=$(jq -r '.version' release.json)
+          core=${current#v}
+          if ! printf '%s' "$core" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::release.json version '$current' is not v<major>.<minor>.<patch>, so it cannot be incremented."
+            exit 1
+          fi
+          major=${core%%.*}; rest=${core#*.}; minor=${rest%%.*}; patch=${rest#*.}
+          case "$current" in v*) prefix=v ;; *) prefix= ;; esac
+          version="${prefix}${major}.${minor}.$((patch + 1))"
+
+          # main publishes the bare version; every other channel gets a suffix, so
+          # a prerelease from nightly can never collide with main's release even
+          # when the branches have diverged.
+          channel_slug=$(printf '%s' "$CHANNEL" | tr -c 'A-Za-z0-9' '-' | sed 's/-\+/-/g;s/^-//;s/-$//')
+          if [ "$CHANNEL" = "main" ]; then tag="$version"; else tag="$version-$channel_slug"; fi
+
+          # Refuse to touch anything already published.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::Release '$tag' already exists. Previous releases are never overwritten; bump release.json or check for a stuck run."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "::error::Tag '$tag' already exists. Previous releases are never overwritten."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Publishing $tag (release.json: $current -> $version)"
+
+      # Claim the version BEFORE publishing. If this push loses a race the job
+      # stops here and no release is created; if a later step fails we have only
+      # burned a version number, which is harmless.
+      - name: Record the new version in release.json
+        run: |
+          jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' release.json > release.json.new
+          mv release.json.new release.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- release.json
+          git commit -m "chore: release ${{ steps.version.outputs.tag }}"
+          git push origin "HEAD:refs/heads/$VERSION_BRANCH"
 
       - uses: actions/download-artifact@v8
         with:
@@ -210,18 +273,16 @@ jobs:
         run: ls -lh dist/
 
       # marvinpinto/action-automatic-releases was archived upstream in 2024 and is
-      # pinned to node12, so it cannot be brought onto node24 — replaced with the
-      # maintained equivalent. Inputs map directly (repo_token->token,
-      # automatic_release_tag->tag_name, title->name). One behavioural difference:
-      # this creates the tag when missing and updates the release when it already
-      # exists, but will NOT move an existing tag onto a new commit the way the old
-      # action did, which matters for a `bump: none` republish.
+      # pinned to node12, so it could not be brought onto node24 — this is the
+      # maintained equivalent. It would update an existing release in place, which
+      # is exactly what we must not do, so the version step above refuses to run
+      # when the tag or release already exists.
       - uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ env.VERSION }}
+          tag_name: ${{ steps.version.outputs.tag }}
           prerelease: ${{ env.CHANNEL != 'main' }}
-          name: Release ${{ env.VERSION }}
+          name: Release ${{ steps.version.outputs.tag }}
           files: dist/*.zip
 
   # Docker image — built from the Linux amd64 binary.
@@ -241,10 +302,10 @@ jobs:
       - name: Unzip Linux amd64 artifact
         run: unzip guard-linux-amd64.zip
 
+      # Taken from the release job rather than re-read from release.json, which by
+      # now is one commit ahead of the ref this job checked out.
       - name: Get version
-        run: |
-          sudo apt-get install -y jq
-          echo "VERSION=$(jq -r '.version' release.json)" >> $GITHUB_ENV
+        run: echo "VERSION=${{ needs.release.outputs.version }}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

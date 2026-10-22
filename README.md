@@ -11,7 +11,7 @@ export guard_config=$(cat ./example/email-config.toml) && ./guard-server
 ```
 
 # Why
-Before Guard, when I built apps, I had a Node.JS script handle [Subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/) requests from NGINX. As I deployed more apps, IF statements enforcing authentication policy became more complex, new authentication protocols needed to get integrated per-project, login pages needed new code and designs to support different projects - all of this creates potential security gaps and is overall a pain.
+Before Guard when I had a Node.JS script handle [Subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/) requests from NGINX. As I deployed more apps, IF statements enforcing authentication policy became more complex, new authentication protocols needed to get integrated per-project, login pages needed new code and designs to support different projects - all of this creates potential security gaps and is overall a pain.
 I built Guard to streamline this process and make it available for everyone.
 Also I'm concerned how a handful of companies like Microsoft, Google and Okta/Auth0 control large portions of the internet's authentication, including authentication to sensitive dashboards. If any of those services were breached, or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data), the internet's independence would be severely undermined.
 
@@ -19,7 +19,7 @@ Guard's core mission is being able to:
 - Run anywhere, including with or without a database.
 - Act as an authentication server for all major authentication protocols (OAuth, SAML, Kerberos)
 - Act as an app's authentication (e.g. library support in major programming languages, or reverse-proxying requests to an app's webserver to insert user information in request information)
-- Authenticate reverse proxies (e.g. [Guard + NGINX](#guard--nginx))
+- Authenticate reverse proxies (e.g. [Guard + NGINX](#integration-examples))
 
 # Example
 Guard allows you to create great, styled, authentication with a simple configuration.
@@ -37,7 +37,7 @@ header = "x-original-url"
 instance_hostname = "guard.example.com"
 alias = "ACME"
 public_description = "You're accessing sensitive information. Please login."
-image = "https://images.unsplash.com/photo-1565799557186-1abfed8a31e5?q=80&w=3087&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+image = "https://example.com/amazing-image.jpg"
 domain_placeholder="example.com"
 username_placeholder="username"
 
@@ -60,23 +60,23 @@ password_env="smtp_password"
 [authentication_methods.email]
 active = true
 method_type = "email"
-applied_policies = ["staff_only"]
 should_create_new_users = false
 
-[sql]
-users_table = "users"
-devices_table = "devices"
-magiclink_table = "magiclinks"
+[sql.tables]
+user = "users"
+device = "devices"
+magiclink = "magiclinks"
+bearer_token = "bearer_tokens"
 
 [policies.staff_only]
 active = true
 action = "allow"
 property = "email"
-ends_with = "@oracularhades.com"
+ends_with = "@staff.example.com"
 
 [hostname.sydney]
 active = true
-hostname = "sydney.example.com"
+host = "sydney.example.com"
 alias = "Sydney"
 authentication_methods = ["email"]
 multistep_authentication_methods = false
@@ -84,31 +84,233 @@ applied_policies = ["staff_only"]
 ```
 
 # Integration examples
-### Guard + NGINX:
+Guard has two integration models, controlled by `[features]`:
+
+| Model | Feature flag | How it works |
+| --- | --- | --- |
+| **Guard as the proxy** | `proxy = true` | Guard receives the request, authenticates it, then proxies to the app itself using the hostname's `proxy_to`. The app needs no published port and is never reachable directly. |
+| **Guard as an auth subrequest** | `reverse_proxy_authentication = true` | Your existing proxy asks Guard "is this request allowed?" once per request, then proxies to the app itself. Use this when something else must stay in front of the app. |
+
+The first is the stronger default: if the app is only reachable through Guard, a
+misconfigured proxy rule cannot expose it. Reach for the subrequest model when
+you already have a proxy that owns the routing.
+
+> Policies attach to a **hostname** (`[hostname.*].applied_policies`), not to an
+> authentication method. `AuthMethod` has no `applied_policies` field, and Guard
+> does not reject unknown config keys — so putting it under
+> `[authentication_methods.*]` is silently ignored and enforces nothing.
+
+### Guard + Docker (Guard as the proxy)
+Guard authenticates, then proxies to a Grafana container that publishes no ports
+at all — so the only route to Grafana is through Guard. `nginx` here only
+terminates TLS and hands both hostnames to Guard, which routes on `Host`.
+
+`docker-compose.yml`:
+```yaml
+services:
+  guard:
+    image: ghcr.io/lighthouse-search/guard:latest
+    expose:
+      - "8000/tcp"          # not `ports` — reachable only on the compose network
+    environment:
+      # Guard reads its whole config from this one env var (TOML).
+      guard_config: |
+        [features]
+        proxy = true
+
+        [frontend.metadata]
+        instance_hostname = "guard.example.com"
+
+        [authentication_methods.email]
+        active = true
+        method_type = "email"
+
+        [policies.staff_only]
+        active = true
+        action = "allow"
+        property = "email"
+        ends_with = "@staff.example.com"
+
+        [hostname.grafana]
+        active = true
+        host = "grafana.example.com"
+        alias = "Grafana"
+        authentication_methods = ["email"]
+        multistep_authentication_methods = false
+        applied_policies = ["staff_only"]
+        # Where Guard sends the request once the user is authorised. This is a
+        # compose service name, resolved on Guard's own network.
+        proxy_to = "http://grafana:3000"
+    networks: [internal]
+
+  grafana:
+    image: grafana/grafana:latest
+    expose:
+      - "3000/tcp"          # deliberately not published to the host
+    environment:
+      GF_SERVER_ROOT_URL: "https://grafana.example.com"
+    networks: [internal]
+
+networks:
+  internal:
 ```
+
+The TLS terminator in front. Both hostnames go to Guard — Grafana is never an
+upstream here, which is what keeps it off the internet:
+```nginx
+# Docker's embedded DNS, so upstreams resolve per request rather than at startup
+# (otherwise nginx fails to boot whenever Guard isn't up yet).
+resolver 127.0.0.11 valid=30s;
+
+server {
+    listen 443 ssl;
+    server_name guard.example.com grafana.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    location / {
+        # Guard picks the [hostname.*] block from Host, so it must survive the hop.
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+
+        # Grafana can import large dashboards; the nginx default is 1m.
+        client_max_body_size 50m;
+
+        # A variable forces per-request DNS resolution via the resolver above.
+        set $guard_upstream "http://guard:8000";
+        proxy_pass $guard_upstream;
+    }
+}
+```
+
+> Guard does not proxy WebSockets yet, so do not add the `Upgrade`/`Connection`
+> headers for a `proxy_to` app. Anything needing WebSockets (Grafana Live, for
+> example) will fail to upgrade rather than silently bypass the auth gate.
+
+### Guard + standard NGINX (auth subrequest)
+Set `reverse_proxy_authentication = true`. NGINX asks Guard about each request
+with `auth_request`, and proxies to the app itself on a 200:
+```nginx
+server {
+    listen 443 ssl;
+    server_name grafana.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    # Guard's authorisation subrequest. `internal` keeps it unreachable from outside.
+    location = /guard-auth {
+        internal;
+        proxy_pass              http://guard:8000/guard/api/proxy/authentication;
+        # A subrequest carries no body, and Guard only needs the cookies and Host.
+        proxy_pass_request_body off;
+        proxy_set_header        Content-Length "";
+        # Guard resolves which [hostname.*] applies from Host. proxy_pass would
+        # otherwise set it to the upstream name and no hostname would match.
+        proxy_set_header        Host $host;
+        proxy_set_header        X-Original-URI $request_uri;
+    }
+
+    location / {
+        auth_request /guard-auth;
+        # Guard answers 401 when the user is not authenticated or fails a policy.
+        error_page 401 = @guard_login;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_pass http://grafana:3000;
+    }
+
+    location @guard_login {
+        return 302 https://guard.example.com/guard/frontend/login?redirect=$scheme://$host$request_uri;
+    }
+}
+```
+
+Notes:
+- Guard registers every method (GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS) on
+  `/guard/api/proxy/authentication`, so it does not matter which method the
+  subrequest uses.
+- If you cannot preserve `Host`, send the full original URL instead and tell
+  Guard to read it from that header:
+  ```toml
+  [reverse_proxy_authentication.config]
+  header = "x-original-url"
+  ```
+  Guard accepts either a bare host or a full URL in that header.
+- Unlike the `proxy_to` model, the app is still directly reachable on the
+  network. Keep it on an internal network or bind it to localhost.
+
+### Guard + NGINX Ingress Controller (Kubernetes)
+> **The community `kubernetes/ingress-nginx` controller is retired.** Kubernetes
+> SIG Network halted maintenance in **March 2026**; the repository is archived and
+> read-only, and no further releases, bugfixes or CVE patches will be issued. Its
+> `nginx.ingress.kubernetes.io/auth-url` annotations no longer have a maintained
+> implementation. Migrate to F5's `nginxinc/kubernetes-ingress`, which is actively
+> maintained, or to the Gateway API.
+
+F5 NGINX Ingress Controller has no native external-auth annotation, so the
+`auth_request` wiring goes in snippets. `server-snippets` defines the internal
+auth location, `location-snippets` attaches it to the app route:
+```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  name: grafana
   annotations:
-    nginx.ingress.kubernetes.io/auth-method: POST
-    nginx.ingress.kubernetes.io/auth-url: http://guard-service.guard.svc.cluster.local/guard/api/proxy/authentication
-    nginx.ingress.kubernetes.io/error-page: https://guard.example.com/guard/frontend/access-denied
-    nginx.ingress.kubernetes.io/auth-signin: https://guard.example.com/guard/frontend/login?redirect=$scheme://$http_host$request_uri
+    nginx.org/server-snippets: |
+      location = /guard-auth {
+          internal;
+          proxy_pass              http://guard.guard.svc.cluster.local:8000/guard/api/proxy/authentication;
+          proxy_pass_request_body off;
+          proxy_set_header        Content-Length "";
+          proxy_set_header        Host $host;
+      }
+      location @guard_login {
+          return 302 https://guard.example.com/guard/frontend/login?redirect=$scheme://$host$request_uri;
+      }
+    nginx.org/location-snippets: |
+      auth_request /guard-auth;
+      error_page 401 = @guard_login;
 spec:
-    [..]
+  ingressClassName: nginx
+  rules:
+    - host: grafana.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
   tls:
-  - hosts:
-    - guard.example.com
-    secretName: guard-example-com-tls
+    - hosts:
+        - grafana.example.com
+      secretName: grafana-example-com-tls
 ```
 
-# Security
-Guard uses [hades-auth](https://github.com/oracularhades/hades-auth) static_auth (which is a signed JWT) stored in cookies and signed with a private key generated by the user's device. It's pratically impossible to bruteforce a signed JWT (which must match a valid deviceid), at least not without setting off alarm bells. This usage of JWTs, signed by the private keys only known to the client, is much more secure than session tokens.
+> Snippets are **disabled by default** on this controller: start it with
+> `-enable-snippets` (default `false`), or it will *reject* this Ingress outright
+> rather than ignore the annotations.
 
-*Note: Yes, [hades-auth](https://github.com/oracularhades/hades-auth) is all about completely signed requests, but that can't be done with Guard, because the static_auth key has to be stored in cookies.*
+Snippets are discouraged by F5 for anything long-lived. If you would rather not
+depend on them, the `proxy_to` model above works unchanged in Kubernetes — point
+an Ingress at Guard's Service, give Grafana a ClusterIP Service with no Ingress
+of its own, and let Guard do the routing. That also keeps Grafana unreachable
+except through Guard, which snippets-based `auth_request` does not.
+
 
 # Known issues
-If you run into an issue, please check https://github.com/oracularhades/guard/issues.
+If you run into an issue, please check https://github.com/lighthouse-search/guard/issues.
 
 # What's on the TODO list?
 Before beta:
@@ -116,7 +318,6 @@ Before beta:
 - Better error handling in requests.
 - Some syntax improvements.
 - Cleaning up where functions are stored and adding comments.
-- Set a header Guard should tell Rocket (the webserver Guard runs on) to treat as the IP, such as, x-real-ip.
 - Ability for Guard to be an app's authentication. Such as authenticating a user, and then proxying all requests, but adding a header identifying the user.
 - Implement HCaptcha.
 - Magiclink codes need to be hashed / encrypted in the DB.

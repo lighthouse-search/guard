@@ -40,13 +40,16 @@ jobs:
   build-frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.BUILD_REF }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Node 24: LTS through April 2028, and matches the node24 runtime the
+          # actions themselves now use. Node 20 reached EOL on 2026-04-30 and
+          # Node 22 is maintenance-only (EOL 2027-04-30).
+          node-version: 24
 
       - name: Build server frontend
         run: |
@@ -54,7 +57,7 @@ jobs:
           npm install
           npm run build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: server-frontend
           path: server/frontend/_static
@@ -90,7 +93,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.BUILD_REF }}
 
@@ -145,7 +148,7 @@ jobs:
 
       # Download the shared frontend artifact and package everything into a zip.
       - name: Download server frontend
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: server-frontend
           path: release/frontend/_static
@@ -177,7 +180,7 @@ jobs:
         run: Compress-Archive -Path release/* -DestinationPath ${{ matrix.artifact-name }}.zip
         shell: pwsh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
           path: ${{ matrix.artifact-name }}.zip
@@ -188,7 +191,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.BUILD_REF }}
 
@@ -197,7 +200,7 @@ jobs:
           sudo apt-get install -y jq
           echo "VERSION=$(jq -r '.version' release.json)" >> $GITHUB_ENV
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: guard-*
           merge-multiple: true
@@ -206,12 +209,19 @@ jobs:
       - name: List dist
         run: ls -lh dist/
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      # marvinpinto/action-automatic-releases was archived upstream in 2024 and is
+      # pinned to node12, so it cannot be brought onto node24 — replaced with the
+      # maintained equivalent. Inputs map directly (repo_token->token,
+      # automatic_release_tag->tag_name, title->name). One behavioural difference:
+      # this creates the tag when missing and updates the release when it already
+      # exists, but will NOT move an existing tag onto a new commit the way the old
+      # action did, which matters for a `bump: none` republish.
+      - uses: softprops/action-gh-release@v3
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "${{ env.VERSION }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ env.VERSION }}
           prerelease: ${{ env.CHANNEL != 'main' }}
-          title: Release ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
           files: dist/*.zip
 
   # Docker image — built from the Linux amd64 binary.
@@ -219,11 +229,11 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.BUILD_REF }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: guard-linux-amd64
           path: .
@@ -237,17 +247,17 @@ jobs:
           echo "VERSION=$(jq -r '.version' release.json)" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./server/Dockerfile

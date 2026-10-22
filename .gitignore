@@ -2,6 +2,8 @@ target
 _static
 node_modules
 .DS_Store
+__pycache__/
+*.py[cod]
 .github/workflows/mirror-to-gitlab.yml
 
 example/dev

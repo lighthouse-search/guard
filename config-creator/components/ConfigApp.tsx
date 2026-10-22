@@ -20,7 +20,9 @@ const DEFAULT_TOML = ``;
 
 interface GuardConfig {
   features?: {
-    request_proxy?: boolean;
+    // Guard's ConfigFeatures field is `proxy`; the old key here was only ever a
+    // Rust module name, and Guard ignores unknown keys, so proxying stayed off.
+    proxy?: boolean;
     reverse_proxy_authentication?: boolean;
     oauth_server?: boolean;
     tls?: boolean;
@@ -60,9 +62,15 @@ interface GuardConfig {
     reply_to_address?: string;
   };
   sql?: {
-    users_table?: string;
-    devices_table?: string;
-    magiclink_table?: string;
+    // Guard requires a [sql.tables] table and reads user/device/magiclink/
+    // bearer_token from it (ConfigSqlTables). main.rs hard-fails without it, so
+    // the old flat shape produced a config Guard refused to start on.
+    tables?: {
+      user?: string;
+      device?: string;
+      magiclink?: string;
+      bearer_token?: string;
+    };
   };
   authentication_methods?: Record<string, AuthMethodData>;
   policies?: Record<string, PolicyData>;
@@ -406,7 +414,7 @@ export default function ConfigApp() {
 
   // Create-dialog state
   const BLANK_POLICY: PolicyData = { active: true, action: "allow", property: "email" };
-  const BLANK_HOSTNAME: HostnameData = { active: true, hostname: "", authentication_methods: [], applied_policies: [], multistep_authentication_methods: false };
+  const BLANK_HOSTNAME: HostnameData = { active: true, host: "", authentication_methods: [], applied_policies: [], multistep_authentication_methods: false };
   const BLANK_METHOD: AuthMethodData = { active: true, method_type: "email", /* applied_policies: [], */ should_create_new_users: false };
 
   const [policyDialog, setPolicyDialog] = useState<{ open: boolean; id: string; data: PolicyData }>({ open: false, id: "", data: BLANK_POLICY });
@@ -728,11 +736,11 @@ export default function ConfigApp() {
             <FeatureToggle
               label="Proxy authentication"
               description="Guard will act as an authenticated reverse proxy before your application. E.g. grafana.example.com -> Guard Login -> Grafana."
-              checked={config.features?.request_proxy ?? false}
+              checked={config.features?.proxy ?? false}
               onChange={(v) =>
                 updateConfig({
                   ...config,
-                  features: { ...config.features, request_proxy: v },
+                  features: { ...config.features, proxy: v },
                 })
               }
             />
@@ -1006,20 +1014,20 @@ export default function ConfigApp() {
                 optional
                 header="Users"
                 placeholder="users"
-                value={config.sql?.users_table ?? ""}
+                value={config.sql?.tables?.user ?? ""}
                 onChange={(v: string) =>
-                  updateConfig({ ...config, sql: { ...config.sql, users_table: v } })
+                  updateConfig({ ...config, sql: { ...config.sql, tables: { ...config.sql?.tables, user: v } } })
                 }
               />
               <Input
                 optional
                 header="Devices"
                 placeholder="devices"
-                value={config.sql?.devices_table ?? ""}
+                value={config.sql?.tables?.device ?? ""}
                 onChange={(v: string) =>
                   updateConfig({
                     ...config,
-                    sql: { ...config.sql, devices_table: v },
+                    sql: { ...config.sql, tables: { ...config.sql?.tables, device: v } },
                   })
                 }
               />
@@ -1027,11 +1035,11 @@ export default function ConfigApp() {
                 optional
                 header="Magiclinks"
                 placeholder="magiclinks"
-                value={config.sql?.magiclink_table ?? ""}
+                value={config.sql?.tables?.magiclink ?? ""}
                 onChange={(v: string) =>
                   updateConfig({
                     ...config,
-                    sql: { ...config.sql, magiclink_table: v },
+                    sql: { ...config.sql, tables: { ...config.sql?.tables, magiclink: v } },
                   })
                 }
               />

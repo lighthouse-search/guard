@@ -1,4 +1,4 @@
-*Guard is a proof-of-concept and is not ready for production use. Please visit [The Roadmap](https://github.com/lighthouse-search/guard/projects) to see what's happening before beta*
+*Guard is a proof-of-concept and is not ready for production use. Please visit [The Roadmap](https://github.com/lighthouse-search/guard/projects) to see what's happening before beta*.
 
 # Why
 Writing and mantaining an authentication proxy for each project (e.g. grafana.example.com) is complex and exhausting. Solutions like Cloudflare Access and TailScale exist but you are deeply integrated into their networks while sacraficing administrative control. Guard aims to be a convinient and self-hostable solution to Identity Access Management, without managing your own complex authentication codebases.

@@ -12,6 +12,9 @@ name: Auto update
 # check alone would never notice it. Those appear in the run summary under
 # "Non-breaking security fixes being held back".
 #
+# Versioning is owned entirely by rust.yml: it increments release.json, publishes
+# that version, and commits the bump back. Nothing here touches release.json.
+#
 # Nothing is merged into the target branch until the full build in rust.yml
 # (compile + tests on every target, release, image push) has succeeded, so a
 # dependency bump that does not build can never land on main.
@@ -27,12 +30,6 @@ on:
         type: string
         required: false
         default: ""
-      bump:
-        description: "How to move release.json's version. 'none' republishes over the existing tag."
-        type: choice
-        required: false
-        default: patch
-        options: [patch, minor, none]
       force:
         description: "Build and release even when no dependency or base image changed."
         type: boolean
@@ -57,7 +54,6 @@ jobs:
     outputs:
       changed: ${{ steps.decide.outputs.changed }}
       sha: ${{ steps.commit.outputs.sha }}
-      version: ${{ steps.bump.outputs.version }}
       target: ${{ steps.setup.outputs.target }}
       staging: ${{ steps.setup.outputs.staging }}
     steps:
@@ -178,35 +174,6 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Bump version
-        id: bump
-        if: steps.decide.outputs.changed == 'true'
-        run: |
-          current=$(jq -r '.version' release.json)
-          bump="${{ inputs.bump || 'patch' }}"
-          new="$current"
-
-          if [ "$bump" != "none" ]; then
-            core=${current#v}
-            if ! printf '%s' "$core" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-              echo "::error::release.json version '$current' is not v<major>.<minor>.<patch>, so it cannot be bumped automatically. Re-run with bump=none."
-              exit 1
-            fi
-            major=${core%%.*}; rest=${core#*.}; minor=${rest%%.*}; patch=${rest#*.}
-            case "$bump" in
-              patch) patch=$((patch + 1)) ;;
-              minor) minor=$((minor + 1)); patch=0 ;;
-            esac
-            case "$current" in v*) prefix=v ;; *) prefix= ;; esac
-            new="${prefix}${major}.${minor}.${patch}"
-
-            jq --arg v "$new" '.version = $v' release.json > release.json.new
-            mv release.json.new release.json
-          fi
-
-          echo "version=$new" >> "$GITHUB_OUTPUT"
-          echo "Releasing $new (was $current)"
-
       - name: Push staging branch
         id: commit
         if: steps.decide.outputs.changed == 'true'
@@ -215,20 +182,20 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -- '*Cargo.lock' '*package-lock.json' 2>/dev/null || true
-          for f in .github/base-images.lock release.json; do
-            [ -e "$f" ] && git add -- "$f"
-          done
+          # release.json is deliberately absent: rust.yml owns the version and
+          # commits its own bump, so staging it here would double-bump.
+          [ -e .github/base-images.lock ] && git add -- .github/base-images.lock
 
           if git diff --cached --quiet; then
-            # Only reachable via force with nothing to change; release the
-            # target branch as-is.
-            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-            echo "No changes to commit; building ${{ steps.setup.outputs.target }} as-is."
-            exit 0
+            # Only reachable via force with nothing to change. The build checks the
+            # staging branch out by name, so it still has to exist — point it at the
+            # target's current HEAD and release that as-is.
+            echo "No changes to commit; releasing ${{ steps.setup.outputs.target }} as-is."
+          else
+            git commit -m "chore: auto-update dependencies" \
+                       -m "Refreshed by the Auto update workflow (run ${{ github.run_id }})."
           fi
 
-          git commit -m "chore: auto-update dependencies for ${{ steps.bump.outputs.version }}" \
-                     -m "Refreshed by the Auto update workflow (run ${{ github.run_id }})."
           git push origin "HEAD:refs/heads/${{ steps.setup.outputs.staging }}"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -240,7 +207,9 @@ jobs:
     if: needs.refresh.outputs.changed == 'true'
     uses: ./.github/workflows/rust.yml
     with:
-      ref: ${{ needs.refresh.outputs.sha }}
+      # A branch name, not a SHA: rust.yml commits the release.json increment
+      # back to this ref.
+      ref: ${{ needs.refresh.outputs.staging }}
       channel: ${{ needs.refresh.outputs.target }}
       fresh-base-image: true
 
@@ -256,8 +225,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET: ${{ needs.refresh.outputs.target }}
           STAGING: ${{ needs.refresh.outputs.staging }}
-          SHA: ${{ needs.refresh.outputs.sha }}
         run: |
+          # Not refresh's recorded SHA: the release job committed the release.json
+          # increment onto the staging branch, so promote the branch tip
+          # instead, or that bump would be lost and the next run would reuse the version.
+          SHA=$(gh api "repos/${{ github.repository }}/git/ref/heads/$STAGING" --jq '.object.sha')
           if gh api -X PATCH "repos/${{ github.repository }}/git/refs/heads/$TARGET" \
                -f sha="$SHA" >/dev/null 2>gh.err; then
             echo "$TARGET now points at $SHA."
@@ -269,8 +241,8 @@ jobs:
           cat gh.err
           echo "::warning::Could not fast-forward $TARGET (branch protection, or it moved during the run). Opening a pull request instead."
           url=$(gh pr create --base "$TARGET" --head "$STAGING" \
-            --title "chore: auto-update dependencies for ${{ needs.refresh.outputs.version }}" \
-            --body "Automated dependency and base-image refresh. The full build, tests, release and container image for \`${{ needs.refresh.outputs.version }}\` already passed on this commit in [run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).")
+            --title "chore: auto-update dependencies" \
+            --body "Automated dependency and base-image refresh. The full build, tests, release and container image already passed on this commit in [run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).")
           echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
 
   # Build failed or was cancelled: drop the staging branch so it does not pile up.

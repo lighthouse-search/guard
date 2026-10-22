@@ -198,9 +198,19 @@ jobs:
 
   # Create the GitHub release with all platform archives.
   #
-  # release.json holds the LAST published version. Every release increments it,
-  # publishes the new version, and commits the bump back — so a version is never
-  # reused and no existing release can be overwritten.
+  # release.json holds the last version published FROM MAIN, and only main ever
+  # writes it. A main release increments it, publishes that version, and commits
+  # the bump back.
+  #
+  # Every other channel publishes a prerelease of the upcoming version and does
+  # NOT touch release.json — e.g. with the file at v0.1.4, nightly tags
+  # v0.1.5-nightly.<run id>. That is deliberate: when both branches incremented
+  # the same file they produced different values whenever one released more often
+  # than the other, so release.json conflicted on every merge. Only one writer
+  # means there is nothing to conflict.
+  #
+  # Versions are still never reused: main's tag is guarded below, and a
+  # prerelease carries the run id, which is unique per run across the repo.
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -229,11 +239,18 @@ jobs:
           case "$current" in v*) prefix=v ;; *) prefix= ;; esac
           version="${prefix}${major}.${minor}.$((patch + 1))"
 
-          # main publishes the bare version; every other channel gets a suffix, so
-          # a prerelease from nightly can never collide with main's release even
-          # when the branches have diverged.
+          # main publishes the bare version. Everything else publishes a semver
+          # PRERELEASE of it — "$version-nightly.<run id>" sorts before $version,
+          # which is correct for work heading toward that release. run_id (not
+          # run_number) because it is unique across the whole repo: run_number is
+          # per workflow, so a push-triggered run and a scheduled run could reach
+          # the same number and collide.
           channel_slug=$(printf '%s' "$CHANNEL" | tr -c 'A-Za-z0-9' '-' | sed 's/-\+/-/g;s/^-//;s/-$//')
-          if [ "$CHANNEL" = "main" ]; then tag="$version"; else tag="$version-$channel_slug"; fi
+          if [ "$CHANNEL" = "main" ]; then
+            tag="$version"
+          else
+            tag="$version-$channel_slug.${{ github.run_id }}"
+          fi
 
           # Refuse to touch anything already published.
           if gh release view "$tag" >/dev/null 2>&1; then
@@ -247,12 +264,19 @@ jobs:
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "Publishing $tag (release.json: $current -> $version)"
+          if [ "$CHANNEL" = "main" ]; then
+            echo "Publishing $tag (release.json: $current -> $version)"
+          else
+            echo "Publishing prerelease $tag (release.json stays at $current; only main writes it)"
+          fi
 
-      # Claim the version BEFORE publishing. If this push loses a race the job
-      # stops here and no release is created; if a later step fails we have only
-      # burned a version number, which is harmless.
+      # main only. Claim the version BEFORE publishing: if this push loses a race
+      # the job stops here and no release is created, and if a later step fails we
+      # have only burned a version number, which is harmless. Other channels skip
+      # this entirely — they never write release.json, which is what keeps it
+      # conflict-free across merges.
       - name: Record the new version in release.json
+        if: env.CHANNEL == 'main'
         run: |
           jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' release.json > release.json.new
           mv release.json.new release.json

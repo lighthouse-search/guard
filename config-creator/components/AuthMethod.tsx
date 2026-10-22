@@ -10,7 +10,10 @@ export function generateClientSecretEnvVar(id: string): string {
 export interface AuthMethodData {
   active?: boolean;
   method_type?: "email" | "oauth";
-  applied_policies?: string[];
+  // applied_policies is NOT a Guard AuthMethod field (commented out in
+  // server/src/structs.rs). Guard ignores unknown config keys, so emitting it here
+  // produced a line that silently enforced nothing. Policies apply per hostname.
+  // applied_policies?: string[];
   should_create_new_users?: boolean;
   alias?: string;
   icon?: string;

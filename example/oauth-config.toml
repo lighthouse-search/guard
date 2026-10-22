@@ -15,7 +15,10 @@ acess_denied_header=""
 [authentication_methods.microsoft_entra]
 active = true
 method_type = "oauth"
-applied_policies = ["staff_only"]
+# applied_policies is not read for an authentication method — AuthMethod has no such
+# field (see server/src/structs.rs) and Guard does not reject unknown config keys, so
+# this silently enforced nothing. Policies apply per hostname: [hostname.*].applied_policies.
+# applied_policies = ["staff_only"]
 login_page = "https://login.microsoftonline.com/[YOUR LOGIN URL]"
 alias = "Microsoft"
 icon = "https://www.microsoft.com/favicon.ico?v2"

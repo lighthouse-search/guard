@@ -219,7 +219,8 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       method_type: "oauth",
       alias: "Sign in with Microsoft",
       should_create_new_users: false,
-      applied_policies: [],
+      // applied_policies is not a Guard AuthMethod field; see AuthMethodData.
+      // applied_policies: [],
       oauth_client_token_endpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token",
       oauth_client_user_info: "https://graph.microsoft.com/v1.0/me",
     },
@@ -235,7 +236,8 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       method_type: "oauth",
       alias: "Sign in with Google",
       should_create_new_users: false,
-      applied_policies: [],
+      // applied_policies is not a Guard AuthMethod field; see AuthMethodData.
+      // applied_policies: [],
       oauth_client_token_endpoint: "https://oauth2.googleapis.com/token",
       oauth_client_user_info: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
@@ -251,7 +253,8 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       method_type: "oauth",
       alias: "Sign in with GitHub",
       should_create_new_users: false,
-      applied_policies: [],
+      // applied_policies is not a Guard AuthMethod field; see AuthMethodData.
+      // applied_policies: [],
       oauth_client_token_endpoint: "https://github.com/login/oauth/access_token",
       oauth_client_user_info: "https://api.github.com/user",
     },
@@ -267,7 +270,8 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       method_type: "oauth",
       alias: "Sign in",
       should_create_new_users: false,
-      applied_policies: [],
+      // applied_policies is not a Guard AuthMethod field; see AuthMethodData.
+      // applied_policies: [],
       oauth_client_token_endpoint: "",
       oauth_client_user_info: "",
     },
@@ -282,7 +286,8 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       active: true,
       method_type: "email",
       should_create_new_users: false,
-      applied_policies: [],
+      // applied_policies is not a Guard AuthMethod field; see AuthMethodData.
+      // applied_policies: [],
     },
   },
 ];
@@ -402,7 +407,7 @@ export default function ConfigApp() {
   // Create-dialog state
   const BLANK_POLICY: PolicyData = { active: true, action: "allow", property: "email" };
   const BLANK_HOSTNAME: HostnameData = { active: true, hostname: "", authentication_methods: [], applied_policies: [], multistep_authentication_methods: false };
-  const BLANK_METHOD: AuthMethodData = { active: true, method_type: "email", applied_policies: [], should_create_new_users: false };
+  const BLANK_METHOD: AuthMethodData = { active: true, method_type: "email", /* applied_policies: [], */ should_create_new_users: false };
 
   const [policyDialog, setPolicyDialog] = useState<{ open: boolean; id: string; data: PolicyData }>({ open: false, id: "", data: BLANK_POLICY });
   const [hostnameDialog, setHostnameDialog] = useState<{ open: boolean; id: string; data: HostnameData }>({ open: false, id: "", data: BLANK_HOSTNAME });

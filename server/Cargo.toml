@@ -46,3 +46,27 @@ tower-http = { version = "0.6", features = ["fs", "cors"] }
 tower = { version = "0.5", features = ["util"] }
 futures-util = "0.3"
 hyper-util = { version = "0.1", features = ["client-legacy"] }
+
+# Only pulled in by the `vendored` feature below; never used from our code.
+# Declaring it is the way to turn on `vendored` for the openssl-sys that
+# mysqlclient-src links against.
+openssl-sys = { version = "0.9", optional = true }
+
+[features]
+# Compile libmysqlclient (and the OpenSSL it needs) from source rather than
+# linking whatever is installed on the build machine.
+#
+# The published macOS and Windows binaries are built with this, because they are
+# downloaded and run directly: they must not require a MySQL client library on
+# the user's machine, and for Windows arm64 there is no prebuilt one to link
+# against anyway.
+#
+# It is a feature rather than a target `cfg` so that local development on macOS
+# keeps linking the system libmysqlclient (`brew install mysql-client`) — the
+# vendored path needs cmake and compiles MySQL and OpenSSL from scratch, which
+# is not something you want on every `cargo build`.
+#
+# Linux releases deliberately do NOT use this: the container image installs
+# libmysqlclient21 from apt, so security updates arrive with the base image
+# rather than needing a Guard rebuild.
+vendored = ["mysqlclient-sys/bundled", "dep:openssl-sys", "openssl-sys/vendored"]

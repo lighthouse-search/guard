@@ -73,32 +73,52 @@ jobs:
           path: web/_static
           retention-days: 1
 
+  # Which platforms this run builds.
+  #
+  # Linux is always built: it is what the container image and most deployments
+  # use, and the docker job below depends on it. macOS and Windows are built for
+  # main only — they need dedicated runners (Windows arm64 a comparatively new
+  # image), and they compile libmysqlclient and OpenSSL from source, so they cost
+  # far more than the Linux jobs. That is worth spending on a release and not on
+  # every nightly push.
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - name: Pick build targets
+        id: pick
+        run: |
+          # vendored: build with the `vendored` cargo feature, which compiles
+          # libmysqlclient and OpenSSL from source, so the published binary needs
+          # neither installed on the user's machine. Linux links the distro
+          # package instead — that is what the container image installs, so its
+          # security updates arrive with the base image.
+          always='[
+            {"os":"ubuntu-latest","target":"x86_64-unknown-linux-gnu","artifact-name":"guard-linux-amd64","use-cross":false,"vendored":false},
+            {"os":"ubuntu-latest","target":"aarch64-unknown-linux-gnu","artifact-name":"guard-linux-arm64","use-cross":true,"vendored":false}
+          ]'
+          main_only='[
+            {"os":"macos-latest","target":"aarch64-apple-darwin","artifact-name":"guard-darwin-arm64","use-cross":false,"vendored":true},
+            {"os":"windows-latest","target":"x86_64-pc-windows-msvc","artifact-name":"guard-windows-amd64","use-cross":false,"vendored":true},
+            {"os":"windows-11-arm","target":"aarch64-pc-windows-msvc","artifact-name":"guard-windows-arm64","use-cross":false,"vendored":true}
+          ]'
+
+          if [ "$CHANNEL" = "main" ]; then
+            matrix=$(jq -cn --argjson a "$always" --argjson b "$main_only" '{include: ($a + $b)}')
+          else
+            matrix=$(jq -cn --argjson a "$always" '{include: $a}')
+          fi
+
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Channel '$CHANNEL' builds: $(printf '%s' "$matrix" | jq -r '[.include[]."artifact-name"] | join(", ")')"
+
   # Build Rust binaries for each target platform.
   build:
-    needs: build-frontend
+    needs: [build-frontend, targets]
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact-name: guard-linux-amd64
-            use-cross: false
-
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact-name: guard-linux-arm64
-            use-cross: true
-
-          # - os: macos-latest
-          #   target: aarch64-apple-darwin
-          #   artifact-name: guard-darwin-arm64
-          #   use-cross: false
-
-          # - os: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   artifact-name: guard-windows-amd64
-          #   use-cross: false
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
 
     runs-on: ${{ matrix.os }}
 
@@ -112,7 +132,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Linux native (amd64) — system MySQL client + OpenSSL
+      # Linux native (amd64) — link the distro libmysqlclient. libssl-dev is for
+      # that library's own linkage, not for Rust: nothing in the Linux dependency
+      # tree uses openssl-sys (lettre and reqwest are both rustls).
       - name: Install system dependencies (Linux native)
         if: matrix.os == 'ubuntu-latest' && !matrix.use-cross
         run: sudo apt-get update -y && sudo apt-get install -y default-libmysqlclient-dev pkg-config libssl-dev
@@ -124,22 +146,45 @@ jobs:
         with:
           tool: cross
 
-      # macOS — MySQL client via Homebrew
-      - name: Install system dependencies (macOS)
-        if: runner.os == 'macOS'
+      # `--features vendored` compiles libmysqlclient and OpenSSL from source
+      # rather than linking whatever the runner happens to have: these artifacts
+      # are downloaded and run directly, so they must not require a MySQL client
+      # or an OpenSSL on the user's machine. That needs cmake (MySQL) and perl
+      # (OpenSSL); Windows additionally wants nasm for OpenSSL's assembly.
+      #
+      # All three ship on the hosted images today, so this normally just prints
+      # versions. It installs rather than assumes because a missing tool here is
+      # otherwise a confusing failure deep inside a build script.
+      - name: Ensure native build tools
+        if: matrix.vendored
+        shell: bash
         run: |
-          brew install mysql-client pkg-config
-          echo "PKG_CONFIG_PATH=$(brew --prefix mysql-client)/lib/pkgconfig" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=$(brew --prefix mysql-client)/lib" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=$(brew --prefix mysql-client)/lib" >> $GITHUB_ENV
+          missing=""
+          command -v cmake >/dev/null 2>&1 || missing="$missing cmake"
+          command -v perl  >/dev/null 2>&1 || missing="$missing perl"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            command -v nasm >/dev/null 2>&1 || missing="$missing nasm"
+          fi
 
-      # Windows — MySQL 8.0 and OpenSSL are pre-installed on windows-latest runners
-      - name: Install system dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          echo "MYSQLCLIENT_LIB_DIR=C:/Program Files/MySQL/MySQL Server 8.0/lib" >> $env:GITHUB_ENV
-          echo "MYSQLCLIENT_VERSION=8.0" >> $env:GITHUB_ENV
-          echo "OPENSSL_DIR=C:/Program Files/OpenSSL" >> $env:GITHUB_ENV
+          if [ -n "$missing" ]; then
+            echo "Installing:$missing"
+            case "${{ runner.os }}" in
+              macOS)
+                brew install $missing
+                ;;
+              Windows)
+                for tool in $missing; do
+                  case "$tool" in
+                    cmake) choco install cmake --no-progress -y --installargs 'ADD_CMAKE_TO_PATH=System' ;;
+                    perl)  choco install strawberryperl --no-progress -y ;;
+                    nasm)  choco install nasm --no-progress -y ;;
+                  esac
+                done
+                # choco's PATH edits do not reach the current shell.
+                printf '%s\n' 'C:\Program Files\CMake\bin' 'C:\Strawberry\perl\bin' 'C:\Program Files\NASM' >> "$GITHUB_PATH"
+                ;;
+            esac
+          fi
 
       - name: Build (cross)
         if: matrix.use-cross
@@ -148,12 +193,12 @@ jobs:
 
       - name: Build (cargo)
         if: '!matrix.use-cross'
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} ${{ matrix.vendored && '--features vendored' || '' }}
         working-directory: server
 
       - name: Run tests (native only)
         if: '!matrix.use-cross'
-        run: cargo test --release --target ${{ matrix.target }}
+        run: cargo test --release --target ${{ matrix.target }} ${{ matrix.vendored && '--features vendored' || '' }}
         working-directory: server
 
       # Download the shared frontend artifact and package everything into a zip.
@@ -180,9 +225,14 @@ jobs:
         shell: bash
         run: cp server/target/${{ matrix.target }}/release/guard-server.exe release/guard-server.exe
 
+      # `cd release` first so the archive holds guard-server, frontend/ and
+      # example/ at its root. Zipping `release/` instead would nest everything
+      # one level down, which is both inconsistent with the Windows archive
+      # below (Compress-Archive takes the contents) and with the layout the
+      # makefile produces and the README documents.
       - name: Create archive (Unix)
         if: runner.os != 'Windows'
-        run: zip -r ${{ matrix.artifact-name }}.zip release/
+        run: cd release && zip -r ../${{ matrix.artifact-name }}.zip .
         shell: bash
 
       - name: Create archive (Windows)

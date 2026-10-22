@@ -1,14 +1,56 @@
 *Guard is in alpha release, please visit [TODO](#whats-on-the-todo-list) to see what's happening before beta*
 
 # Quickstart
-## Windows
-Windows is supported, binaries are not immediately available. Please email hi@oracularhades.com
+Grab the archive for your platform from the [latest release](https://github.com/lighthouse-search/guard/releases/latest):
 
-## MacOS / Linux
-Download [guard.zip](https://github.com/lighthouse-search/guard/releases/download/latest/guard.zip) and unzip it.
+| Platform | Asset |
+| --- | --- |
+| Linux x86-64 | [`guard-linux-amd64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-linux-amd64.zip) |
+| Linux arm64 | [`guard-linux-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-linux-arm64.zip) |
+| macOS (Apple silicon) | [`guard-darwin-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-darwin-arm64.zip) |
+| Windows x86-64 | [`guard-windows-amd64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-windows-amd64.zip) |
+| Windows arm64 | [`guard-windows-arm64.zip`](https://github.com/lighthouse-search/guard/releases/latest/download/guard-windows-arm64.zip) |
+
+Each archive unzips to a `guard-server` binary alongside `frontend/` (the login
+pages) and `example/` (starter configs). Keep them together — the server reads
+the frontend from beside the binary.
+
+`guard_config` takes the **contents** of a config file, not a path to one.
+
+## Linux / macOS
+```sh
+unzip guard-linux-amd64.zip -d guard && cd guard
+export guard_config=$(cat ./example/email-config.toml)
+./guard-server
 ```
-export guard_config=$(cat ./example/email-config.toml) && ./guard-server
+
+## Windows
+```powershell
+Expand-Archive guard-windows-amd64.zip -DestinationPath guard; cd guard
+$env:guard_config = Get-Content -Raw .\example\email-config.toml
+.\guard-server.exe
 ```
+
+Guard listens on port 8000; pass `--port <n>` to change it.
+
+`email-config.toml` expects a MySQL database and an SMTP server. Fill in the
+`[YOUR ...]` placeholders first — note that `password_env` holds the *name* of
+an environment variable, not the password itself, so Guard never needs the
+secret written into the config:
+```sh
+export smtp_password='...'   # [smtp].password_env is already set to this name
+```
+To build a config of your own, use the [Config Creator](https://lighthouse-search.github.io/guard)
+or start from one of the [`example/`](example/) files. For a local development
+setup, see [docs/development.md](docs/development.md).
+
+## Docker
+```sh
+docker run -p 8000:8000 -e guard_config="$(cat ./example/email-config.toml)" ghcr.io/lighthouse-search/guard:latest
+```
+`:latest` tracks releases from `main`; `:nightly-latest` tracks the nightly
+branch. See [Guard + Docker](#guard--docker-guard-as-the-proxy) for a compose
+setup where Guard authenticates and proxies to another container.
 
 # Why
 Before Guard when I had a Node.JS script handle [Subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/) requests from NGINX. As I deployed more apps, IF statements enforcing authentication policy became more complex, new authentication protocols needed to get integrated per-project, login pages needed new code and designs to support different projects - all of this creates potential security gaps and is overall a pain.

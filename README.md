@@ -1,5 +1,18 @@
 *Guard is in alpha release, please visit [TODO](#whats-on-the-todo-list) to see what's happening before beta*
 
+# Why
+Writing and mantaining an authentication proxy for each project (e.g. grafana.example.com) is complex and exhausting. Solutions like Cloudflare Access and TailScale exist but you are deeply integrated into their networks while sacraficing administrative control. Guard aims to be a convinient and self-hostable solution to Identity Access Management, without managing your own complex authentication codebases.
+
+I'm concerned Microsoft, Google and Okta/Auth0 control large portions of authentication to sensitive infrastructure. If any of those services were breached or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data), the internet's independence would be severely undermined for the rest of us.
+
+If anything, this is a proof of concept and something I needed to build regardless. I became sick of mantaining a hardcoded NGINX Subrequest responder codebase for each project.
+
+Guard's core mission is:
+- Run anywhere, including with or without a database.
+- Act as an authentication server for all major authentication protocols (OAuth, SAML, Kerberos)
+- Act as an app's authentication. Either via library support in major programming languages or proxying requests to an application.
+- Authenticate reverse proxies (e.g. [Guard + NGINX](#integration-examples))
+
 # Quickstart
 Grab the archive for your platform from the [latest release](https://github.com/lighthouse-search/guard/releases/latest):
 
@@ -51,17 +64,6 @@ docker run -p 8000:8000 -e guard_config="$(cat ./example/email-config.toml)" ghc
 `:latest` tracks releases from `main`; `:nightly-latest` tracks the nightly
 branch. See [Guard + Docker](#guard--docker-guard-as-the-proxy) for a compose
 setup where Guard authenticates and proxies to another container.
-
-# Why
-Before Guard when I had a Node.JS script handle [Subrequest authentication](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/) requests from NGINX. As I deployed more apps, IF statements enforcing authentication policy became more complex, new authentication protocols needed to get integrated per-project, login pages needed new code and designs to support different projects - all of this creates potential security gaps and is overall a pain.
-I built Guard to streamline this process and make it available for everyone.
-Also I'm concerned how a handful of companies like Microsoft, Google and Okta/Auth0 control large portions of the internet's authentication, including authentication to sensitive dashboards. If any of those services were breached, or used for [surveillance](https://www.theguardian.com/world/2013/jun/06/us-tech-giants-nsa-data), the internet's independence would be severely undermined.
-
-Guard's core mission is being able to:
-- Run anywhere, including with or without a database.
-- Act as an authentication server for all major authentication protocols (OAuth, SAML, Kerberos)
-- Act as an app's authentication (e.g. library support in major programming languages, or reverse-proxying requests to an app's webserver to insert user information in request information)
-- Authenticate reverse proxies (e.g. [Guard + NGINX](#integration-examples))
 
 # Example
 Guard allows you to create great, styled, authentication with a simple configuration.

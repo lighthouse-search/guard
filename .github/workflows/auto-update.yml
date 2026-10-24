@@ -12,8 +12,9 @@ name: Auto update
 # check alone would never notice it. Those appear in the run summary under
 # "Non-breaking security fixes being held back".
 #
-# Versioning is owned entirely by rust.yml: it increments release.json, publishes
-# that version, and commits the bump back. Nothing here touches release.json.
+# Versioning is owned entirely by rust.yml, which derives the next version from
+# the release tags and publishes it. Nothing is committed back, so nothing here
+# needs to account for a version bump.
 #
 # Nothing is merged into the target branch until the full build in rust.yml
 # (compile + tests on every target, release, image push) has succeeded, so a
@@ -186,8 +187,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -- '*Cargo.lock' '*package-lock.json' 2>/dev/null || true
-          # release.json is deliberately absent: rust.yml owns the version and
-          # commits its own bump, so staging it here would double-bump.
+          # release.json is deliberately absent: it is no longer a versioning
+          # input at all — rust.yml derives the version from the release tags.
           [ -e .github/base-images.lock ] && git add -- .github/base-images.lock
 
           if git diff --cached --quiet; then
@@ -211,8 +212,6 @@ jobs:
     if: needs.refresh.outputs.changed == 'true'
     uses: ./.github/workflows/rust.yml
     with:
-      # A branch name, not a SHA: rust.yml commits the release.json increment
-      # back to this ref.
       ref: ${{ needs.refresh.outputs.staging }}
       channel: ${{ needs.refresh.outputs.target }}
       fresh-base-image: true
@@ -231,10 +230,9 @@ jobs:
           STAGING: ${{ needs.refresh.outputs.staging }}
         run: |
           # Promote the staging branch's current tip rather than the SHA refresh
-          # recorded, so anything the build added on top comes with it. Only a
-          # main-targeted run adds a commit (the release.json bump); nightly runs
-          # never write release.json, so for those the tip equals the recorded SHA
-          # and this is a no-op.
+          # recorded. The build no longer adds commits — versioning comes from
+          # tags — so in practice the tip equals the recorded SHA; reading it
+          # back keeps this correct if that ever changes again.
           SHA=$(gh api "repos/${{ github.repository }}/git/ref/heads/$STAGING" --jq '.object.sha')
           if gh api -X PATCH "repos/${{ github.repository }}/git/refs/heads/$TARGET" \
                -f sha="$SHA" >/dev/null 2>gh.err; then

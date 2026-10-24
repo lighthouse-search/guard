@@ -79,7 +79,40 @@ pub struct ConfigWireguard {
     // connected peer cannot resolve anything but Guard's own hostnames.
     pub dns_upstream: Option<Vec<String>>,
     // Port the tunnel resolver listens on. Defaults to 53.
-    pub dns_port: Option<u16>
+    pub dns_port: Option<u16>,
+    // Downstream WireGuard instances Guard routes through, keyed by name.
+    // Each one puts the networks behind it within Guard's reach, so a
+    // [hostname.*] proxy_to pointing into them resolves and connects.
+    pub site: Option<HashMap<String, ConfigWireguardSite>>
+}
+
+// A downstream WireGuard peer with networks behind it — a home or branch
+// instance Guard chains through.
+//
+// Unlike a device peer (one /32, dialled in), a site peer carries whole
+// subnets and may sit behind NAT, dialling out to Guard and holding the tunnel
+// open with a keepalive.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ConfigWireguardSite {
+    #[serde(default = "default_true")]
+    pub active: bool,
+    // The site's WireGuard public key.
+    pub public_key: Option<String>,
+    // Networks reachable behind this site, e.g. ["10.0.1.0/24"]. These become
+    // the peer's AllowedIPs, so they must not overlap peer_subnet or another
+    // site: WireGuard routes by longest-prefix match across peers and the same
+    // range cannot belong to two of them.
+    pub subnets: Option<Vec<String>>,
+    // Where to reach the site, if it has a stable address. Omit when the site
+    // dials out to Guard (the usual case behind NAT).
+    pub endpoint: Option<String>,
+    // Seconds between keepalives. Needed when the site is behind NAT so the
+    // mapping stays open. Defaults to 25 when `endpoint` is unset.
+    pub persistent_keepalive: Option<u32>
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

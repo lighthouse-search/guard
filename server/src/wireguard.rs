@@ -28,7 +28,7 @@ use tokio::process::Command;
 
 use crate::device::{device_clear_wireguard, device_list_wireguard_peers, device_list_wireguard_registered};
 use crate::policy::{policy_authentication, resolve_policies};
-use crate::structs::{ConfigWireguard, GuardDevices};
+use crate::structs::{ConfigWireguard, ConfigWireguardSite, GuardDevices};
 use crate::users::user_get;
 use crate::CONFIG_VALUE;
 
@@ -41,6 +41,13 @@ const DEFAULT_LISTEN_PORT: u16 = 51820;
 /// How often every registered peer is re-checked against policy, when
 /// `[wireguard].reevaluation_interval_secs` is unset.
 const DEFAULT_REEVALUATION_INTERVAL_SECS: u64 = 60;
+
+/// Keepalive for a site peer with no fixed `endpoint`. Such a site is behind
+/// NAT and dials out, so something has to hold the mapping open.
+const DEFAULT_SITE_KEEPALIVE_SECS: u32 = 25;
+
+/// A site is considered down after this many missed keepalive intervals.
+const SITE_HANDSHAKE_GRACE_INTERVALS: u64 = 3;
 
 /// The [wireguard] config, or an error if the feature isn't configured.
 pub fn config() -> Result<ConfigWireguard, String> {
@@ -57,6 +64,95 @@ pub fn server_public_key() -> Option<String> {
         .get()
         .cloned()
         .or_else(|| CONFIG_VALUE.wireguard.clone().and_then(|wg| wg.server_public_key))
+}
+
+/// A downstream WireGuard instance Guard chains through, resolved from config.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SitePeer {
+    pub name: String,
+    pub public_key: String,
+    /// Networks behind this site. Become the peer's `AllowedIPs`, which is what
+    /// gives Guard a route into them.
+    pub subnets: Vec<String>,
+    pub endpoint: Option<String>,
+    pub persistent_keepalive: Option<u32>,
+}
+
+impl SitePeer {
+    /// Keepalive to write. A site with no fixed endpoint dialled out to reach
+    /// Guard and is almost certainly behind NAT, so it needs one whether or not
+    /// the operator thought to set it.
+    fn keepalive(&self) -> Option<u32> {
+        match (self.persistent_keepalive, &self.endpoint) {
+            (Some(explicit), _) => Some(explicit),
+            (None, None) => Some(DEFAULT_SITE_KEEPALIVE_SECS),
+            (None, Some(_)) => None,
+        }
+    }
+}
+
+/// Active, well-formed site peers from `[wireguard.site.*]`.
+///
+/// Malformed entries are skipped with a warning rather than failing: startup
+/// validation already rejects them, so reaching here means config changed
+/// underneath us, and dropping one site should not take the others down.
+pub fn sites() -> Vec<SitePeer> {
+    let configured = match CONFIG_VALUE.wireguard.clone().and_then(|wg| wg.site) {
+        Some(sites) => sites,
+        None => return Vec::new(),
+    };
+
+    let mut sites: Vec<SitePeer> = configured
+        .into_iter()
+        .filter(|(_, site)| site.active)
+        .filter_map(|(name, site)| match resolve_site(&name, &site) {
+            Ok(site) => Some(site),
+            Err(error) => {
+                log::warn!("Ignoring [wireguard.site.{}]: {}", name, error);
+                None
+            }
+        })
+        .collect();
+
+    // Config comes from a HashMap, so fix an order — otherwise the generated
+    // conf churns between restarts for no reason.
+    sites.sort_by(|a, b| a.name.cmp(&b.name));
+    sites
+}
+
+fn resolve_site(name: &str, site: &ConfigWireguardSite) -> Result<SitePeer, String> {
+    let public_key = site
+        .public_key
+        .clone()
+        .filter(|key| key.trim().is_empty() == false)
+        .ok_or_else(|| "public_key is required.".to_string())?;
+    validate_wireguard_key(&public_key)?;
+
+    let subnets = site.subnets.clone().unwrap_or_default();
+    if subnets.is_empty() {
+        return Err("subnets is required — without it the site has nothing behind it to route to.".to_string());
+    }
+    for subnet in &subnets {
+        parse_cidr(subnet).map_err(|error| format!("subnet '{}' is invalid: {}", subnet, error))?;
+    }
+
+    Ok(SitePeer {
+        name: name.to_string(),
+        public_key: public_key.trim().to_string(),
+        subnets,
+        endpoint: site.endpoint.clone().filter(|value| value.trim().is_empty() == false),
+        persistent_keepalive: site.persistent_keepalive,
+    })
+}
+
+/// A WireGuard key is base64 over exactly 32 bytes. Rejecting anything else
+/// keeps junk from ever reaching `wg`.
+fn validate_wireguard_key(key: &str) -> Result<(), String> {
+    use base64::{engine::general_purpose, Engine as _};
+    match general_purpose::STANDARD.decode(key.trim()) {
+        Ok(bytes) if bytes.len() == 32 => Ok(()),
+        _ => Err(format!("'{}' is not a valid WireGuard key (base64, 32 bytes).", key)),
+    }
 }
 
 /// The policy ids a device's user must satisfy to hold a WireGuard registration.
@@ -317,6 +413,32 @@ pub async fn apply_peer(interface: &str, public_key: &str, allowed_ip: &str) -> 
     run("wg", &["set", interface, "peer", public_key, "allowed-ips", &format!("{}/32", allowed_ip)]).await
 }
 
+/// Add (or update) a site peer on the live interface: whole subnets rather
+/// than a single tunnel address, optionally with a fixed endpoint and a
+/// keepalive to hold a NAT mapping open.
+pub async fn apply_site_peer(interface: &str, site: &SitePeer) -> Result<(), String> {
+    let allowed_ips = site.subnets.join(",");
+    let mut args: Vec<String> = vec![
+        "set".to_string(),
+        interface.to_string(),
+        "peer".to_string(),
+        site.public_key.clone(),
+        "allowed-ips".to_string(),
+        allowed_ips,
+    ];
+    if let Some(endpoint) = &site.endpoint {
+        args.push("endpoint".to_string());
+        args.push(endpoint.clone());
+    }
+    if let Some(keepalive) = site.keepalive() {
+        args.push("persistent-keepalive".to_string());
+        args.push(keepalive.to_string());
+    }
+
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    run("wg", &args).await
+}
+
 /// Remove a peer from the live interface. Idempotent at the `wg` level: removing
 /// a peer that isn't present succeeds.
 pub async fn remove_peer(interface: &str, public_key: &str) -> Result<(), String> {
@@ -353,19 +475,27 @@ pub async fn reconcile() -> Result<(), String> {
     let interface = interface_name(&wg)?;
 
     let desired = device_list_wireguard_peers().await.map_err(|error| format!("Failed to list WireGuard peers: {}", error))?;
+    // Sites come from config rather than the database, but they are every bit
+    // as "desired" — leaving them out here would have reconcile tear down the
+    // very peers that give Guard its routes.
+    let sites = sites();
 
-    // Remove anything live that the database no longer authorises, before adding
-    // new peers — so a revoked key cannot stay up because a later add failed.
-    let desired_keys: HashSet<String> = desired.iter().map(|(public_key, _)| public_key.clone()).collect();
+    // Remove anything live that is no longer authorised, before adding new
+    // peers — so a revoked key cannot stay up because a later add failed.
+    let mut desired_keys: HashSet<String> = desired.iter().map(|(public_key, _)| public_key.clone()).collect();
+    desired_keys.extend(sites.iter().map(|site| site.public_key.clone()));
     for public_key in live_peers(&interface).await? {
         if desired_keys.contains(&public_key) == false {
-            log::info!("Removing WireGuard peer no longer present in the database.");
+            log::info!("Removing WireGuard peer no longer present in the database or config.");
             remove_peer(&interface, &public_key).await?;
         }
     }
 
     for (public_key, ip) in &desired {
         apply_peer(&interface, public_key, ip).await?;
+    }
+    for site in &sites {
+        apply_site_peer(&interface, site).await?;
     }
 
     write_conf(&wg, &interface, &desired)?;
@@ -381,21 +511,47 @@ fn write_conf(wg: &ConfigWireguard, interface: &str, peers: &[(String, String)])
     let listen_port = wg.listen_port.unwrap_or(DEFAULT_LISTEN_PORT);
     let prefix = subnet_prefix(&peer_subnet)?;
 
-    let conf = build_conf(&private_key, &server_address, prefix, listen_port, peers);
+    let conf = build_conf(&private_key, &server_address, prefix, listen_port, peers, &sites());
     write_private_file(&conf_path(interface), &conf)
 }
 
 /// Build a wg-quick interface config from the server key + peers.
-fn build_conf(private_key: &str, server_address: &str, prefix: u32, listen_port: u16, peers: &[(String, String)]) -> String {
+fn build_conf(
+    private_key: &str,
+    server_address: &str,
+    prefix: u32,
+    listen_port: u16,
+    peers: &[(String, String)],
+    sites: &[SitePeer],
+) -> String {
     let mut conf = String::from("[Interface]\n");
     conf.push_str(&format!("PrivateKey = {}\n", private_key));
     conf.push_str(&format!("Address = {}/{}\n", server_address, prefix));
     conf.push_str(&format!("ListenPort = {}\n", listen_port));
+
+    // Device peers: one tunnel address each.
     for (public_key, ip) in peers {
         conf.push_str("\n[Peer]\n");
         conf.push_str(&format!("PublicKey = {}\n", public_key));
         conf.push_str(&format!("AllowedIPs = {}/32\n", ip));
     }
+
+    // Site peers: whole networks behind them. The AllowedIPs here is what
+    // gives Guard a route into those networks, so a proxy_to pointing at one
+    // resolves and connects.
+    for site in sites {
+        conf.push_str(&format!("\n# site: {}\n", site.name));
+        conf.push_str("[Peer]\n");
+        conf.push_str(&format!("PublicKey = {}\n", site.public_key));
+        conf.push_str(&format!("AllowedIPs = {}\n", site.subnets.join(", ")));
+        if let Some(endpoint) = &site.endpoint {
+            conf.push_str(&format!("Endpoint = {}\n", endpoint));
+        }
+        if let Some(keepalive) = site.keepalive() {
+            conf.push_str(&format!("PersistentKeepalive = {}\n", keepalive));
+        }
+    }
+
     conf
 }
 
@@ -619,6 +775,7 @@ pub fn spawn_revocation_loop() {
                 Ok(revoked) => log::info!("WireGuard revocation pass removed {} peer(s).", revoked),
                 Err(error) => log::error!("WireGuard revocation pass failed: {}", error),
             }
+            report_unhealthy_sites().await;
         }
     });
 
@@ -800,17 +957,296 @@ mod tests {
         assert_eq!(allowed, Some("10.8.0.0/24".to_string()));
     }
 
+    fn site(name: &str, subnets: &[&str], endpoint: Option<&str>, keepalive: Option<u32>) -> SitePeer {
+        SitePeer {
+            name: name.to_string(),
+            public_key: format!("{}-key", name),
+            subnets: subnets.iter().map(|s| s.to_string()).collect(),
+            endpoint: endpoint.map(str::to_string),
+            persistent_keepalive: keepalive,
+        }
+    }
+
+    #[test]
+    fn a_site_without_an_endpoint_gets_a_default_keepalive() {
+        // It dialled out to reach Guard, so it is behind NAT and something has
+        // to hold the mapping open.
+        assert_eq!(site("home", &["10.0.1.0/24"], None, None).keepalive(), Some(DEFAULT_SITE_KEEPALIVE_SECS));
+    }
+
+    #[test]
+    fn a_site_with_a_fixed_endpoint_gets_no_implicit_keepalive() {
+        assert_eq!(site("dc", &["10.0.2.0/24"], Some("dc.example.com:51820"), None).keepalive(), None);
+    }
+
+    #[test]
+    fn an_explicit_keepalive_always_wins() {
+        assert_eq!(site("dc", &["10.0.2.0/24"], Some("dc.example.com:51820"), Some(10)).keepalive(), Some(10));
+        assert_eq!(site("home", &["10.0.1.0/24"], None, Some(5)).keepalive(), Some(5));
+    }
+
+    #[test]
+    fn conf_emits_site_peers_with_their_subnets() {
+        let sites = vec![
+            site("home", &["10.0.1.0/24", "10.0.2.0/24"], None, None),
+            site("dc", &["10.0.3.0/24"], Some("dc.example.com:51820"), Some(15)),
+        ];
+        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &[], &sites);
+
+        assert!(conf.contains("AllowedIPs = 10.0.1.0/24, 10.0.2.0/24"), "{}", conf);
+        assert!(conf.contains("PublicKey = home-key"), "{}", conf);
+        assert!(conf.contains("PersistentKeepalive = 25"), "{}", conf);
+        assert!(conf.contains("Endpoint = dc.example.com:51820"), "{}", conf);
+        assert!(conf.contains("PersistentKeepalive = 15"), "{}", conf);
+    }
+
+    #[test]
+    fn overlapping_cidrs_are_detected() {
+        assert!(cidrs_overlap("10.0.1.0/24", "10.0.1.0/24"));
+        // One contained in the other, in both directions.
+        assert!(cidrs_overlap("10.0.0.0/16", "10.0.1.0/24"));
+        assert!(cidrs_overlap("10.0.1.0/24", "10.0.0.0/16"));
+        assert!(cidrs_overlap("0.0.0.0/0", "10.0.1.0/24"));
+    }
+
+    #[test]
+    fn disjoint_cidrs_do_not_overlap() {
+        assert!(cidrs_overlap("10.0.1.0/24", "10.0.2.0/24") == false);
+        assert!(cidrs_overlap("10.8.0.0/24", "10.0.1.0/24") == false);
+        assert!(cidrs_overlap("192.168.1.0/24", "10.0.0.0/8") == false);
+    }
+
+    #[test]
+    fn a_site_needs_a_valid_key_and_at_least_one_subnet() {
+        let valid_key = {
+            use base64::{engine::general_purpose, Engine as _};
+            general_purpose::STANDARD.encode([7u8; 32])
+        };
+
+        let missing_subnets = ConfigWireguardSite {
+            active: true,
+            public_key: Some(valid_key.clone()),
+            subnets: None,
+            ..Default::default()
+        };
+        assert!(resolve_site("home", &missing_subnets).is_err());
+
+        let bad_key = ConfigWireguardSite {
+            active: true,
+            public_key: Some("not-a-key".to_string()),
+            subnets: Some(vec!["10.0.1.0/24".to_string()]),
+            ..Default::default()
+        };
+        assert!(resolve_site("home", &bad_key).is_err());
+
+        let good = ConfigWireguardSite {
+            active: true,
+            public_key: Some(valid_key),
+            subnets: Some(vec!["10.0.1.0/24".to_string()]),
+            ..Default::default()
+        };
+        assert!(resolve_site("home", &good).is_ok());
+    }
+
+    #[test]
+    fn a_site_subnet_that_is_not_a_cidr_is_rejected() {
+        use base64::{engine::general_purpose, Engine as _};
+        let site = ConfigWireguardSite {
+            active: true,
+            public_key: Some(general_purpose::STANDARD.encode([7u8; 32])),
+            subnets: Some(vec!["10.0.1.5".to_string()]),
+            ..Default::default()
+        };
+        assert!(resolve_site("home", &site).is_err());
+    }
+
     #[test]
     fn conf_lists_every_peer_as_a_slash_32() {
         let peers = vec![
             ("key-one".to_string(), "10.8.0.2".to_string()),
             ("key-two".to_string(), "10.8.0.3".to_string()),
         ];
-        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &peers);
+        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &peers, &[]);
         assert!(conf.contains("Address = 10.8.0.1/24"));
         assert!(conf.contains("ListenPort = 51820"));
         assert!(conf.contains("PublicKey = key-one"));
         assert!(conf.contains("AllowedIPs = 10.8.0.2/32"));
         assert!(conf.contains("AllowedIPs = 10.8.0.3/32"));
+    }
+}
+
+
+/// Whether each configured site has handshaked recently enough to be considered
+/// up, keyed by site name.
+///
+/// A site peer behind NAT keeps the tunnel alive with periodic handshakes, so a
+/// stale timestamp is the earliest signal that the far end is gone. Knowing
+/// this lets Guard fail fast instead of hanging on a TCP connect into a network
+/// that is not currently reachable.
+pub async fn site_health() -> Result<Vec<(String, bool)>, String> {
+    let wg = config()?;
+    let interface = interface_name(&wg)?;
+    let handshakes = latest_handshakes(&interface).await?;
+    let now = crate::global::get_epoch();
+
+    Ok(sites()
+        .into_iter()
+        .map(|site| {
+            let grace = i64::from(site.keepalive().unwrap_or(DEFAULT_SITE_KEEPALIVE_SECS))
+                * SITE_HANDSHAKE_GRACE_INTERVALS as i64;
+            let healthy = match handshakes.get(&site.public_key) {
+                // `wg` reports 0 for a peer that has never completed a
+                // handshake, which is "never up", not "up a long time ago".
+                Some(0) | None => false,
+                Some(last) => now.saturating_sub(*last) <= grace,
+            };
+            (site.name, healthy)
+        })
+        .collect())
+}
+
+/// `wg show <iface> latest-handshakes` — public key to unix timestamp.
+async fn latest_handshakes(interface: &str) -> Result<std::collections::HashMap<String, i64>, String> {
+    let output = Command::new("wg")
+        .args(["show", interface, "latest-handshakes"])
+        .output()
+        .await
+        .map_err(|error| format!("Failed to run 'wg show {} latest-handshakes': {}", interface, error))?;
+    if output.status.success() == false {
+        return Err(format!(
+            "'wg show {} latest-handshakes' failed: {}",
+            interface,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let key = parts.next()?;
+            let timestamp = parts.next()?.parse::<i64>().ok()?;
+            Some((key.to_string(), timestamp))
+        })
+        .collect())
+}
+
+/// Reject site configurations WireGuard itself could not honour, or that would
+/// silently break address allocation.
+///
+/// `AllowedIPs` must be unique across the peers of an interface — WireGuard
+/// routes by longest-prefix match, so the same range cannot belong to two
+/// peers. An overlap with `peer_subnet` is worse still: it would collide with
+/// the addresses Guard hands out to devices.
+pub fn validate_site_config() -> Result<(), String> {
+    let wg = match CONFIG_VALUE.wireguard.clone() {
+        Some(wg) => wg,
+        None => return Ok(()),
+    };
+
+    let configured = match wg.site.clone() {
+        Some(sites) => sites,
+        None => return Ok(()),
+    };
+
+    let mut problems: Vec<String> = Vec::new();
+    let mut resolved: Vec<SitePeer> = Vec::new();
+
+    let mut names: Vec<String> = configured.keys().cloned().collect();
+    names.sort();
+    for name in names {
+        let site = &configured[&name];
+        if site.active == false {
+            continue;
+        }
+        match resolve_site(&name, site) {
+            Ok(site) => resolved.push(site),
+            Err(error) => problems.push(format!("  [wireguard.site.{}]: {}", name, error)),
+        }
+    }
+
+    // A site must not claim the range devices are allocated from.
+    if let Some(peer_subnet) = wg.peer_subnet.clone() {
+        for site in &resolved {
+            for subnet in &site.subnets {
+                if cidrs_overlap(subnet, &peer_subnet) {
+                    problems.push(format!(
+                        "  [wireguard.site.{}] subnet '{}' overlaps [wireguard].peer_subnet '{}'; device \
+                         addresses are allocated from that range",
+                        site.name, subnet, peer_subnet
+                    ));
+                }
+            }
+        }
+    }
+
+    // Nor may two sites claim the same range.
+    for (index, site) in resolved.iter().enumerate() {
+        for other in resolved.iter().skip(index + 1) {
+            for subnet in &site.subnets {
+                for other_subnet in &other.subnets {
+                    if cidrs_overlap(subnet, other_subnet) {
+                        problems.push(format!(
+                            "  [wireguard.site.{}] subnet '{}' overlaps [wireguard.site.{}] subnet '{}'; \
+                             WireGuard cannot route the same range to two peers",
+                            site.name, subnet, other.name, other_subnet
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    if problems.is_empty() {
+        return Ok(());
+    }
+    problems.sort();
+    problems.dedup();
+    Err(format!("The WireGuard site configuration is not usable:\n{}", problems.join("\n")))
+}
+
+/// Do two IPv4 CIDRs share any address? True when either contains the other's
+/// network address, which for CIDRs is equivalent to overlapping.
+fn cidrs_overlap(left: &str, right: &str) -> bool {
+    let (left_base, left_prefix) = match parse_cidr(left) {
+        Ok(parsed) => parsed,
+        Err(_) => return false,
+    };
+    let (right_base, right_prefix) = match parse_cidr(right) {
+        Ok(parsed) => parsed,
+        Err(_) => return false,
+    };
+
+    // Compare on the shorter (less specific) prefix: if the networks match
+    // there, one range contains the other.
+    let prefix = left_prefix.min(right_prefix);
+    let mask: u32 = if prefix == 0 { 0 } else { u32::MAX << (32 - prefix) };
+    (left_base & mask) == (right_base & mask)
+}
+
+
+/// Log sites that have stopped handshaking.
+///
+/// Without this a downed site is invisible until something tries to reach
+/// through it and hangs on a connect timeout, which looks like an application
+/// fault rather than a tunnel that is gone.
+async fn report_unhealthy_sites() {
+    let health = match site_health().await {
+        Ok(health) => health,
+        // Only reachable when `wg` itself is unavailable, which the interface
+        // startup path already reports.
+        Err(error) => {
+            log::debug!("Could not read WireGuard site health: {}", error);
+            return;
+        }
+    };
+
+    for (name, healthy) in health {
+        if healthy == false {
+            log::warn!(
+                "WireGuard site '{}' has not handshaked recently; anything behind it is unreachable.",
+                name
+            );
+        }
     }
 }

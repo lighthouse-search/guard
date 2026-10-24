@@ -155,6 +155,7 @@ async fn main() {
     for result in [
         crate::policy::validate_policy_references(),
         crate::wireguard::validate_hostname_config(),
+        crate::wireguard::validate_site_config(),
     ] {
         if let Err(error) = result {
             log::error!("{}", error);

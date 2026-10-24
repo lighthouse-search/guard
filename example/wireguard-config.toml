@@ -118,6 +118,36 @@ reevaluation_interval_secs = 60
 # pushing new client config. Uncomment only to override, e.g. for a full tunnel:
 # allowed_ips = "0.0.0.0/0"
 
+# --- Chaining through a downstream WireGuard instance ---
+# A site is a WireGuard peer with whole networks behind it, rather than a
+# single device. Declaring one gives Guard a route into those networks, so a
+# [hostname.*] proxy_to pointing at them resolves and connects:
+#
+#   client -> Guard/WireGuard (this VPS) -> home -> Home Assistant
+#
+# No IP forwarding or NAT is involved: Guard dials the backend itself, so the
+# packet originates here and is ordinary outbound routing.
+#
+# The home end is a plain WireGuard config with Guard as its peer and
+# AllowedIPs = <peer_subnet>. It is behind NAT, so it dials out and Guard
+# learns its address from the handshake — hence no `endpoint` here.
+[wireguard.site.home]
+active = true
+# Must be a real WireGuard key (base64, 32 bytes) — Guard refuses to start
+# otherwise. Get it with `wg pubkey < privatekey` on the home instance.
+public_key = "UkVQTEFDRS1USElTLVdJVEgtVEhFLVJFQUwtS0VZISE="
+subnets = ["10.0.1.0/24"]
+# Defaults to 25 when no endpoint is set, since the site must hold the NAT
+# mapping open itself.
+persistent_keepalive = 25
+
+# A site with a stable address Guard can dial directly.
+# [wireguard.site.datacentre]
+# active = true
+# public_key = "UkVQTEFDRS1USElTLVdJVEgtVEhFLVJFQUwtS0VZISE="
+# subnets = ["10.0.3.0/24"]
+# endpoint = "dc.example.com:51820"
+
 # A normal hostname: reachable publicly and over the tunnel.
 [hostname.grafana]
 active = true
@@ -130,6 +160,9 @@ applied_policies = ["staff_only"]
 # Tunnel-only: no public surface at all. Guard returns 404 to public requests
 # and hides the hostname from the public metadata endpoint, so its existence is
 # not enumerable from the internet.
+#
+# proxy_to points into [wireguard.site.home]'s subnet, so reaching this chains
+# client -> Guard -> home -> Home Assistant.
 [hostname.homeassistant]
 active = true
 host = "ha.example.com"

@@ -1,7 +1,7 @@
 # WireGuard: policy-enforced access to non-HTTPS protocols
 
-Status: **Phases 0–3 implemented** (minus tunnel identity, noted below). Phases 4–7
-are still plan.
+Status: **Phases 0–3 and 5 implemented** (minus tunnel identity, noted below).
+Phases 4, 6 and 7 are still plan.
 
 ## Goal
 
@@ -284,7 +284,7 @@ Postgres and IPP all work through the same code.
 **Done when:** `ssh nas.internal` and mounting an SMB share both work over the tunnel for
 a permitted device and are refused for a non-permitted one.
 
-## Phase 5 — Site peers and chaining
+## Phase 5 — Site peers and chaining — DONE
 
 - Extend `build_conf` with a site peer type: multi-CIDR `AllowedIPs`, optional `Endpoint`,
   `PersistentKeepalive`.
@@ -294,8 +294,9 @@ a permitted device and are refused for a non-permitted one.
   subnets = ["10.0.1.0/24"]
   persistent_keepalive = 25          # it dials out; it's behind NAT
   ```
-- `allocate_ip` currently assumes every peer is a `/32` host inside `peer_subnet`; it must
-  not hand out addresses that collide with site subnets.
+- `allocate_ip` assumes every peer is a `/32` host inside `peer_subnet`. Rather than
+  teach it about site subnets, `validate_site_config` rejects any overlap between a site
+  and `peer_subnet` at startup, which makes a collision impossible by construction.
 - Guard reaching `10.0.1.20` is then plain outbound routing over `wg0` — no forwarding, no
   NAT, because the connection originates from Guard.
 - **Health gating.** Parse `wg show <iface> latest-handshakes`; mark a site down if it
@@ -310,8 +311,10 @@ site preference per device/user. GeoIP from the peer's real endpoint is a later
 refinement; measured latency is not worth it, since Guard can observe VPS↔site RTT but not
 client↔site, which is the number that matters on a chained path.
 
-**Done when:** a Home Assistant instance behind a home WireGuard peer is reachable from a
-tunnel client, and a downed site fails fast.
+**Done:** a Home Assistant instance behind a home WireGuard peer is reachable from a
+tunnel client. A downed site is detected and logged each re-evaluation pass; using that
+to fail a *request* fast (rather than waiting on a connect timeout) needs the
+`proxy_to` → site mapping, which arrives naturally with the Phase 4 endpoint model.
 
 ## Phase 6 — DNS-SD
 

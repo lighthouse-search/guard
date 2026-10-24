@@ -417,6 +417,45 @@ is never granted because a config section was forgotten.
   but non-HTTP services (SSH, SMB, printing) need the service-IP proxy described
   in [`docs/wireguard.md`](docs/wireguard.md), which is not built yet.
 
+### Chaining to other networks
+A *site* is a WireGuard peer with whole networks behind it rather than a single
+device. Declaring one gives Guard a route into those networks, so a
+`[hostname.*]` whose `proxy_to` points into them resolves and connects:
+
+```
+client -> Guard/WireGuard (VPS) -> home -> Home Assistant
+```
+
+```toml
+[wireguard.site.home]
+active = true
+public_key = "<the home instance's public key>"
+subnets = ["10.0.1.0/24"]
+persistent_keepalive = 25      # it dials out; it's behind NAT
+
+[hostname.homeassistant]
+active = true
+host = "ha.example.com"
+proxy_to = "https://10.0.1.5:8123"   # inside the home site's subnet
+wireguard_only = true
+authentication_methods = ["email"]
+multistep_authentication_methods = false
+applied_policies = ["staff_only"]
+```
+
+No IP forwarding or NAT is involved. Guard dials the backend itself, so the
+packet originates on the Guard host and is ordinary outbound routing — and the
+device never gets a route to the home network, only to Guard.
+
+The home end is a plain WireGuard config with Guard as its peer and
+`AllowedIPs = <peer_subnet>`. Omit `endpoint` on a site that is behind NAT:
+it dials out and Guard learns its address from the handshake.
+
+`subnets` become the peer's `AllowedIPs`, which WireGuard requires to be unique
+across an interface — the same range cannot belong to two peers. Guard refuses
+to start if two sites overlap, or if a site overlaps `peer_subnet`. Sites that
+stop handshaking are logged as unreachable each re-evaluation pass.
+
 ### Tunnel DNS
 Guard runs a resolver on its tunnel address and answers authoritatively for
 every active `[hostname.*]`, so a peer asking for `ha.example.com` reaches Guard

@@ -176,7 +176,10 @@ must never be the only barrier, which is what the structural check above provide
   tunnel-derived user. Returns `None` on anything unexpected so the request falls back to
   interactive login rather than failing. The device's enrolled authentication method must
   still be one the hostname accepts, so the tunnel cannot route around a hostname's
-  configuration. `tunnel_identity = false` disables it.
+  configuration. `tunnel_identity` defaults to **false** and is opt-in: unlike `wireguard_only` and the
+  service proxy, which use the source address to *refuse*, this uses it to *grant*, so the
+  same arrival-detection mistake is an authentication bypass rather than a service staying
+  publicly reachable. It should not arrive as a side effect of configuring WireGuard.
 - **`wireguard_only = true` on `[hostname.*]`.** Checked in `http_handler` immediately
   after `get_current_valid_hostname`, before authentication. Return **404, not 403** — a
   403 confirms to an internet scanner that the hostname is a real Guard-protected service.

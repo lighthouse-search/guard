@@ -413,28 +413,35 @@ is never granted because a config section was forgotten.
 - Clients receive the same `AllowedIPs` (`peer_subnet` + `service_subnet`)
   regardless of what they may reach, so access changes never require pushing new
   client config. Peer-to-peer traffic is not forwarded.
-- Requests over the tunnel are authenticated by their source address, so tunnel
-  users do not see a login page (`tunnel_identity = false` to disable). Policies
-  still apply — this replaces proving who you are, not whether you are allowed.
+- Tunnel users see the login page unless you opt in to `tunnel_identity`
+  (below), which is off by default.
 
-### Tunnel identity
+### Tunnel identity (opt-in, off by default)
 A request arriving over the tunnel already carries a proven device identity in
 its source address: WireGuard only ever emits a given tunnel address from the
-peer holding the matching private key. Guard uses that instead of a cookie, so
-tunnel users skip the login page entirely.
+peer holding the matching private key. With `tunnel_identity = true` Guard uses
+that instead of a cookie, so tunnel users skip the login page entirely.
 
-What this does **not** skip:
+```toml
+[wireguard]
+tunnel_identity = true     # default false
+```
+
+**Why this one is opt-in when the others are not.** Everything else Guard does
+with the source address is a *restriction*: `wireguard_only` refuses a request,
+a service proxy refuses a connection. If arrival detection were wrong there, the
+failure is that a hostname stays publicly reachable — and it still demands a
+login. `tunnel_identity` is a *grant*, so the same mistake is an authentication
+bypass. It should not arrive as a side effect of configuring WireGuard, and the
+`rp_filter` requirement above matters far more once it is on.
+
+What it does **not** skip:
 
 - **Policies.** The device's user is still evaluated against the hostname's
   `applied_policies`, exactly as an interactive login would be.
 - **The hostname's accepted authentication methods.** A device enrolled with a
   method the hostname does not list falls back to logging in, so the tunnel is
   not a way around a hostname's configuration.
-
-Set `tunnel_identity = false` to keep requiring an interactive login over the
-tunnel — worth doing if that login carries a second factor you do not want
-bypassed. This rests on the same source-address integrity as `wireguard_only`,
-so the `rp_filter` requirement above applies here too.
 
 ### Non-HTTP services (SSH, SMB, printing, databases)
 A `[hostname.*]` is addressed by its Host header and goes through Guard's HTTP

@@ -86,9 +86,16 @@ pub struct ConfigWireguard {
     // the address is a cryptographically attested device identity.
     //
     // Policies still apply — this replaces proving *who you are*, not the check
-    // of whether you are allowed. Defaults to true. Set false to keep requiring
-    // an interactive login over the tunnel (for example when the login step
-    // carries a second factor you do not want skipped).
+    // of whether you are allowed.
+    //
+    // DEFAULTS TO FALSE, and is opt-in deliberately. Everything else Guard does
+    // with the source address is a *restriction*: wireguard_only refuses a
+    // request, and a service proxy refuses a connection. Getting those wrong
+    // fails towards "you still have to log in". This one is a *grant* — getting
+    // it wrong is an authentication bypass — so it should not arrive as a side
+    // effect of configuring WireGuard. Turn it on once you are satisfied that
+    // arrival detection holds on your host (see wireguard::arrival_from, and
+    // enable rp_filter).
     pub tunnel_identity: Option<bool>,
     // Services reachable over the tunnel that are not addressed by a Host
     // header — SSH, SMB, printing, databases. Each gets its own address from

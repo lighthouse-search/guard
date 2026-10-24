@@ -239,7 +239,10 @@ fn source_ip(remote_addr: &str) -> Option<IpAddr> {
 // back to normal authentication rather than failing.
 async fn tunnel_identity(hostname: &GuardedHostname, remote_addr: &str) -> Option<ProtocolDecisionToPipelineOutput> {
     let wireguard = CONFIG_VALUE.wireguard.clone()?;
-    if wireguard.tunnel_identity.unwrap_or(true) == false {
+    // Opt-in. Unlike wireguard_only and the service proxy, which use the source
+    // address to *refuse*, this uses it to *grant* — so it is off unless the
+    // operator has decided arrival detection is trustworthy on their host.
+    if wireguard.tunnel_identity.unwrap_or(false) == false {
         return None;
     }
 

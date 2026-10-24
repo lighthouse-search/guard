@@ -17,6 +17,7 @@ mod authentication_misc;
 mod hostname;
 mod wireguard;
 mod dns;
+mod service_proxy;
 
 pub mod endpoints {
     pub mod auth;
@@ -156,6 +157,7 @@ async fn main() {
         crate::policy::validate_policy_references(),
         crate::wireguard::validate_hostname_config(),
         crate::wireguard::validate_site_config(),
+        crate::wireguard::validate_service_config(),
     ] {
         if let Err(error) = result {
             log::error!("{}", error);
@@ -213,6 +215,12 @@ async fn start_web() {
             if let Err(error) = crate::dns::spawn(&wg).await {
                 log::error!("Could not start the tunnel DNS resolver: {}", error);
             }
+        }
+
+        // Listeners for non-HTTP services. Each binds a service address, so
+        // these also depend on the interface being up.
+        if let Err(error) = crate::service_proxy::spawn().await {
+            log::error!("Could not start the tunnel service listeners: {}", error);
         }
     }
 

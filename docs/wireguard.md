@@ -1,7 +1,7 @@
 # WireGuard: policy-enforced access to non-HTTPS protocols
 
-Status: **Phases 0–3 and 5 implemented** (minus tunnel identity, noted below).
-Phases 4, 6 and 7 are still plan.
+Status: **Phases 0–5 implemented** (minus tunnel identity, noted below).
+Phases 6 and 7 are still plan.
 
 ## Goal
 
@@ -252,7 +252,7 @@ hostnames that may never have had a public cert issued.
 
 **Done when:** a tunnel client resolves and reaches a `[hostname.*]` by its real name.
 
-## Phase 4 — Service IPs and the generic TCP proxy
+## Phase 4 — Service IPs and the generic TCP proxy — DONE
 
 The protocol-agnostic tier. A byte splice never parses the protocol, so SMB, SSH,
 Postgres and IPP all work through the same code.

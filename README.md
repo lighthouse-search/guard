@@ -413,9 +413,52 @@ is never granted because a config section was forgotten.
 - Clients receive the same `AllowedIPs` (`peer_subnet` + `service_subnet`)
   regardless of what they may reach, so access changes never require pushing new
   client config. Peer-to-peer traffic is not forwarded.
-- Currently HTTPS only: `[hostname.*]` entries are reachable over the tunnel,
-  but non-HTTP services (SSH, SMB, printing) need the service-IP proxy described
-  in [`docs/wireguard.md`](docs/wireguard.md), which is not built yet.
+- Tunnel users still see the login page: identity is not yet derived from the
+  tunnel source address for HTTP. Services (below) already authenticate from it.
+
+### Non-HTTP services (SSH, SMB, printing, databases)
+A `[hostname.*]` is addressed by its Host header and goes through Guard's HTTP
+pipeline. Anything else has no such hint — the destination *is* the address —
+so each service gets an address of its own from `service_subnet`. Guard listens
+there, authorises the connecting device, and splices bytes to `destination`.
+
+```toml
+[wireguard]
+service_subnet = "10.9.0.0/24"
+
+[wireguard.service.nas_ssh]
+active = true
+destination = "10.0.1.20:22"      # what Guard dials
+dns_name = "nas.internal"         # what the tunnel resolver answers
+applied_policies = ["staff_only"]
+
+[wireguard.service.nas_smb]
+active = true
+destination = "10.0.1.20:445"
+dns_name = "nas.internal"         # same host, so the same service address
+applied_policies = ["staff_only"]
+```
+
+`ssh nas.internal` and `smb://nas.internal` then work for a permitted device
+and are refused for everyone else. The payload is never parsed, so this covers
+any single-connection TCP protocol. Guard listens on the same port as the
+destination, so clients use the service exactly as they would directly.
+
+Services sharing a `dns_name` are ports on one host and share one service
+address. Addresses are otherwise allocated in sorted name order, so adding a
+service earlier in the alphabet shifts later ones — pin `service_address` for
+anything you reference by address elsewhere.
+
+Guard is on the data path for these, so connections are capped
+(`max_connections`, `max_connections_per_device`) and dials time out after 10s.
+Because the backend sees Guard rather than the device, Guard's log is the only
+per-device record of who reached what — every accepted and refused connection
+is logged.
+
+**Not covered by this model:** protocols that embed addresses in the payload
+(classic FTP, SIP), ICMP, broadcast/multicast discovery, and anything the
+backend initiates towards the client (scan-to-folder). Those need the routed
+tier described in [`docs/wireguard.md`](docs/wireguard.md).
 
 ### Chaining to other networks
 A *site* is a WireGuard peer with whole networks behind it rather than a single

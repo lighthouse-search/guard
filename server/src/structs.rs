@@ -80,6 +80,19 @@ pub struct ConfigWireguard {
     pub dns_upstream: Option<Vec<String>>,
     // Port the tunnel resolver listens on. Defaults to 53.
     pub dns_port: Option<u16>,
+    // Services reachable over the tunnel that are not addressed by a Host
+    // header — SSH, SMB, printing, databases. Each gets its own address from
+    // service_subnet, which Guard listens on and proxies from.
+    //
+    // Named `service` rather than `endpoint` because `endpoint` above already
+    // means the public host:port that clients dial to reach WireGuard itself.
+    pub service: Option<HashMap<String, ConfigWireguardService>>,
+    // Maximum simultaneous proxied connections across all endpoints.
+    // Defaults to 512.
+    pub max_connections: Option<usize>,
+    // Maximum simultaneous proxied connections from any one device.
+    // Defaults to 64.
+    pub max_connections_per_device: Option<usize>,
     // Downstream WireGuard instances Guard routes through, keyed by name.
     // Each one puts the networks behind it within Guard's reach, so a
     // [hostname.*] proxy_to pointing into them resolves and connects.
@@ -113,6 +126,32 @@ pub struct ConfigWireguardSite {
 
 fn default_true() -> bool {
     true
+}
+
+// A service reachable over the tunnel that cannot be addressed by a Host
+// header. Guard gives it an address of its own, listens there, authorises the
+// connecting device, and splices bytes to `destination`.
+//
+// Because the proxy never parses the payload, this works for any single
+// -connection TCP protocol: SSH, SMB, IPP, Postgres, an HTTPS API you cannot
+// set a Host on.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ConfigWireguardService {
+    #[serde(default = "default_true")]
+    pub active: bool,
+    // What Guard dials, as "host:port". Same spirit as a hostname's proxy_to:
+    // Guard connects to it, so a name resolvable from the Guard host is fine.
+    pub destination: Option<String>,
+    // Name the tunnel resolver answers for this endpoint. Optional; without it
+    // the endpoint is reachable only by its service address.
+    pub dns_name: Option<String>,
+    // Pin the service address instead of letting Guard allocate one. Allocated
+    // addresses are assigned in sorted endpoint-name order, so adding an
+    // endpoint can shift later ones; pin any address you reference elsewhere.
+    pub service_address: Option<String>,
+    // Policies the connecting device's user must satisfy. As everywhere else,
+    // an empty list denies.
+    pub applied_policies: Option<Vec<String>>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

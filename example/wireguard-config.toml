@@ -118,6 +118,37 @@ reevaluation_interval_secs = 60
 # pushing new client config. Uncomment only to override, e.g. for a full tunnel:
 # allowed_ips = "0.0.0.0/0"
 
+# --- Non-HTTP services ---
+# A [hostname.*] is addressed by its Host header and goes through Guard's HTTP
+# pipeline. Anything else — SSH, SMB, printing, databases — has no such hint,
+# so each service gets an address of its own from service_subnet. Guard listens
+# there, authorises the connecting device, and splices bytes to `destination`.
+#
+# The payload is never parsed, so this works for any single-connection TCP
+# protocol. Guard listens on the same port as the destination, so clients use
+# the service exactly as they would reach it directly.
+[wireguard.service.nas_ssh]
+active = true
+destination = "10.0.1.20:22"      # what Guard dials
+dns_name = "nas.internal"         # what the tunnel resolver answers
+applied_policies = ["staff_only"]
+
+[wireguard.service.nas_smb]
+active = true
+destination = "10.0.1.20:445"
+dns_name = "nas.internal"
+applied_policies = ["staff_only"]
+
+# Service addresses are allocated in sorted name order, so adding a service
+# earlier in the alphabet shifts later ones. The resolver's short TTL absorbs
+# that, but pin anything you reference by address elsewhere:
+# service_address = "10.9.0.10"
+
+# Connection limits. Guard is on the data path for these, so an unbounded
+# splice pool would be a denial-of-service surface.
+max_connections = 512
+max_connections_per_device = 64
+
 # --- Chaining through a downstream WireGuard instance ---
 # A site is a WireGuard peer with whole networks behind it, rather than a
 # single device. Declaring one gives Guard a route into those networks, so a

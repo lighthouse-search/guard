@@ -18,7 +18,7 @@
 //! Everything shells out to `wg` / `wg-quick`, so Guard must run on the
 //! WireGuard host with permission to manage the interface (root / CAP_NET_ADMIN).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::Stdio;
@@ -28,7 +28,7 @@ use tokio::process::Command;
 
 use crate::device::{device_clear_wireguard, device_list_wireguard_peers, device_list_wireguard_registered};
 use crate::policy::{policy_authentication, resolve_policies};
-use crate::structs::{ConfigWireguard, ConfigWireguardSite, GuardDevices};
+use crate::structs::{ConfigWireguard, ConfigWireguardService, ConfigWireguardSite, GuardDevices};
 use crate::users::user_get;
 use crate::CONFIG_VALUE;
 
@@ -155,6 +155,180 @@ fn validate_wireguard_key(key: &str) -> Result<(), String> {
     }
 }
 
+/// A non-HTTP service reachable over the tunnel, resolved from config with its
+/// service address allocated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServicePeer {
+    pub name: String,
+    /// Address Guard listens on for this service, from `service_subnet`.
+    pub service_address: Ipv4Addr,
+    /// Port Guard listens on — the same port as the destination, so clients
+    /// use the service exactly as they would directly.
+    pub port: u16,
+    /// "host:port" Guard dials. A name resolvable from the Guard host is fine;
+    /// Guard connects to it rather than routing a packet at it.
+    pub destination: String,
+    pub dns_name: Option<String>,
+    pub applied_policies: Vec<String>,
+}
+
+/// Active, well-formed services with their addresses allocated.
+///
+/// Allocation is deterministic: explicit `service_address` pins win, and the
+/// rest take the next free address in sorted-name order. That keeps addresses
+/// stable across restarts without a database table, at the cost of shifting
+/// auto-allocated addresses when an alphabetically earlier service is added —
+/// which the resolver's short TTL absorbs, and `service_address` avoids.
+pub fn services() -> Result<Vec<ServicePeer>, String> {
+    let wg = match CONFIG_VALUE.wireguard.clone() {
+        Some(wg) => wg,
+        None => return Ok(Vec::new()),
+    };
+    let configured = match wg.service.clone() {
+        Some(services) => services,
+        None => return Ok(Vec::new()),
+    };
+    if configured.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let service_subnet = wg
+        .service_subnet
+        .clone()
+        .ok_or_else(|| "[wireguard].service_subnet is required when [wireguard.service.*] is configured.".to_string())?;
+
+    let mut names: Vec<String> = configured.keys().cloned().collect();
+    names.sort();
+
+    // Pins first, so auto-allocation can route around them.
+    let mut taken: Vec<String> = Vec::new();
+    for name in &names {
+        let service = &configured[name];
+        if service.active == false {
+            continue;
+        }
+        if let Some(pinned) = &service.service_address {
+            taken.push(pinned.clone());
+        }
+    }
+
+    // Services sharing a dns_name are ports on one host, so they must share an
+    // address: the resolver maps a name to a single address, and giving them
+    // different ones would leave every name but the last unreachable.
+    let mut by_dns_name: HashMap<String, Ipv4Addr> = HashMap::new();
+    for name in &names {
+        let service = &configured[name];
+        if service.active == false {
+            continue;
+        }
+        if let (Some(dns_name), Some(pinned)) = (&service.dns_name, &service.service_address) {
+            if let Ok(address) = pinned.parse::<Ipv4Addr>() {
+                by_dns_name.insert(dns_name.trim().to_lowercase(), address);
+            }
+        }
+    }
+
+    let mut services: Vec<ServicePeer> = Vec::new();
+    for name in &names {
+        let service = &configured[name];
+        if service.active == false {
+            continue;
+        }
+
+        let shared = service
+            .dns_name
+            .as_ref()
+            .map(|dns_name| dns_name.trim().to_lowercase())
+            .and_then(|dns_name| by_dns_name.get(&dns_name).copied());
+
+        let resolved = match resolve_service(name, service, &service_subnet, &mut taken, shared) {
+            Ok(resolved) => resolved,
+            Err(error) => {
+                // Startup validation rejects these; reaching here means config
+                // changed underneath us, and one bad service should not take
+                // the others down.
+                log::warn!("Ignoring [wireguard.service.{}]: {}", name, error);
+                continue;
+            }
+        };
+        if let Some(dns_name) = &resolved.dns_name {
+            by_dns_name.insert(dns_name.trim().to_lowercase(), resolved.service_address);
+        }
+        services.push(resolved);
+    }
+
+    Ok(services)
+}
+
+fn resolve_service(
+    name: &str,
+    service: &ConfigWireguardService,
+    service_subnet: &str,
+    taken: &mut Vec<String>,
+    // Address already assigned to this service's `dns_name`, if another
+    // service on the same host was resolved first.
+    shared: Option<Ipv4Addr>,
+) -> Result<ServicePeer, String> {
+    let destination = service
+        .destination
+        .clone()
+        .filter(|value| value.trim().is_empty() == false)
+        .ok_or_else(|| "destination is required.".to_string())?;
+    let port = destination_port(&destination)?;
+
+    let service_address: Ipv4Addr = match &service.service_address {
+        Some(pinned) => {
+            let address: Ipv4Addr = pinned
+                .parse()
+                .map_err(|_| format!("service_address '{}' is not a valid IPv4 address.", pinned))?;
+            if ip_in_cidr(IpAddr::V4(address), service_subnet) == false {
+                return Err(format!(
+                    "service_address '{}' is outside [wireguard].service_subnet '{}'.",
+                    pinned, service_subnet
+                ));
+            }
+            address
+        }
+        // Another port on the same host already has an address.
+        None if shared.is_some() => shared.expect("checked"),
+        None => {
+            let allocated = allocate_ip(service_subnet, None, taken)?;
+            taken.push(allocated.clone());
+            allocated
+                .parse()
+                .map_err(|_| format!("Allocated service address '{}' is invalid.", allocated))?
+        }
+    };
+
+    Ok(ServicePeer {
+        name: name.to_string(),
+        service_address,
+        port,
+        destination: destination.trim().to_string(),
+        dns_name: service.dns_name.clone().filter(|value| value.trim().is_empty() == false),
+        applied_policies: service.applied_policies.clone().unwrap_or_default(),
+    })
+}
+
+/// The port from a "host:port" destination. Guard listens on the same port, so
+/// a client uses the service exactly as it would reach it directly.
+fn destination_port(destination: &str) -> Result<u16, String> {
+    // rsplit so an IPv6 literal in brackets splits on the port separator.
+    let (host, port) = destination
+        .trim()
+        .rsplit_once(':')
+        .ok_or_else(|| format!("destination '{}' must be \"host:port\".", destination))?;
+    if host.trim().is_empty() {
+        return Err(format!("destination '{}' has no host.", destination));
+    }
+    port.parse::<u16>()
+        .map_err(|_| format!("destination '{}' has an invalid port.", destination))
+        .and_then(|port| match port {
+            0 => Err(format!("destination '{}' has port 0.", destination)),
+            port => Ok(port),
+        })
+}
+
 /// The policy ids a device's user must satisfy to hold a WireGuard registration.
 /// `[wireguard].applied_policies` when set, otherwise the device-authentication
 /// policies, so an operator who has already scoped who may enrol a device does
@@ -176,6 +350,13 @@ fn applied_policies(wg: &ConfigWireguard) -> Vec<String> {
 pub async fn device_passes_policy(device: &GuardDevices) -> Result<bool, String> {
     let wg = config()?;
     let policy_ids = applied_policies(&wg);
+    device_passes_service_policy(device, &policy_ids).await
+}
+
+/// As [`device_passes_policy`], but against an explicit policy list — a
+/// service's own `applied_policies` rather than the tunnel-wide set.
+pub async fn device_passes_service_policy(device: &GuardDevices, policy_ids: &[String]) -> Result<bool, String> {
+    let policy_ids = policy_ids.to_vec();
     if policy_ids.is_empty() {
         log::warn!(
             "Denying WireGuard for device '{}': no policies are configured. Set [wireguard].applied_policies \
@@ -511,7 +692,16 @@ fn write_conf(wg: &ConfigWireguard, interface: &str, peers: &[(String, String)])
     let listen_port = wg.listen_port.unwrap_or(DEFAULT_LISTEN_PORT);
     let prefix = subnet_prefix(&peer_subnet)?;
 
-    let conf = build_conf(&private_key, &server_address, prefix, listen_port, peers, &sites());
+    // Each service address is assigned to the interface as a /32 so Guard can
+    // bind a listener to it. Assigning the whole service_subnet instead would
+    // give the interface one address plus a route, and the binds would fail.
+    let service_addresses: Vec<Ipv4Addr> = services()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|service| service.service_address)
+        .collect();
+
+    let conf = build_conf(&private_key, &server_address, prefix, listen_port, peers, &sites(), &service_addresses);
     write_private_file(&conf_path(interface), &conf)
 }
 
@@ -523,10 +713,14 @@ fn build_conf(
     listen_port: u16,
     peers: &[(String, String)],
     sites: &[SitePeer],
+    service_addresses: &[Ipv4Addr],
 ) -> String {
+    let mut addresses = vec![format!("{}/{}", server_address, prefix)];
+    addresses.extend(service_addresses.iter().map(|address| format!("{}/32", address)));
+
     let mut conf = String::from("[Interface]\n");
     conf.push_str(&format!("PrivateKey = {}\n", private_key));
-    conf.push_str(&format!("Address = {}/{}\n", server_address, prefix));
+    conf.push_str(&format!("Address = {}\n", addresses.join(", ")));
     conf.push_str(&format!("ListenPort = {}\n", listen_port));
 
     // Device peers: one tunnel address each.
@@ -991,7 +1185,7 @@ mod tests {
             site("home", &["10.0.1.0/24", "10.0.2.0/24"], None, None),
             site("dc", &["10.0.3.0/24"], Some("dc.example.com:51820"), Some(15)),
         ];
-        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &[], &sites);
+        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &[], &sites, &[]);
 
         assert!(conf.contains("AllowedIPs = 10.0.1.0/24, 10.0.2.0/24"), "{}", conf);
         assert!(conf.contains("PublicKey = home-key"), "{}", conf);
@@ -1061,12 +1255,98 @@ mod tests {
     }
 
     #[test]
+    fn destination_port_is_taken_from_the_destination() {
+        assert_eq!(destination_port("10.0.1.20:22").unwrap(), 22);
+        assert_eq!(destination_port("nas.internal:445").unwrap(), 445);
+        assert_eq!(destination_port("[::1]:5432").unwrap(), 5432);
+    }
+
+    #[test]
+    fn a_malformed_destination_is_rejected() {
+        assert!(destination_port("10.0.1.20").is_err());
+        assert!(destination_port("10.0.1.20:").is_err());
+        assert!(destination_port("10.0.1.20:notaport").is_err());
+        assert!(destination_port("10.0.1.20:99999").is_err());
+        // Port 0 would bind an arbitrary port rather than the one meant.
+        assert!(destination_port("10.0.1.20:0").is_err());
+        assert!(destination_port(":22").is_err());
+    }
+
+    fn service_config(destination: &str, pinned: Option<&str>) -> ConfigWireguardService {
+        ConfigWireguardService {
+            active: true,
+            destination: Some(destination.to_string()),
+            dns_name: None,
+            service_address: pinned.map(str::to_string),
+            applied_policies: None,
+        }
+    }
+
+    #[test]
+    fn services_allocate_sequential_addresses() {
+        let mut taken: Vec<String> = Vec::new();
+        let first = resolve_service("a", &service_config("10.0.1.1:22", None), "10.9.0.0/24", &mut taken, None).unwrap();
+        let second = resolve_service("b", &service_config("10.0.1.2:22", None), "10.9.0.0/24", &mut taken, None).unwrap();
+        assert_eq!(first.service_address.to_string(), "10.9.0.1");
+        assert_eq!(second.service_address.to_string(), "10.9.0.2");
+    }
+
+    #[test]
+    fn allocation_routes_around_a_pinned_address() {
+        // Pins are collected before auto-allocation, so they are never reused.
+        let mut taken: Vec<String> = vec!["10.9.0.1".to_string()];
+        let auto = resolve_service("a", &service_config("10.0.1.1:22", None), "10.9.0.0/24", &mut taken, None).unwrap();
+        assert_eq!(auto.service_address.to_string(), "10.9.0.2");
+    }
+
+    #[test]
+    fn a_pinned_address_outside_the_service_subnet_is_rejected() {
+        let mut taken: Vec<String> = Vec::new();
+        let result = resolve_service("a", &service_config("10.0.1.1:22", Some("192.168.5.5")), "10.9.0.0/24", &mut taken, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn a_service_listens_on_its_destination_port() {
+        // So clients use the service exactly as they would reach it directly.
+        let mut taken: Vec<String> = Vec::new();
+        let service = resolve_service("nas", &service_config("10.0.1.20:445", None), "10.9.0.0/24", &mut taken, None).unwrap();
+        assert_eq!(service.port, 445);
+    }
+
+    #[test]
+    fn services_sharing_a_dns_name_share_an_address() {
+        // Two ports on one host. Different addresses would leave the resolver
+        // able to answer for only one of them.
+        let shared: Ipv4Addr = "10.9.0.1".parse().unwrap();
+        let mut taken: Vec<String> = vec![shared.to_string()];
+        let smb = resolve_service(
+            "nas_smb",
+            &service_config("10.0.1.20:445", None),
+            "10.9.0.0/24",
+            &mut taken,
+            Some(shared),
+        )
+        .unwrap();
+        assert_eq!(smb.service_address, shared);
+        assert_eq!(smb.port, 445);
+    }
+
+    #[test]
+    fn conf_assigns_every_service_address_to_the_interface() {
+        // Without these the proxy's listeners cannot bind.
+        let addresses: Vec<Ipv4Addr> = vec!["10.9.0.1".parse().unwrap(), "10.9.0.2".parse().unwrap()];
+        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &[], &[], &addresses);
+        assert!(conf.contains("Address = 10.8.0.1/24, 10.9.0.1/32, 10.9.0.2/32"), "{}", conf);
+    }
+
+    #[test]
     fn conf_lists_every_peer_as_a_slash_32() {
         let peers = vec![
             ("key-one".to_string(), "10.8.0.2".to_string()),
             ("key-two".to_string(), "10.8.0.3".to_string()),
         ];
-        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &peers, &[]);
+        let conf = build_conf("server-key", "10.8.0.1", 24, 51820, &peers, &[], &[]);
         assert!(conf.contains("Address = 10.8.0.1/24"));
         assert!(conf.contains("ListenPort = 51820"));
         assert!(conf.contains("PublicKey = key-one"));
@@ -1249,4 +1529,101 @@ async fn report_unhealthy_sites() {
             );
         }
     }
+}
+
+
+/// Reject service configurations that cannot work, before anything binds.
+pub fn validate_service_config() -> Result<(), String> {
+    let wg = match CONFIG_VALUE.wireguard.clone() {
+        Some(wg) => wg,
+        None => return Ok(()),
+    };
+    let configured = match wg.service.clone() {
+        Some(services) => services,
+        None => return Ok(()),
+    };
+    if configured.values().any(|service| service.active) == false {
+        return Ok(());
+    }
+
+    let mut problems: Vec<String> = Vec::new();
+
+    let service_subnet = match wg.service_subnet.clone() {
+        Some(subnet) => subnet,
+        None => {
+            return Err(
+                "  [wireguard].service_subnet is required when [wireguard.service.*] is configured: each \
+                 service needs an address of its own to listen on."
+                    .to_string(),
+            )
+        }
+    };
+
+    // The service range must not collide with the addresses devices get, or a
+    // peer and a service would end up claiming the same address.
+    if let Some(peer_subnet) = wg.peer_subnet.clone() {
+        if cidrs_overlap(&service_subnet, &peer_subnet) {
+            problems.push(format!(
+                "  [wireguard].service_subnet '{}' overlaps peer_subnet '{}'; device addresses are \
+                 allocated from that range",
+                service_subnet, peer_subnet
+            ));
+        }
+    }
+
+    match services() {
+        Ok(services) => {
+            // Two services on the same address AND port would mean the second
+            // listener cannot bind.
+            let mut seen: std::collections::HashMap<(Ipv4Addr, u16), String> = std::collections::HashMap::new();
+            for service in &services {
+                let key = (service.service_address, service.port);
+                if let Some(existing) = seen.get(&key) {
+                    problems.push(format!(
+                        "  [wireguard.service.{}] and [wireguard.service.{}] both listen on {}:{}",
+                        existing, service.name, service.service_address, service.port
+                    ));
+                }
+                seen.insert(key, service.name.clone());
+            }
+
+            // A service whose destination is inside the tunnel's own ranges
+            // would have Guard proxying to itself.
+            for service in &services {
+                if let Some(host) = service.destination.rsplit_once(':').map(|(host, _)| host) {
+                    if let Ok(address) = host.parse::<Ipv4Addr>() {
+                        if ip_in_cidr(IpAddr::V4(address), &service_subnet) {
+                            problems.push(format!(
+                                "  [wireguard.service.{}] destination '{}' is inside service_subnet; Guard \
+                                 would be proxying to itself",
+                                service.name, service.destination
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        Err(error) => problems.push(format!("  {}", error)),
+    }
+
+    // Surface per-service parse errors, which `services()` only warns about.
+    let mut names: Vec<String> = configured.keys().cloned().collect();
+    names.sort();
+    let mut taken: Vec<String> = Vec::new();
+    for name in names {
+        let service = &configured[&name];
+        if service.active == false {
+            continue;
+        }
+        if let Err(error) = resolve_service(&name, service, &service_subnet, &mut taken, None) {
+            problems.push(format!("  [wireguard.service.{}]: {}", name, error));
+        }
+    }
+
+    if problems.is_empty() {
+        return Ok(());
+    }
+    problems.sort();
+    problems.dedup();
+    Err(format!("The WireGuard service configuration is not usable:\n{}", problems.join("\n")))
 }

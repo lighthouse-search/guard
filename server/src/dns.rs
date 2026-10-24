@@ -219,7 +219,27 @@ fn normalise(mut name: Name) -> Name {
 /// allows the same name on different ports; DNS has no concept of a port, so
 /// the port is stripped and both entries collapse to one record.
 pub async fn build_zone(server_address: Ipv4Addr) -> Zone {
-    zone_from_hostnames(get_active_hostnames().await, server_address)
+    let mut zone = zone_from_hostnames(get_active_hostnames().await, server_address);
+
+    // Services answer on their own address, not Guard's, because that address
+    // is how the proxy knows which service a connection is for.
+    for service in crate::wireguard::services().unwrap_or_default() {
+        let dns_name = match service.dns_name {
+            Some(dns_name) => dns_name,
+            None => continue,
+        };
+        match dns_name.parse::<Name>() {
+            Ok(name) => {
+                zone.insert(normalise(name), service.service_address);
+            }
+            Err(error) => log::warn!(
+                "Service '{}' has an invalid dns_name '{}' and will not resolve: {}",
+                service.name, dns_name, error
+            ),
+        }
+    }
+
+    zone
 }
 
 /// The pure half of [`build_zone`], so the mapping rules can be tested without

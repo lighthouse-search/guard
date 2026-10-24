@@ -398,6 +398,13 @@ pub struct AuthMethod {
     pub ratelimit: Option<u32>,
     pub ratelimit_cooldown: Option<u32>,
     pub should_create_new_users: Option<bool>,
+    // method_type = "mtls": PEM bundle of the certificate authorities whose
+    // client certificates this method accepts. Every mtls method's CAs are
+    // loaded into one trust store at startup, because rustls fixes the client
+    // verifier per ServerConfig and cannot vary it per SNI — so verification is
+    // offered to every connection and which hostnames *require* it is decided
+    // per request.
+    pub mtls_ca: Option<String>,
     // pub user_info_reference_type: Option<String>,
     // pub user_info_reference_key: Option<String>,
     pub oauth_client_api: Option<String>,

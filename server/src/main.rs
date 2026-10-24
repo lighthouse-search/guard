@@ -63,6 +63,7 @@ pub mod cli {
 
 pub mod misc {
     pub mod tls;
+    pub mod client_cert;
 }
 
 pub mod request_proxy;
@@ -387,7 +388,12 @@ async fn start_web() {
     log::info!("listening on {}", addr);
 
     if let Some(tls) = tls_config {
-        axum_server::bind_rustls(addr, tls)
+        // Guard's own acceptor rather than bind_rustls: it wraps the rustls one
+        // and attaches the verified client certificate to each request, which
+        // axum-server's connect-info path cannot carry (it only ever passes the
+        // peer address). See misc/client_cert.rs.
+        axum_server::bind(addr)
+            .acceptor(crate::misc::client_cert::ClientCertAcceptor::new(tls))
             .serve(app.into_make_service_with_connect_info::<SocketAddr>())
             .await
             .unwrap();

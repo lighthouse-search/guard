@@ -54,6 +54,8 @@ openssl-sys = { version = "0.9", optional = true }
 hickory-server = { version = "0.26", default-features = false }
 hickory-resolver = { version = "0.26", default-features = false, features = ["system-config", "tokio"] }
 async-trait = "0.1.92"
+tokio-rustls = { version = "0.26", default-features = false }
+rustls-pki-types = "1"
 
 [features]
 # Compile libmysqlclient (and the OpenSSL it needs) from source rather than

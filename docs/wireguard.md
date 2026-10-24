@@ -1,7 +1,6 @@
 # WireGuard: policy-enforced access to non-HTTPS protocols
 
-Status: **Phases 0–5 implemented** (minus tunnel identity, noted below).
-Phases 6 and 7 are still plan.
+Status: **Phases 0–5 implemented.** Phases 6 and 7 are still plan.
 
 ## Goal
 
@@ -127,7 +126,7 @@ document it. Getting this wrong turns a source-IP spoof into full impersonation.
 **Done when:** a device failing policy cannot register, and revoking a user's access
 removes their peer within the re-evaluation interval.
 
-## Phase 2 — Hostnames reachable over the tunnel — DONE, except tunnel identity
+## Phase 2 — Hostnames reachable over the tunnel — DONE
 
 No new proxy code; this is wiring the existing pipeline to tunnel identity.
 
@@ -171,14 +170,13 @@ must never be the only barrier, which is what the structural check above provide
 
 ### Work
 
-- **NOT DONE — tunnel-aware auth in `http_handler`.** On tunnel arrival, resolve the
-  device from the source address and use it as the authenticated identity, bypassing the
-  cookie flow. `device_get_by_wireguard_ip` exists and is ready; the remaining work is
-  inside `user_authentication_pipeline`, which currently always expects a cookie-derived
-  user *and* an authentication method, so a device-derived identity needs a path through
-  it. Hostnames are already reachable over the tunnel without this — tunnel users simply
-  still see the login page. This is convenience; `wireguard_only` is the security half and
-  is done.
+- **Tunnel identity.** Implemented in `users.rs::tunnel_identity`, hooked into
+  `user_authentication_pipeline` in place of the `protocol_decision_to_pipeline` call —
+  deliberately *inside* that function so the hostname policy check still runs on the
+  tunnel-derived user. Returns `None` on anything unexpected so the request falls back to
+  interactive login rather than failing. The device's enrolled authentication method must
+  still be one the hostname accepts, so the tunnel cannot route around a hostname's
+  configuration. `tunnel_identity = false` disables it.
 - **`wireguard_only = true` on `[hostname.*]`.** Checked in `http_handler` immediately
   after `get_current_valid_hostname`, before authentication. Return **404, not 403** — a
   403 confirms to an internet scanner that the hostname is a real Guard-protected service.

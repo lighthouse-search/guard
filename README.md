@@ -413,8 +413,28 @@ is never granted because a config section was forgotten.
 - Clients receive the same `AllowedIPs` (`peer_subnet` + `service_subnet`)
   regardless of what they may reach, so access changes never require pushing new
   client config. Peer-to-peer traffic is not forwarded.
-- Tunnel users still see the login page: identity is not yet derived from the
-  tunnel source address for HTTP. Services (below) already authenticate from it.
+- Requests over the tunnel are authenticated by their source address, so tunnel
+  users do not see a login page (`tunnel_identity = false` to disable). Policies
+  still apply — this replaces proving who you are, not whether you are allowed.
+
+### Tunnel identity
+A request arriving over the tunnel already carries a proven device identity in
+its source address: WireGuard only ever emits a given tunnel address from the
+peer holding the matching private key. Guard uses that instead of a cookie, so
+tunnel users skip the login page entirely.
+
+What this does **not** skip:
+
+- **Policies.** The device's user is still evaluated against the hostname's
+  `applied_policies`, exactly as an interactive login would be.
+- **The hostname's accepted authentication methods.** A device enrolled with a
+  method the hostname does not list falls back to logging in, so the tunnel is
+  not a way around a hostname's configuration.
+
+Set `tunnel_identity = false` to keep requiring an interactive login over the
+tunnel — worth doing if that login carries a second factor you do not want
+bypassed. This rests on the same source-address integrity as `wireguard_only`,
+so the `rp_filter` requirement above applies here too.
 
 ### Non-HTTP services (SSH, SMB, printing, databases)
 A `[hostname.*]` is addressed by its Host header and goes through Guard's HTTP

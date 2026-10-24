@@ -230,7 +230,10 @@ async fn handle(
 /// Resolve the connecting device from its tunnel address and check it against
 /// the service's policies. Deny-by-default at every step.
 async fn authorised_device(service: &ServicePeer, source: SocketAddr) -> Option<GuardDevices> {
-    let device = match device_get_by_wireguard_ip(&source.ip().to_string()).await {
+    // Stored tunnel addresses are IPv4; a dual-stack listener would otherwise
+    // report "::ffff:10.8.0.2" here and never match.
+    let lookup = wireguard::canonical_ip(source.ip()).to_string();
+    let device = match device_get_by_wireguard_ip(&lookup).await {
         Ok(Some(device)) => device,
         Ok(None) => {
             log::warn!("Service '{}': refused {} — no device holds that tunnel address.", service.name, source);

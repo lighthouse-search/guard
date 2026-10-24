@@ -80,6 +80,16 @@ pub struct ConfigWireguard {
     pub dns_upstream: Option<Vec<String>>,
     // Port the tunnel resolver listens on. Defaults to 53.
     pub dns_port: Option<u16>,
+    // Authenticate HTTP requests arriving over the tunnel from the source
+    // address alone, skipping the login page. WireGuard only ever emits a
+    // given tunnel address from the peer holding the matching private key, so
+    // the address is a cryptographically attested device identity.
+    //
+    // Policies still apply — this replaces proving *who you are*, not the check
+    // of whether you are allowed. Defaults to true. Set false to keep requiring
+    // an interactive login over the tunnel (for example when the login step
+    // carries a second factor you do not want skipped).
+    pub tunnel_identity: Option<bool>,
     // Services reachable over the tunnel that are not addressed by a Host
     // header — SSH, SMB, printing, databases. Each gets its own address from
     // service_subnet, which Guard listens on and proxies from.

@@ -94,6 +94,20 @@ dns_server = true
 dns_upstream = ["1.1.1.1", "9.9.9.9"]
 # Port the resolver listens on. Defaults to 53.
 # dns_port = 53
+
+# --- Tunnel identity ---
+# Authenticate HTTP requests arriving over the tunnel from the source address
+# alone, so tunnel users do not see a login page. WireGuard only ever emits a
+# given tunnel address from the peer holding the matching private key, so the
+# address is a proven device identity.
+#
+# Policies still apply: this replaces proving who you are, not the check of
+# whether you are allowed. A device whose enrolled authentication method the
+# hostname does not accept still falls back to logging in.
+#
+# Defaults to true. Set false to keep requiring an interactive login over the
+# tunnel — for instance when that login carries a second factor.
+tunnel_identity = true
 # Override what clients are told to use. Defaults to server_address when the
 # resolver is running and can forward.
 # dns = "10.8.0.1"

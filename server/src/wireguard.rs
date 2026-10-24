@@ -482,6 +482,24 @@ pub fn arrival_from(source: IpAddr) -> Arrival {
     }
 }
 
+/// The canonical form of a source address for lookup against stored tunnel
+/// addresses.
+///
+/// A dual-stack listener reports an IPv4 peer as "::ffff:10.8.0.2". Guard
+/// stores "10.8.0.2", so without unwrapping that, a device would be correctly
+/// recognised as *on* the tunnel and then not found — tunnel identity and
+/// service authorisation would silently fail for the same address they just
+/// accepted.
+pub fn canonical_ip(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => match v6.to_ipv4_mapped() {
+            Some(v4) => IpAddr::V4(v4),
+            None => ip,
+        },
+        ip => ip,
+    }
+}
+
 /// Is `ip` inside the IPv4 CIDR `cidr`? IPv6 sources are never considered to be
 /// in a (v4) peer subnet.
 pub(crate) fn ip_in_cidr(ip: IpAddr, cidr: &str) -> bool {
@@ -1072,6 +1090,21 @@ mod tests {
         // that as public would misclassify a real tunnel peer.
         assert!(ip_in_cidr("::ffff:10.8.0.2".parse().unwrap(), "10.8.0.0/24"));
         assert!(ip_in_cidr("::1".parse().unwrap(), "10.8.0.0/24") == false);
+    }
+
+    #[test]
+    fn a_mapped_ipv6_source_canonicalises_to_its_ipv4_form() {
+        // Tunnel addresses are stored as IPv4; a mapped source must match them.
+        assert_eq!(
+            canonical_ip("::ffff:10.8.0.2".parse().unwrap()),
+            "10.8.0.2".parse::<IpAddr>().unwrap()
+        );
+    }
+
+    #[test]
+    fn canonical_ip_leaves_other_addresses_alone() {
+        assert_eq!(canonical_ip("10.8.0.2".parse().unwrap()), "10.8.0.2".parse::<IpAddr>().unwrap());
+        assert_eq!(canonical_ip("fd00::1".parse().unwrap()), "fd00::1".parse::<IpAddr>().unwrap());
     }
 
     #[test]

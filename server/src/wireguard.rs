@@ -63,6 +63,16 @@ fn conf_path(interface: &str) -> String {
 /// first run) and restore all known peers. Idempotent: safe to call on every
 /// startup, whether or not the interface is already up.
 pub async fn ensure_interface() -> Result<(), String> {
+    // Guard drives WireGuard through `wg`/`wg-quick` and stores its key with a
+    // Unix file mode. Neither applies elsewhere, so say so once and clearly
+    // rather than failing later on a missing binary or an unsettable
+    // permission.
+    if cfg!(unix) == false {
+        return Err("WireGuard is only supported on Unix hosts: Guard manages the interface with \
+                    'wg'/'wg-quick' and protects its key with a Unix file mode."
+            .to_string());
+    }
+
     let wg = config()?;
     let interface = interface_name(&wg)?;
 
@@ -155,15 +165,34 @@ fn load_or_create_server_key(wg: &ConfigWireguard, interface: &str) -> Result<St
 
 /// Write a file 0600, creating parent dirs. Used for anything holding key material.
 fn write_private_file(path: &str, contents: &str) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
-
     if let Some(parent) = std::path::Path::new(path).parent() {
         std::fs::create_dir_all(parent).map_err(|error| format!("Could not create '{}': {}", parent.display(), error))?;
     }
     std::fs::write(path, contents).map_err(|error| format!("Could not write '{}': {}", path, error))?;
+    restrict_to_owner(path)
+}
+
+/// Restrict a file to its owner.
+#[cfg(unix)]
+fn restrict_to_owner(path: &str) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-        .map_err(|error| format!("Could not set permissions on '{}': {}", path, error))?;
-    Ok(())
+        .map_err(|error| format!("Could not set permissions on '{}': {}", path, error))
+}
+
+/// Non-Unix has no mode to set — `PermissionsExt` does not exist there and the
+/// Windows equivalent is an ACL edit. Refuse rather than leave key material at
+/// whatever the inherited ACL happens to be. `ensure_interface` should have
+/// stopped before reaching here, so this is a backstop; the `cfg` is what lets
+/// the crate compile for the Windows release build.
+#[cfg(not(unix))]
+fn restrict_to_owner(path: &str) -> Result<(), String> {
+    Err(format!(
+        "Refusing to write '{}': Guard cannot restrict file permissions on this platform, and this \
+         file holds WireGuard key material.",
+        path
+    ))
 }
 
 /// Is the interface currently up? `wg show <iface>` succeeds only when it exists.

@@ -1,0 +1,150 @@
+# Guard with a WireGuard server.
+#
+# Guard owns the whole WireGuard lifecycle on this host: it generates and
+# persists the server key, writes the interface config, brings the interface up,
+# and keeps the live peer list matching its database. The operator configures
+# nothing with `wg` by hand.
+#
+# Guard must run on the WireGuard host with permission to manage the interface
+# (root, or CAP_NET_ADMIN), and `wireguard-tools` must be installed.
+#
+# IMPORTANT: enable reverse-path filtering on the host before relying on
+# wireguard_only — `sysctl -w net.ipv4.conf.all.rp_filter=1`. Guard decides
+# whether a request arrived over the tunnel from its source address, and without
+# rp_filter the kernel will accept packets that forge a source inside the peer
+# subnet. Guard logs an error at startup if it finds this disabled.
+
+[features]
+# Guard's own proxy. Note that wireguard_only below cannot be enforced through
+# reverse_proxy_authentication — in that flow Guard only ever sees the reverse
+# proxy's connection, never the client's — so Guard refuses to start if you
+# combine them.
+proxy = true
+
+[frontend.metadata]
+instance_hostname = "guard.example.com"
+alias = "ACME"
+public_description = "You're accessing sensitive information. Please login."
+domain_placeholder = "example.com"
+username_placeholder = "username"
+
+[database.mysql]
+username = "example-user"
+password_env = "example_user_mysql_password"
+hostname = "mariadb.internal.example.com"
+port = 3306
+database = "guard"
+
+[sql.tables]
+user = "users"
+device = "devices"
+magiclink = "magiclinks"
+bearer_token = "bearer_tokens"
+
+[smtp]
+host = "smtp.sendgrid.net"
+port = 587
+username = "apikey"
+from_alias = "Guard"
+from_header = "noreply@example.com"
+reply_to_address = "noreply@example.com"
+password_env = "smtp_password"
+
+[authentication_methods.email]
+active = true
+method_type = "email"
+should_create_new_users = false
+
+[policies.staff_only]
+active = true
+action = "allow"
+property = "email"
+ends_with = "@staff.example.com"
+
+# Who may enrol a device at all.
+[device_authentication]
+authentication_methods = ["email"]
+applied_policies = ["staff_only"]
+
+[wireguard]
+# The interface Guard manages. Created on first run.
+interface = "wg0"
+# Tunnel addresses are allocated from here, one /32 per device.
+peer_subnet = "10.8.0.0/24"
+# Guard's own address inside the tunnel. Never handed out to a peer.
+server_address = "10.8.0.1"
+listen_port = 51820
+# The public "host:port" clients dial.
+endpoint = "vpn.example.com:51820"
+persistent_keepalive = 25
+
+# --- Tunnel DNS resolver ---
+# Guard answers authoritatively for every active [hostname.*] on its tunnel
+# address, so a peer asking for ha.example.com reaches Guard over the tunnel
+# instead of going out to public DNS. On by default when [wireguard] is set.
+dns_server = true
+# Where names Guard does not own are forwarded.
+#
+# This matters more than it looks: wg-quick's DNS= replaces the client's
+# resolver outright, so a resolver that refused unknown names would leave peers
+# unable to resolve anything else while connected. Guard therefore only
+# advertises itself as the client's resolver when an upstream is configured —
+# without one it runs, refuses unknown names, and tells clients nothing, so
+# their existing DNS keeps working.
+dns_upstream = ["1.1.1.1", "9.9.9.9"]
+# Port the resolver listens on. Defaults to 53.
+# dns_port = 53
+# Override what clients are told to use. Defaults to server_address when the
+# resolver is running and can forward.
+# dns = "10.8.0.1"
+
+# Addresses Guard answers on per endpoint. Never handed out to peers; included
+# in the AllowedIPs clients receive so the range routes into the tunnel.
+service_subnet = "10.9.0.0/24"
+
+# Who may hold a WireGuard registration. Evaluated when a device registers AND
+# re-checked every reevaluation_interval_secs, so revoking a user's access tears
+# their tunnel down instead of waiting for them to reconnect.
+#
+# There is no implicit default: if neither this nor
+# [device_authentication].applied_policies is set, every registration is denied.
+# A tunnel reaches past the HTTPS layer, so it is never granted by omission.
+applied_policies = ["staff_only"]
+reevaluation_interval_secs = 60
+
+# allowed_ips is computed as peer_subnet + service_subnet and is identical for
+# every device — a device's reachable set is decided by Guard when it answers a
+# connection, not by the device's routing table, so access changes never require
+# pushing new client config. Uncomment only to override, e.g. for a full tunnel:
+# allowed_ips = "0.0.0.0/0"
+
+# A normal hostname: reachable publicly and over the tunnel.
+[hostname.grafana]
+active = true
+host = "grafana.example.com"
+proxy_to = "https://10.0.1.9:3000"
+authentication_methods = ["email"]
+multistep_authentication_methods = false
+applied_policies = ["staff_only"]
+
+# Tunnel-only: no public surface at all. Guard returns 404 to public requests
+# and hides the hostname from the public metadata endpoint, so its existence is
+# not enumerable from the internet.
+[hostname.homeassistant]
+active = true
+host = "ha.example.com"
+proxy_to = "https://10.0.1.5:8123"
+wireguard_only = true
+authentication_methods = ["email"]
+multistep_authentication_methods = false
+applied_policies = ["staff_only"]
+
+# Public-only: excluded from the tunnel even though WireGuard is configured.
+[hostname.status]
+active = true
+host = "status.example.com"
+proxy_to = "https://10.0.1.11:8080"
+wireguard = false
+authentication_methods = ["email"]
+multistep_authentication_methods = false
+applied_policies = ["staff_only"]

@@ -16,6 +16,7 @@ mod database;
 mod authentication_misc;
 mod hostname;
 mod wireguard;
+mod dns;
 
 pub mod endpoints {
     pub mod auth;
@@ -144,6 +145,24 @@ async fn main() {
         log::warn!("rustls crypto provider was already installed.");
     }
 
+    // Validate the configuration before anything depends on it. These run here
+    // rather than in start_web so a broken config fails the same way in CLI
+    // mode, and ahead of the SQL checks below because they need no database.
+    //
+    // A dangling policy reference means Guard cannot evaluate the policy set
+    // that was actually written down, so it must surface at startup rather than
+    // as a failed request later.
+    for result in [
+        crate::policy::validate_policy_references(),
+        crate::wireguard::validate_hostname_config(),
+    ] {
+        if let Err(error) = result {
+            log::error!("{}", error);
+            eprintln!("{}", error);
+            std::process::exit(1);
+        }
+    }
+
     validate_sql_table_inputs(CONFIG_VALUE.sql.clone().expect("Missing config.sql").tables.expect("mssing config.sql.tables")).await.expect("Config validation failed.");
 
     if ARGUMENTS.modes.len() > 0 {
@@ -176,9 +195,23 @@ async fn start_web() {
     // A failure here shouldn't stop Guard from serving — WireGuard registration
     // will just report as unavailable until the host can bring it up.
     if CONFIG_VALUE.wireguard.is_some() {
+        crate::wireguard::warn_if_rp_filter_disabled();
         match crate::wireguard::ensure_interface().await {
             Ok(()) => log::info!("WireGuard interface ready."),
             Err(error) => log::error!("Could not bring up the WireGuard interface: {}", error),
+        }
+        // Registration-time policy checks are not revocation: a connected peer
+        // never re-registers. This loop is what makes losing access actually
+        // tear the tunnel down.
+        crate::wireguard::spawn_revocation_loop();
+
+        // The resolver binds the tunnel address, so it can only start once the
+        // interface carrying that address is up. A failure here is not fatal —
+        // Guard still serves, tunnel clients just fall back to public DNS.
+        if let Some(wg) = CONFIG_VALUE.wireguard.clone() {
+            if let Err(error) = crate::dns::spawn(&wg).await {
+                log::error!("Could not start the tunnel DNS resolver: {}", error);
+            }
         }
     }
 

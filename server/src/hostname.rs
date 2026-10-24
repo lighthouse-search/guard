@@ -133,6 +133,9 @@ pub fn device_authentication_hostname() -> Result<GuardedHostname, String> {
         domain_placeholder: frontend_metadata.domain_placeholder,
         username_placeholder: frontend_metadata.username_placeholder,
         style: frontend_metadata.style,
+        // Device authentication is the instance itself, reachable either way.
+        wireguard_only: Some(false),
+        wireguard: Some(true),
     })
 }
 

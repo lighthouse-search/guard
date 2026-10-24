@@ -116,6 +116,14 @@ pub async fn metadata_get_authentication_methods(params: Query<MetadataGetAuthen
         }
     };
 
+    // A wireguard_only hostname must not be enumerable here. This endpoint is
+    // public and resolves any hostname by name, so without this it would leak
+    // both the existence of a tunnel-only service and its authentication
+    // methods — undoing the point of giving it no public surface.
+    if hostname.wireguard_only.unwrap_or(false) == true {
+        return error_message(1001, StatusCode::BAD_REQUEST, "Invalid hostname.".to_string());
+    }
+
     let active_authentication_methods_data = get_hostname_authentication_methods(hostname, true).await;
 
     let mut auth_methods_public: Vec<AuthMethodPublic> = Vec::new();

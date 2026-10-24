@@ -30,7 +30,7 @@ pub struct Config {
     pub wireguard: Option<ConfigWireguard>
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ConfigWireguard {
     // The WireGuard interface Guard applies peers to, e.g. "wg0". Guard must run
     // on this host with permission to run `wg`.
@@ -59,7 +59,27 @@ pub struct ConfigWireguard {
     pub allowed_ips: Option<String>,
     // Optional tunnel DNS + keepalive returned to clients for their config.
     pub dns: Option<String>,
-    pub persistent_keepalive: Option<u32>
+    pub persistent_keepalive: Option<u32>,
+    // CIDR the per-endpoint service addresses are allocated from. Never handed
+    // out to peers; Guard answers on these addresses itself. Included in the
+    // AllowedIPs returned to clients so the range routes into the tunnel.
+    pub service_subnet: Option<String>,
+    // Policies a device's user must satisfy to hold a WireGuard registration.
+    // Falls back to [device_authentication].applied_policies when unset.
+    // Evaluated at registration AND periodically thereafter, so revoking a
+    // user's access tears their peer down rather than waiting for a reconnect.
+    pub applied_policies: Option<Vec<String>>,
+    // How often (seconds) every registered peer is re-checked against policy.
+    // Defaults to 60.
+    pub reevaluation_interval_secs: Option<u64>,
+    // Run the tunnel DNS resolver on server_address:53. Defaults to true.
+    pub dns_server: Option<bool>,
+    // Where names Guard does not own are forwarded. Required in practice:
+    // wg-quick's DNS= replaces the client's resolver, so without an upstream a
+    // connected peer cannot resolve anything but Guard's own hostnames.
+    pub dns_upstream: Option<Vec<String>>,
+    // Port the tunnel resolver listens on. Defaults to 53.
+    pub dns_port: Option<u16>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -353,7 +373,15 @@ pub struct GuardedHostname {
     pub background_colour: Option<String>,
     pub domain_placeholder: Option<String>,
     pub username_placeholder: Option<String>,
-    pub style: Option<String>
+    pub style: Option<String>,
+    // Refuse this hostname unless the request arrived over the WireGuard tunnel.
+    // The service then has no public surface at all. Defaults to false.
+    #[serde(default)]
+    pub wireguard_only: Option<bool>,
+    // Set false to exclude this hostname from the tunnel entirely (it stays
+    // reachable publicly). Defaults to reachable over both.
+    #[serde(default)]
+    pub wireguard: Option<bool>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

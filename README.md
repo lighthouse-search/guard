@@ -353,6 +353,99 @@ of its own, and let Guard do the routing. That also keeps Grafana unreachable
 except through Guard, which snippets-based `auth_request` does not.
 
 
+# WireGuard
+Guard can run a WireGuard server and enforce the same policies on tunnel traffic
+that it enforces on HTTPS. See [`example/wireguard-config.toml`](example/wireguard-config.toml)
+for a complete config, and [`docs/wireguard.md`](docs/wireguard.md) for the
+design and roadmap.
+
+Guard owns the whole lifecycle on its host — it generates and persists the
+server key, writes the interface config, brings the interface up, and keeps the
+live peer list matching its database. You do not run `wg` by hand. Guard must
+run on the WireGuard host as root (or with `CAP_NET_ADMIN`), with
+`wireguard-tools` installed.
+
+```toml
+[wireguard]
+interface = "wg0"
+peer_subnet = "10.8.0.0/24"
+server_address = "10.8.0.1"
+endpoint = "vpn.example.com:51820"
+service_subnet = "10.9.0.0/24"
+# Who may hold a tunnel. Re-checked periodically, not just at registration.
+applied_policies = ["staff_only"]
+
+[hostname.homeassistant]
+active = true
+host = "ha.example.com"
+proxy_to = "https://10.0.1.5:8123"
+# No public surface: 404 to anything that didn't arrive over the tunnel.
+wireguard_only = true
+authentication_methods = ["email"]
+multistep_authentication_methods = false
+applied_policies = ["staff_only"]
+```
+
+A device registers its WireGuard public key at `/guard/api/wireguard/register`,
+signing the request with its Guard device key (RFC 9421) so the WireGuard key
+cannot be swapped in transit. Guard then evaluates `applied_policies` for the
+device's user before allocating a tunnel address — a valid device signature
+proves *which* device is asking, not that it is allowed a tunnel.
+
+Policy is re-evaluated every `reevaluation_interval_secs` (default 60) for every
+registered peer, and a peer that no longer passes is removed from the live
+interface. Revocation does not wait for the device to reconnect.
+
+**There is no implicit default for `applied_policies`.** If neither
+`[wireguard].applied_policies` nor `[device_authentication].applied_policies` is
+set, every registration is denied. A tunnel reaches past the HTTPS layer, so it
+is never granted because a config section was forgotten.
+
+### Requirements and limits
+- **Enable reverse-path filtering**: `sysctl -w net.ipv4.conf.all.rp_filter=1`.
+  Guard decides whether a request arrived over the tunnel from its source
+  address; without `rp_filter` the kernel accepts packets forging a source
+  inside the peer subnet. Guard logs an error at startup if it finds this off.
+- **`wireguard_only` cannot be enforced through `reverse_proxy_authentication`.**
+  In that flow Guard only ever sees the reverse proxy's connection, never the
+  client's. Guard refuses to start if you combine them rather than letting the
+  hostname stay publicly reachable while looking protected.
+- Clients receive the same `AllowedIPs` (`peer_subnet` + `service_subnet`)
+  regardless of what they may reach, so access changes never require pushing new
+  client config. Peer-to-peer traffic is not forwarded.
+- Currently HTTPS only: `[hostname.*]` entries are reachable over the tunnel,
+  but non-HTTP services (SSH, SMB, printing) need the service-IP proxy described
+  in [`docs/wireguard.md`](docs/wireguard.md), which is not built yet.
+
+### Tunnel DNS
+Guard runs a resolver on its tunnel address and answers authoritatively for
+every active `[hostname.*]`, so a peer asking for `ha.example.com` reaches Guard
+over the tunnel rather than going out to public DNS.
+
+```toml
+[wireguard]
+dns_server = true                        # default when [wireguard] is set
+dns_upstream = ["1.1.1.1", "9.9.9.9"]    # where unknown names go
+```
+
+`dns_upstream` matters more than it looks. `wg-quick`'s `DNS=` replaces the
+client's resolver outright, so a resolver that refused every name it did not own
+would leave peers unable to resolve anything at all while connected. Guard
+therefore only advertises itself to clients when an upstream is configured —
+without one it still runs and still answers for Guard's own names, but clients
+are told nothing and keep their existing DNS.
+
+The resolver is not reachable from the internet, enforced three ways:
+
+- It binds `server_address` specifically, never `0.0.0.0`, so only traffic
+  destined for the tunnel gateway reaches it.
+- Guard **refuses to start it** if `server_address` is publicly routable, so
+  mistyping it (or confusing it with `endpoint`) cannot turn Guard into an open
+  forwarding resolver, which would be a DNS amplification source.
+- Queries whose source is outside `peer_subnet` are refused before any lookup
+  happens, so a second route into that range on the host — a container network,
+  another VPN — is not enough to use Guard as a resolver.
+
 # Known issues
 If you run into an issue, please check https://github.com/lighthouse-search/guard/issues.
 

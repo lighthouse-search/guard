@@ -51,6 +51,9 @@ hyper-util = { version = "0.1", features = ["client-legacy"] }
 # Declaring it is the way to turn on `vendored` for the openssl-sys that
 # mysqlclient-src links against.
 openssl-sys = { version = "0.9", optional = true }
+hickory-server = { version = "0.26", default-features = false }
+hickory-resolver = { version = "0.26", default-features = false, features = ["system-config", "tokio"] }
+async-trait = "0.1.92"
 
 [features]
 # Compile libmysqlclient (and the OpenSSL it needs) from source rather than

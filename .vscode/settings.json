@@ -1,2 +1,13 @@
 {
+  // There is no Cargo.toml at the repo root and the Rust crates below it are
+  // independent rather than a workspace, so rust-analyzer has to guess what to
+  // load. Naming them avoids that: without this it can partially load or miss
+  // a crate, which shows up as unresolved imports and missing types in files
+  // that compile fine under `cargo check`.
+  "rust-analyzer.linkedProjects": [
+    "server/Cargo.toml",
+    "client/endpoint-cli/Cargo.toml",
+    "client/library/rust/Cargo.toml",
+    "desktop-client/src-tauri/Cargo.toml"
+  ]
 }

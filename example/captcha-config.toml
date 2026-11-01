@@ -1,0 +1,37 @@
+[features]
+reverse_proxy_authentication = true
+
+[captcha.my_amazing_hcaptcha]
+service="hcaptcha"
+sitekey="xxxxx-xxxxx-xxxxx-xxxxx" # (optional) Default sitekey
+policies = ["validate_hostname"]
+
+[hostname.anythingyouwant]
+active = true
+host = "myawesomewebsite.example.com"
+authentication_methods = ["email"]
+captcha=["my_amazing_hcaptcha"]
+captcha_sitekey="aaaaa-aaaa-aaaa-aaaa"
+
+[policies.validate_hostname]
+active = true
+action = "allow"
+property = "hostname"
+is = ["example.com"]
+
+[captcha.my_amazing_recaptcha]
+service="recaptcha"
+sitekey="xxxxx-xxxxx-xxxxx-xxxxx"
+policies = ["validate_hostname"]
+
+[captcha.my_amazing_turnstile]
+service="turnstile"
+sitekey="xxxxx-xxxxx-xxxxx-xxxxx" # (optional) Default sitekey
+policies = ["validate_hostname"]
+
+[captcha.my_amazing_turnstile]
+service="custom"
+captcha_url="https://example.com/captcha"
+siteverify="https://example.com/siteverify"
+sitekey="xxxxx-xxxxx-xxxxx-xxxxx" # (optional) Default sitekey
+policies = ["validate_hostname"]

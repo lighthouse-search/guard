@@ -40,7 +40,7 @@ use hyper_util::client::legacy::connect::HttpConnector;
 
 use serde_json::{json, Value};
 
-use crate::{CONFIG_VALUE, hostname::get_current_valid_hostname, users::user_authentication_pipeline};
+use crate::{CONFIG_VALUE, hostname::get_current_valid_hostname, users::user_authentication_pipeline, wireguard::{arrival_from, Arrival}};
 
 pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body::Body>>, jar: CookieJar, ConnectInfo(remote_addr): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap, mut req: Request) -> Response {
     let mut proxy_enabled = false;
@@ -62,6 +62,24 @@ pub async fn http_handler(State(client): State<Client<HttpConnector, axum::body:
         Some(h) => h,
         None => return (StatusCode::BAD_REQUEST, "Invalid or missing hostname.").into_response(),
     };
+
+    // A wireguard_only hostname has no public surface: refuse before any
+    // authentication work. 404 rather than 403 — a 403 would confirm to an
+    // internet scanner that this is a real Guard-protected service.
+    if hostname.hostname.wireguard_only.unwrap_or(false) == true
+        && arrival_from(remote_addr.ip()) != Arrival::Wireguard
+    {
+        log::info!("Refusing public request for wireguard_only hostname '{}'.", hostname.hostname.host);
+        return (StatusCode::NOT_FOUND, "Not found.").into_response();
+    }
+
+    // Inverse: a hostname excluded from the tunnel stays public-only.
+    if hostname.hostname.wireguard.unwrap_or(true) == false
+        && arrival_from(remote_addr.ip()) == Arrival::Wireguard
+    {
+        log::info!("Refusing tunnel request for hostname '{}', which is excluded from WireGuard.", hostname.hostname.host);
+        return (StatusCode::NOT_FOUND, "Not found.").into_response();
+    }
 
     // Preserve the full original pathname + query so, if the client is unauthenticated,
     // the login redirect can send them back to exactly where they were trying to go.

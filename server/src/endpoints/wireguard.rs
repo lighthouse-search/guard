@@ -7,7 +7,7 @@ use once_cell::sync::Lazy;
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use crate::device::{device_get, device_get_by_wireguard_public_key, device_http_signature_authentication, device_list_wireguard_ips, device_set_wireguard};
+use crate::device::{device_clear_wireguard, device_get, device_get_by_wireguard_public_key, device_http_signature_authentication, device_list_wireguard_ips, device_set_wireguard};
 use crate::http_signature::RequestContext;
 use crate::structs::ConfigWireguard;
 use crate::wireguard;
@@ -98,16 +98,37 @@ pub async fn wireguard_register(method: Method, uri: Uri, headers: HeaderMap, bo
         _ => return error_message(11005, StatusCode::BAD_REQUEST, "body.public_key is not a valid WireGuard (base64, 32-byte) key.".to_string()),
     }
 
-    // Everything below (check current state → allocate → apply → persist) runs
-    // under the lock so it's atomic against concurrent registrations.
+    // Everything below (check policy → allocate → persist → apply) runs under the
+    // lock so it's atomic against concurrent registrations.
     let _guard = REGISTER_LOCK.lock().await;
 
     // Re-read the device under the lock so the one-key-per-device check reflects
     // any registration that just committed.
-    let device = match device_get(device.id.clone()).await.expect("Failed to re-read device") {
-        Some(device) => device,
-        None => return error_message(11002, StatusCode::UNAUTHORIZED, "Device no longer exists.".to_string()),
+    let device = match device_get(device.id.clone()).await {
+        Ok(Some(device)) => device,
+        Ok(None) => return error_message(11002, StatusCode::UNAUTHORIZED, "Device no longer exists.".to_string()),
+        Err(error) => {
+            log::error!("Could not re-read device during WireGuard registration: {}", error);
+            return error_message(11011, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
+        }
     };
+
+    // --- The device's user must satisfy the WireGuard policies ---
+    //
+    // A valid device signature proves *which* device is asking, not that it is
+    // allowed a tunnel. Without this check any enrolled device reaches every
+    // service on the tunnel, which is the whole point of the feature.
+    match wireguard::device_passes_policy(&device).await {
+        Ok(true) => {}
+        Ok(false) => {
+            log::info!("WireGuard registration denied by policy for device '{}'.", device.id);
+            return error_message(11012, StatusCode::FORBIDDEN, "Not authorised for WireGuard access.".to_string());
+        }
+        Err(error) => {
+            log::error!("Could not evaluate WireGuard policy for device '{}': {}", device.id, error);
+            return error_message(11012, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
+        }
+    }
 
     // --- One WireGuard key per device ---
     if let Some(existing) = device.wireguard_public_key.clone() {
@@ -119,43 +140,66 @@ pub async fn wireguard_register(method: Method, uri: Uri, headers: HeaderMap, bo
     }
 
     // --- The key must not already belong to another device ---
-    if let Some(other) = device_get_by_wireguard_public_key(&public_key).await.expect("Failed to query device by wireguard key") {
-        if other.id != device.id {
+    match device_get_by_wireguard_public_key(&public_key).await {
+        Ok(Some(other)) if other.id != device.id => {
             return error_message(11007, StatusCode::CONFLICT, "This WireGuard key is already registered to another device.".to_string());
+        }
+        Ok(_) => {}
+        Err(error) => {
+            log::error!("Could not query device by WireGuard key: {}", error);
+            return error_message(11011, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
         }
     }
 
-    // --- Allocate a tunnel address + apply the peer live ---
+    // --- Allocate a tunnel address ---
     let peer_subnet = match wg.peer_subnet.clone() {
         Some(subnet) => subnet,
-        None => return error_message(11008, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string()),
-    };
-    let interface = match wg.interface.clone() {
-        Some(iface) => iface,
-        None => return error_message(11008, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string()),
+        None => {
+            log::error!("[wireguard].peer_subnet is not configured.");
+            return error_message(11008, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
+        }
     };
 
-    let used = device_list_wireguard_ips().await.expect("Failed to list wireguard IPs");
+    let used = match device_list_wireguard_ips().await {
+        Ok(used) => used,
+        Err(error) => {
+            log::error!("Could not list allocated WireGuard addresses: {}", error);
+            return error_message(11011, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
+        }
+    };
     let allocated_ip = match wireguard::allocate_ip(&peer_subnet, wg.server_address.as_deref(), &used) {
         Ok(ip) => ip,
-        Err(_) => return error_message(11009, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string()),
+        Err(error) => {
+            log::error!("Could not allocate a WireGuard address: {}", error);
+            return error_message(11009, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
+        }
     };
 
-    if wireguard::apply_peer(&interface, &public_key, &allocated_ip).await.is_err() {
-        return error_message(11010, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
+    // --- Persist, then bring the live interface in line with the database ---
+    //
+    // Database first: it is the source of truth, and `reconcile` derives the
+    // live peer set from it. The reverse order could leave a live peer with no
+    // database row — an access grant nothing knows how to revoke — whereas a row
+    // whose peer failed to apply is simply re-applied on the next reconcile.
+    if let Err(error) = device_set_wireguard(&device.id, &public_key, &allocated_ip).await {
+        log::error!("Could not persist WireGuard registration: {}", error);
+        return error_message(11011, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
     }
 
-    // Persist only after the peer applied successfully.
-    device_set_wireguard(&device.id, &public_key, &allocated_ip).await.expect("Failed to persist wireguard registration");
+    if let Err(error) = wireguard::reconcile().await {
+        log::error!("Could not apply WireGuard peer, rolling the registration back: {}", error);
+        // Roll back so the device can retry cleanly rather than holding an
+        // address that was never applied.
+        if let Err(rollback) = device_clear_wireguard(&device.id).await {
+            log::error!("Failed to roll back the WireGuard registration for device '{}': {}", device.id, rollback);
+        }
+        return error_message(11010, StatusCode::INTERNAL_SERVER_ERROR, "WireGuard registration failed.".to_string());
+    }
 
     success_response(&wg, &allocated_ip)
 }
 
 fn success_response(wg: &ConfigWireguard, address: &str) -> Response {
-    // What the client routes through the tunnel — falls back to the peer subnet
-    // so the gateway (server_address) is always reachable for a health ping.
-    let allowed_ips = wg.allowed_ips.clone().or_else(|| wg.peer_subnet.clone());
-
     (
         StatusCode::OK,
         serde_json::to_string(&json!({
@@ -164,8 +208,8 @@ fn success_response(wg: &ConfigWireguard, address: &str) -> Response {
             "server_public_key": wireguard::server_public_key(),
             "server_address": wg.server_address,
             "endpoint": wg.endpoint,
-            "allowed_ips": allowed_ips,
-            "dns": wg.dns,
+            "allowed_ips": wireguard::client_allowed_ips(wg),
+            "dns": wireguard::client_dns(wg),
             "persistent_keepalive": wg.persistent_keepalive
         })).unwrap(),
     ).into_response()

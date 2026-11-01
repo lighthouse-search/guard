@@ -20,8 +20,8 @@ export default function LoadingSpinner({ id, speed = "1s", size = 20, style }: L
         ...style,
         width: size,
         height: size,
-        border: `${borderWidth}px solid #808080`,
-        borderTop: `${borderWidth}px solid #ffffff`,
+        border: `${borderWidth}px solid var(--spinner-track)`,
+        borderTop: `${borderWidth}px solid var(--spinner-head)`,
         animation: `spin ${speed} linear infinite`,
       }}
     />

@@ -1,5 +1,8 @@
 .base {
     box-sizing: border-box;
+    background-color: var(--surface-page);
+    color: var(--text-primary);
+    color-scheme: light dark;
     width: 100%;
     height: 100vh;
     overflow: hidden;

@@ -104,7 +104,7 @@ export default function DeviceAuthScreen() {
       <MetadataPanelFrame metadata={metadata}>
         <Form className="magiclink_form" style={{ rowGap: 5 }}>
           <h2 className="text-[20px] my-0 font-bold">Error</h2>
-          <p className="text-[15px] my-0 text-center w-full text-[#5a5a5a]">{fatal}</p>
+          <p className="text-[15px] my-0 text-center w-full muted_text">{fatal}</p>
         </Form>
       </MetadataPanelFrame>
     );

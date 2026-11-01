@@ -231,6 +231,7 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       // applied_policies: [],
       oauth_client_token_endpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token",
       oauth_client_user_info: "https://graph.microsoft.com/v1.0/me",
+      oauth_client_user_info_id: "id",
     },
   },
   {
@@ -248,6 +249,7 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       // applied_policies: [],
       oauth_client_token_endpoint: "https://oauth2.googleapis.com/token",
       oauth_client_user_info: "https://www.googleapis.com/oauth2/v3/userinfo",
+      oauth_client_user_info_id: "sub",
     },
   },
   {
@@ -265,6 +267,7 @@ const QUICKSTART_PRESETS: QuickstartPreset[] = [
       // applied_policies: [],
       oauth_client_token_endpoint: "https://github.com/login/oauth/access_token",
       oauth_client_user_info: "https://api.github.com/user",
+      oauth_client_user_info_id: "id",
     },
   },
   {

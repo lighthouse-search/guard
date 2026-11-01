@@ -8,15 +8,16 @@ use diesel::sql_query;
 
 use crate::authentication_misc::protocol_decision_to_pipeline;
 use crate::global::generate_uuid;
-use crate::hostname::get_hostname;
+use crate::global::get_authentication_method;
+use crate::hostname::{get_hostname, is_valid_authentication_method_for_hostname};
 use crate::responses::*;
 use crate::structs::*;
 use crate::policy::*;
 
 use std::error::Error;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
-use crate::SQL_TABLES;
+use crate::{CONFIG_VALUE, SQL_TABLES};
 
 // Some authenticatiom methods, such as email require action (such as sending a magiclink) before the user can present credentials to authenticate. This is where that logic is kept.
 
@@ -110,14 +111,23 @@ pub async fn user_authentication_pipeline(required_scopes: Vec<&str>, jar: &inde
     }
     let hostname = hostname_result.unwrap();
     
-    // Authenticate user for specific authentication method.
-    let protocol_decision_status = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers, original_path_and_query).await;
-    // Check pipeline for response error.
-    if protocol_decision_status.is_err() == true {
-        // TODO: This looks like it could potentially return unsafe error data? Will need to test. It's not directly against a web endpoint so should be fine for now.
-        return Err(protocol_decision_status.err().unwrap());
-    }
-    let protocol_decision = protocol_decision_status.expect("Failed to unwrap protocol decision");
+    // A request over the tunnel already carries a proven device identity in its
+    // source address, so it does not need to prove one again interactively.
+    // Policy is still evaluated below — this replaces authentication, not
+    // authorisation.
+    let protocol_decision = match tunnel_identity(&hostname, &remote_addr).await {
+        Some(decision) => decision,
+        None => {
+            // Authenticate user for specific authentication method.
+            let protocol_decision_status = protocol_decision_to_pipeline(required_scopes, hostname.clone(), jar, remote_addr.to_string(), headers, original_path_and_query).await;
+            // Check pipeline for response error.
+            if protocol_decision_status.is_err() == true {
+                // TODO: This looks like it could potentially return unsafe error data? Will need to test. It's not directly against a web endpoint so should be fine for now.
+                return Err(protocol_decision_status.err().unwrap());
+            }
+            protocol_decision_status.expect("Failed to unwrap protocol decision")
+        }
+    };
 
     // Unwrap user's information.
     let user_as_value = protocol_decision.user.expect("Missing user");
@@ -200,4 +210,133 @@ pub async fn user_get_otherwise_create(host: GuardedHostname, email: String, rem
     }
 
     return Ok(Some(user_result.unwrap()));
+}
+
+// The client address from a `remote_addr` string.
+//
+// Callers render a SocketAddr ("10.8.0.2:54321", "[::1]:443"), but a bare
+// address is accepted too. Returning None here means tunnel identity simply
+// does not apply and normal authentication runs, so an unparseable value costs
+// a login page rather than access.
+fn source_ip(remote_addr: &str) -> Option<IpAddr> {
+    let remote_addr = remote_addr.trim();
+    if let Ok(socket) = remote_addr.parse::<SocketAddr>() {
+        return Some(socket.ip());
+    }
+    remote_addr.parse::<IpAddr>().ok()
+}
+
+// Identify the device behind a request that arrived over the WireGuard tunnel.
+//
+// WireGuard will only ever emit a given tunnel address from the peer holding
+// the matching private key, so the source address identifies the device as
+// firmly as a signature would — and the device already proved itself to get
+// that address. Returning a decision here lets a tunnel request skip the login
+// page; `user_authentication_pipeline` still applies the hostname's policies to
+// the resulting user.
+//
+// Returns None whenever tunnel identity does not apply, so the caller falls
+// back to normal authentication rather than failing.
+async fn tunnel_identity(hostname: &GuardedHostname, remote_addr: &str) -> Option<ProtocolDecisionToPipelineOutput> {
+    let wireguard = CONFIG_VALUE.wireguard.clone()?;
+    // Opt-in. Unlike wireguard_only and the service proxy, which use the source
+    // address to *refuse*, this uses it to *grant* — so it is off unless the
+    // operator has decided arrival detection is trustworthy on their host.
+    if wireguard.tunnel_identity.unwrap_or(false) == false {
+        return None;
+    }
+
+    let source = source_ip(remote_addr)?;
+
+    // SECURITY: this is the whole basis of the identity, so it must be the
+    // arrival check and not merely "looks like a tunnel address". See
+    // wireguard::arrival_from for what that check does and does not guarantee.
+    if crate::wireguard::arrival_from(source) != crate::wireguard::Arrival::Wireguard {
+        return None;
+    }
+
+    // Stored tunnel addresses are IPv4, so a mapped source has to be unwrapped
+    // before it will match.
+    let lookup = crate::wireguard::canonical_ip(source).to_string();
+    let device = match crate::device::device_get_by_wireguard_ip(&lookup).await {
+        Ok(Some(device)) => device,
+        Ok(None) => return None,
+        Err(error) => {
+            // Fall back to interactive authentication rather than locking the
+            // user out because of a transient lookup failure.
+            log::error!("Could not resolve a device for tunnel address {}: {}", source, error);
+            return None;
+        }
+    };
+
+    // The device enrolled with some authentication method; a hostname that does
+    // not accept that method must not accept it here either, or the tunnel
+    // would be a way around the hostname's configuration.
+    let authentication_method = get_authentication_method(device.authentication_method.clone(), true).await?;
+    if is_valid_authentication_method_for_hostname(hostname.clone(), authentication_method.clone()).await.unwrap_or(false) == false {
+        log::info!(
+            "Device '{}' reached '{}' over the tunnel, but its authentication method is not accepted there.",
+            device.id, hostname.host
+        );
+        return None;
+    }
+
+    let user = match user_get(Some(device.user_id.clone()), None).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            log::info!("Tunnel device '{}' refers to a user that no longer exists.", device.id);
+            return None;
+        }
+        Err(error) => {
+            log::error!("Could not load the user for tunnel device '{}': {}", device.id, error);
+            return None;
+        }
+    };
+
+    log::debug!("Device '{}' authenticated by tunnel address {}.", device.id, source);
+
+    Some(ProtocolDecisionToPipelineOutput {
+        // Same shape every other path hands the policy engine.
+        user: Some(json!({
+            "id": user.id,
+            "email": user.email
+        })),
+        device: Some(device),
+        authentication_method: Some(authentication_method),
+        authentication_type: String::from("wireguard"),
+    })
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_ip_reads_a_rendered_socket_address() {
+        // The form every caller actually passes.
+        assert_eq!(source_ip("10.8.0.2:54321"), Some("10.8.0.2".parse().unwrap()));
+    }
+
+    #[test]
+    fn source_ip_reads_a_bare_address() {
+        assert_eq!(source_ip("10.8.0.2"), Some("10.8.0.2".parse().unwrap()));
+    }
+
+    #[test]
+    fn source_ip_reads_a_bracketed_ipv6_socket_address() {
+        // A dual-stack listener reports v4 peers in mapped form; failing to
+        // parse this would silently disable tunnel identity for them.
+        assert_eq!(
+            source_ip("[::ffff:10.8.0.2]:443"),
+            Some("::ffff:10.8.0.2".parse::<IpAddr>().unwrap())
+        );
+    }
+
+    #[test]
+    fn source_ip_rejects_nonsense() {
+        assert_eq!(source_ip(""), None);
+        assert_eq!(source_ip("not-an-address"), None);
+        assert_eq!(source_ip("10.8.0.2:notaport"), None);
+    }
 }

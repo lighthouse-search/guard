@@ -4,6 +4,17 @@ on:
   push:
     branches: [ "main", "nightly", "cicd-changed" ]
   workflow_dispatch:
+    inputs:
+      containers-only:
+        description: "Rebuild only the Linux container image: no macOS/Windows builds, no GitHub release. For iterating on the Dockerfile or refreshing the base OS."
+        type: boolean
+        required: false
+        default: false
+      fresh-base-image:
+        description: "Build the container image with no cache and a freshly pulled base image, so OS/apt security updates are picked up."
+        type: boolean
+        required: false
+        default: false
 
   # Callable by .github/workflows/auto-update.yml so scheduled dependency and
   # base-image refreshes reuse this exact build instead of duplicating it.
@@ -24,6 +35,11 @@ on:
         type: boolean
         required: false
         default: false
+      containers-only:
+        description: "Rebuild only the Linux container image: no macOS/Windows builds, no GitHub release."
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -40,10 +56,8 @@ env:
   # On push/workflow_dispatch `inputs` is empty, so these fall back to the event.
   BUILD_REF: ${{ inputs.ref || github.sha }}
   CHANNEL: ${{ inputs.channel || github.ref_name }}
-  # Where the incremented release.json is pushed. On push/dispatch that is the
-  # branch that triggered the run; a caller passing `ref` must pass a BRANCH name
-  # (not a SHA) so the bump has somewhere to land.
-  VERSION_BRANCH: ${{ inputs.ref || github.ref_name }}
+  # "true"/"false" as a string: `inputs` is empty on push, where this is false.
+  CONTAINERS_ONLY: ${{ inputs.containers-only || false }}
 
 jobs:
   # Build the server frontend once; all platform jobs download this artifact.
@@ -81,6 +95,9 @@ jobs:
   # image), and they compile libmysqlclient and OpenSSL from source, so they cost
   # far more than the Linux jobs. That is worth spending on a release and not on
   # every nightly push.
+  #
+  # A containers-only run narrows this to linux-amd64, the single artifact the
+  # docker job consumes.
   targets:
     runs-on: ubuntu-latest
     outputs:
@@ -94,8 +111,19 @@ jobs:
           # neither installed on the user's machine. Linux links the distro
           # package instead — that is what the container image installs, so its
           # security updates arrive with the base image.
+          #
+          # linux-amd64 pins ubuntu-26.04 rather than ubuntu-latest: it links the
+          # distro libmysqlclient, so the soname it records has to be the one the
+          # runtime image installs (26.04 -> libmysqlclient.so.24). Tracking
+          # ubuntu-latest would silently re-link the binary when GitHub moves
+          # that label — it is moving 24.04 -> 26.04 through November 2026 — and
+          # the container would then die on a missing library. Keep this release
+          # and server/Dockerfile's FROM in lockstep. It is also the glibc floor
+          # for the published guard-linux-amd64 archive.
+          # linux-arm64 builds inside cross's own container, which carries its
+          # sysroot, so the runner image is irrelevant there.
           always='[
-            {"os":"ubuntu-latest","target":"x86_64-unknown-linux-gnu","artifact-name":"guard-linux-amd64","use-cross":false,"vendored":false},
+            {"os":"ubuntu-26.04","target":"x86_64-unknown-linux-gnu","artifact-name":"guard-linux-amd64","use-cross":false,"vendored":false},
             {"os":"ubuntu-latest","target":"aarch64-unknown-linux-gnu","artifact-name":"guard-linux-arm64","use-cross":true,"vendored":false}
           ]'
           main_only='[
@@ -104,10 +132,20 @@ jobs:
             {"os":"windows-11-arm","target":"aarch64-pc-windows-msvc","artifact-name":"guard-windows-arm64","use-cross":false,"vendored":true}
           ]'
 
-          if [ "$CHANNEL" = "main" ]; then
+          if [ "$CONTAINERS_ONLY" = "true" ]; then
+            # Selected by name, not by index, so reordering `always` cannot
+            # quietly turn this into a different target.
+            matrix=$(jq -cn --argjson a "$always" \
+              '{include: [$a[] | select(."artifact-name" == "guard-linux-amd64")]}')
+          elif [ "$CHANNEL" = "main" ]; then
             matrix=$(jq -cn --argjson a "$always" --argjson b "$main_only" '{include: ($a + $b)}')
           else
             matrix=$(jq -cn --argjson a "$always" '{include: $a}')
+          fi
+
+          if [ "$(printf '%s' "$matrix" | jq '.include | length')" = "0" ]; then
+            echo "::error::No build targets selected — the matrix would be empty."
+            exit 1
           fi
 
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
@@ -136,7 +174,7 @@ jobs:
       # that library's own linkage, not for Rust: nothing in the Linux dependency
       # tree uses openssl-sys (lettre and reqwest are both rustls).
       - name: Install system dependencies (Linux native)
-        if: matrix.os == 'ubuntu-latest' && !matrix.use-cross
+        if: runner.os == 'Linux' && !matrix.use-cross
         run: sudo apt-get update -y && sudo apt-get install -y default-libmysqlclient-dev pkg-config libssl-dev
 
       # Linux arm64 — cross-compile via cross
@@ -248,21 +286,29 @@ jobs:
 
   # Create the GitHub release with all platform archives.
   #
-  # release.json holds the last version published FROM MAIN, and only main ever
-  # writes it. A main release increments it, publishes that version, and commits
-  # the bump back.
+  # The version counter is the set of release tags, not a file in the tree.
   #
-  # Every other channel publishes a prerelease of the upcoming version and does
-  # NOT touch release.json — e.g. with the file at v0.1.4, nightly tags
-  # v0.1.5-nightly.<run id>. That is deliberate: when both branches incremented
-  # the same file they produced different values whenever one released more often
-  # than the other, so release.json conflicted on every merge. Only one writer
-  # means there is nothing to conflict.
+  # A main release takes the highest plain vX.Y.Z tag, increments the patch, and
+  # publishes that. Every other channel publishes a semver PRERELEASE of the same
+  # upcoming version — with v0.1.4 released, nightly tags v0.1.5-nightly.<run id>
+  # — and prereleases are filtered out when reading the counter, so only main
+  # advances the release line.
+  #
+  # Nothing is committed back. An earlier design kept the counter in release.json
+  # and pushed a bump to the release branch, which (a) conflicted on every merge
+  # while both branches wrote it, and (b) cannot work at all once main requires
+  # pull requests, since a workflow push is rejected by the ruleset and
+  # GITHUB_TOKEN is not an eligible bypass actor. Tags have neither problem: they
+  # are globally unique, never merge, and are not branch-protected.
   #
   # Versions are still never reused: main's tag is guarded below, and a
   # prerelease carries the run id, which is unique per run across the repo.
+  #
+  # Skipped entirely by a containers-only run: that path exists to rebuild an
+  # image, and it must not burn a version or a tag doing so.
   release:
     needs: build
+    if: ${{ inputs.containers-only != true }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -271,23 +317,31 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.BUILD_REF }}
-          # A token that can push the release.json bump back.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Full history so the tags are present: they are what the next
+          # version is derived from.
+          fetch-depth: 0
 
       - name: Determine next version
         id: version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          current=$(jq -r '.version' release.json)
+          # The last plain release tag is the version counter. Prereleases
+          # ("v0.1.7-nightly.42") are filtered out: they are published from
+          # other channels and must not advance the release line.
+          current=$(git tag --list 'v[0-9]*' --sort=-v:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | head -1)
+          # No releases yet, so the first one is v0.0.1.
+          current=${current:-v0.0.0}
+
           core=${current#v}
           if ! printf '%s' "$core" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::release.json version '$current' is not v<major>.<minor>.<patch>, so it cannot be incremented."
+            echo "::error::Latest release tag '$current' is not v<major>.<minor>.<patch>, so it cannot be incremented."
             exit 1
           fi
           major=${core%%.*}; rest=${core#*.}; minor=${rest%%.*}; patch=${rest#*.}
-          case "$current" in v*) prefix=v ;; *) prefix= ;; esac
-          version="${prefix}${major}.${minor}.$((patch + 1))"
+          version="v${major}.${minor}.$((patch + 1))"
 
           # main publishes the bare version. Everything else publishes a semver
           # PRERELEASE of it — "$version-nightly.<run id>" sorts before $version,
@@ -304,7 +358,7 @@ jobs:
 
           # Refuse to touch anything already published.
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "::error::Release '$tag' already exists. Previous releases are never overwritten; bump release.json or check for a stuck run."
+            echo "::error::Release '$tag' already exists. Previous releases are never overwritten; check for a stuck run."
             exit 1
           fi
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
@@ -315,27 +369,10 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if [ "$CHANNEL" = "main" ]; then
-            echo "Publishing $tag (release.json: $current -> $version)"
+            echo "Publishing $tag (previous release: $current)"
           else
-            echo "Publishing prerelease $tag (release.json stays at $current; only main writes it)"
+            echo "Publishing prerelease $tag of the upcoming $version (previous release: $current)"
           fi
-
-      # main only. Claim the version BEFORE publishing: if this push loses a race
-      # the job stops here and no release is created, and if a later step fails we
-      # have only burned a version number, which is harmless. Other channels skip
-      # this entirely — they never write release.json, which is what keeps it
-      # conflict-free across merges.
-      - name: Record the new version in release.json
-        if: env.CHANNEL == 'main'
-        run: |
-          jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' release.json > release.json.new
-          mv release.json.new release.json
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- release.json
-          git commit -m "chore: release ${{ steps.version.outputs.tag }}"
-          git push origin "HEAD:refs/heads/$VERSION_BRANCH"
 
       - uses: actions/download-artifact@v8
         with:
@@ -360,8 +397,19 @@ jobs:
           files: dist/*.zip
 
   # Docker image — built from the Linux amd64 binary.
+  #
+  # `release` is skipped on a containers-only run, which by default would skip
+  # this job with it; !cancelled() keeps it alive so the needs' results can be
+  # checked by hand (and, unlike always(), still stops on a cancelled run).
+  # build is a matrix, so its result is the aggregate of every platform — a
+  # macOS failure still blocks the image, exactly as it did when this job hung
+  # off release alone.
   docker:
-    needs: release
+    needs: [build, release]
+    if: >-
+      !cancelled()
+      && needs.build.result == 'success'
+      && (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -382,10 +430,41 @@ jobs:
       - name: Unzip Linux amd64 artifact
         run: unzip -o guard-linux-amd64.zip -d release
 
-      # Taken from the release job rather than re-read from release.json, which by
-      # now is one commit ahead of the ref this job checked out.
-      - name: Get version
-        run: echo "VERSION=${{ needs.release.outputs.version }}" >> $GITHUB_ENV
+      # The version comes from the release job, so the image carries exactly the
+      # version that was published rather than one recomputed here.
+      #
+      # A containers-only run has no release and therefore no version: it only
+      # moves the channel tag. It deliberately does not touch `latest` or a
+      # vX.Y.Z tag — those name a published release, and nothing but a release
+      # may repoint them. On main that means `main-latest`, which a full run
+      # never writes, so the image under test is always distinguishable from
+      # the released one.
+      - name: Work out image tags
+        id: tags
+        run: |
+          repo="ghcr.io/${{ github.repository }}"
+          version="${{ needs.release.outputs.version }}"
+
+          if [ "$CONTAINERS_ONLY" = "true" ]; then
+            tags="$repo:$CHANNEL-latest"
+          elif [ "$CHANNEL" = "main" ]; then
+            if [ -z "$version" ]; then
+              echo "::error::The release job produced no version, so the image cannot be tagged."
+              exit 1
+            fi
+            tags=$(printf '%s\n%s' "$repo:$version" "$repo:latest")
+          else
+            tags="$repo:$CHANNEL-latest"
+          fi
+
+          {
+            echo "tags<<EOF"
+            printf '%s\n' "$tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Pushing:"
+          printf '  %s\n' $tags
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -403,10 +482,30 @@ jobs:
           context: .
           file: ./server/Dockerfile
           push: true
-          # Discard the layer cache and re-pull ubuntu:24.04 so the Dockerfile's
-          # `apt-get update && apt-get install` resolves against current packages.
+          # Discard the layer cache and re-pull the base image so the
+          # Dockerfile's `apt-get update && apt-get install` resolves against
+          # current packages.
           pull: ${{ inputs.fresh-base-image || false }}
           no-cache: ${{ inputs.fresh-base-image || false }}
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ env.CHANNEL == 'main' && env.VERSION || format('{0}-latest', env.CHANNEL) }}
-            ghcr.io/${{ github.repository }}:${{ env.CHANNEL == 'main' && 'latest' || format('{0}-latest', env.CHANNEL) }}
+          tags: ${{ steps.tags.outputs.tags }}
+
+      # The image build only proves the packages install. A soname mismatch
+      # between the base image and the runner that linked the binary surfaces at
+      # exec time, not build time, so check the linkage here: a red job beats a
+      # container that crash-loops on first start. The image is already pushed by
+      # the time this runs — on a containers-only run that is the point, the tag
+      # is there to be inspected either way.
+      - name: Verify the binary resolves in the image
+        run: |
+          image=$(printf '%s' "${{ steps.tags.outputs.tags }}" | head -1)
+          docker pull "$image"
+
+          # ldd prints "not found" against any dependency the base image lacks,
+          # and exits 0 while doing it — hence the explicit grep.
+          deps=$(docker run --rm --entrypoint ldd "$image" /builds/release/guard-server)
+          printf '%s\n' "$deps"
+
+          if printf '%s\n' "$deps" | grep -q 'not found'; then
+            echo "::error::guard-server has unresolved shared libraries in the image. The Dockerfile's base image and the Ubuntu release the linux-amd64 job builds on are out of step — check libmysqlclient's soname in both."
+            exit 1
+          fi

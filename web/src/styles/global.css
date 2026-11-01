@@ -1,5 +1,85 @@
 @import "tailwindcss";
 
+/*
+ * Theme tokens.
+ *
+ * Every colour the app paints should come from here rather than being spelled
+ * out at the call site, so the dark variant below is the only place a second
+ * palette is defined. `.base` carries the page surface and `color-scheme`, so
+ * a page gets themed simply by rendering inside it.
+ */
+:root {
+  /* Surfaces */
+  --surface-page: #f3f1ee;
+  --surface-card: #ffffff;
+  --surface-card-border: rgb(0 0 0 / 0.06);
+  --surface-card-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  --surface-input: #ffffff;
+  --surface-control: rgb(239, 239, 239);
+  --surface-control-hover: rgb(230, 230, 230);
+
+  /* Text */
+  --text-primary: #1f1f1f;
+  --text-muted: #5a5a5a;
+  --text-danger: #d92020;
+
+  /* The one high-contrast action (the login/confirm button). */
+  --accent-bg: #3a3a3a;
+  --accent-bg-hover: #2b2b2b;
+  --accent-fg: #ffffff;
+
+  /* Lines and hairlines. --shadow-hairline keeps the 1px "border by shadow"
+     trick these controls already used, which a flat border would not match. */
+  --border-input: rgb(204, 204, 204);
+  --border-subtle: rgb(0 0 0 / 0.14);
+  --shadow-hairline: rgb(0, 0, 0);
+
+  --spinner-track: #d8d5d1;
+  --spinner-head: #5a5a5a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-page: #161614;
+    --surface-card: #20201d;
+    --surface-card-border: rgb(255 255 255 / 0.08);
+    --surface-card-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --surface-input: #2a2926;
+    --surface-control: #2f2e2b;
+    --surface-control-hover: #3a3936;
+
+    --text-primary: #f5f4f2;
+    --text-muted: #a5a29c;
+    --text-danger: #ff6b6b;
+
+    /* Inverted: a dark grey button on a dark page has no contrast left. */
+    --accent-bg: #e8e6e3;
+    --accent-bg-hover: #d6d3cf;
+    --accent-fg: #1a1a18;
+
+    --border-input: rgb(255 255 255 / 0.14);
+    --border-subtle: rgb(255 255 255 / 0.14);
+    --shadow-hairline: rgb(255 255 255 / 0.22);
+
+    --spinner-track: #3a3936;
+    --spinner-head: #d6d3cf;
+  }
+}
+
+/* The card a centred interstitial page puts its content in. */
+.card_surface {
+  background-color: var(--surface-card);
+  border: 1px solid var(--surface-card-border);
+  box-shadow: var(--surface-card-shadow);
+}
+
+/* `greyText` is the older name for the same thing; kept so existing call sites
+   do not all have to change. */
+.muted_text,
+.greyText {
+  color: var(--text-muted);
+}
+
 body {
   overflow: hidden;
   padding: 0px;
@@ -64,8 +144,8 @@ dialog::backdrop {
 
 Input {
   position: relative;
-  /* background-color: #303132; */
-  background-color: rgb(239, 239, 239);
+  background-color: var(--surface-input);
+  color: var(--text-primary);
   padding: 12px;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -74,7 +154,7 @@ Input {
   height: 20px;
   outline: none;
   border: none;
-  box-shadow: 0 0px 1px 0 rgb(0, 0, 0);
+  box-shadow: 0 0px 1px 0 var(--shadow-hairline);
 }
 
 Input[type="range"] {
@@ -84,8 +164,8 @@ Input[type="range"] {
 
 textarea {
   position: relative;
-  /* background-color: #303132; */
-  background-color: rgb(239, 239, 239);
+  background-color: var(--surface-input);
+  color: var(--text-primary);
   padding: 12px;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -93,9 +173,8 @@ textarea {
   border-width: 1.2px;
   outline: none;
   border: none;
-  box-shadow: 0 0px 1px 0 rgb(0, 0, 0);
+  box-shadow: 0 0px 1px 0 var(--shadow-hairline);
   font: caption;
-  /* min-width: 450px; */
 }
 
 button {
@@ -103,9 +182,9 @@ button {
   padding: 8px;
   border-radius: 4px;
   font-size: 16px;
-  /* background-color: rgb(230, 230, 230); */
-  background-color: rgb(239, 239, 239);
-  box-shadow: 0 0px 1px 0 rgb(0, 0, 0);
+  background-color: var(--surface-control);
+  color: var(--text-primary);
+  box-shadow: 0 0px 1px 0 var(--shadow-hairline);
 }
 
 .secondary_element {
@@ -118,8 +197,7 @@ button {
 }
 
 button:hover {
-  /* background-color: rgb(85, 85, 85); */
-  filter: brightness(0.8);
+  background-color: var(--surface-control-hover);
 }
 
 .button img {
@@ -130,22 +208,18 @@ button:hover {
   min-width: 1px;
   height: 100vh;
   font-size: 0px;
-  background-color: black;
+  background-color: var(--border-subtle);
 }
 
 .side_line {
   width: 100%;
   min-height: 1px;
   font-size: 0px;
-  background-color: #5a5a5a;
+  background-color: var(--border-subtle);
 }
 
 .supershade {
   box-shadow: 0 16px 20px 0 rgb(0, 0, 0);
-}
-
-.greyText {
-  color: #5a5a5a;
 }
 
 .hover:hover {
@@ -261,7 +335,7 @@ a {
 .tab_button {
   box-shadow: none;
   background-color: inherit;
-  border: rgb(220, 220, 220) 1px solid;
+  border: var(--border-input) 1px solid;
   font-size: 12px;
 }
 
@@ -271,7 +345,7 @@ a {
 }
 
 .tab_button:hover {
-  background-color: rgb(230, 230, 230);
+  background-color: var(--surface-control-hover);
 }
 
 .tab_button_selected {
@@ -287,7 +361,7 @@ a {
 }
 
 .outline {
-  box-shadow: 0 0px 1px 0 rgb(0, 0, 0);
+  box-shadow: 0 0px 1px 0 var(--shadow-hairline);
 }
 
 .align_center {

@@ -30,7 +30,7 @@ pub struct Config {
     pub wireguard: Option<ConfigWireguard>
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ConfigWireguard {
     // The WireGuard interface Guard applies peers to, e.g. "wg0". Guard must run
     // on this host with permission to run `wg`.
@@ -59,7 +59,116 @@ pub struct ConfigWireguard {
     pub allowed_ips: Option<String>,
     // Optional tunnel DNS + keepalive returned to clients for their config.
     pub dns: Option<String>,
+    pub persistent_keepalive: Option<u32>,
+    // CIDR the per-endpoint service addresses are allocated from. Never handed
+    // out to peers; Guard answers on these addresses itself. Included in the
+    // AllowedIPs returned to clients so the range routes into the tunnel.
+    pub service_subnet: Option<String>,
+    // Policies a device's user must satisfy to hold a WireGuard registration.
+    // Falls back to [device_authentication].applied_policies when unset.
+    // Evaluated at registration AND periodically thereafter, so revoking a
+    // user's access tears their peer down rather than waiting for a reconnect.
+    pub applied_policies: Option<Vec<String>>,
+    // How often (seconds) every registered peer is re-checked against policy.
+    // Defaults to 60.
+    pub reevaluation_interval_secs: Option<u64>,
+    // Run the tunnel DNS resolver on server_address:53. Defaults to true.
+    pub dns_server: Option<bool>,
+    // Where names Guard does not own are forwarded. Required in practice:
+    // wg-quick's DNS= replaces the client's resolver, so without an upstream a
+    // connected peer cannot resolve anything but Guard's own hostnames.
+    pub dns_upstream: Option<Vec<String>>,
+    // Port the tunnel resolver listens on. Defaults to 53.
+    pub dns_port: Option<u16>,
+    // Authenticate HTTP requests arriving over the tunnel from the source
+    // address alone, skipping the login page. WireGuard only ever emits a
+    // given tunnel address from the peer holding the matching private key, so
+    // the address is a cryptographically attested device identity.
+    //
+    // Policies still apply — this replaces proving *who you are*, not the check
+    // of whether you are allowed.
+    //
+    // DEFAULTS TO FALSE, and is opt-in deliberately. Everything else Guard does
+    // with the source address is a *restriction*: wireguard_only refuses a
+    // request, and a service proxy refuses a connection. Getting those wrong
+    // fails towards "you still have to log in". This one is a *grant* — getting
+    // it wrong is an authentication bypass — so it should not arrive as a side
+    // effect of configuring WireGuard. Turn it on once you are satisfied that
+    // arrival detection holds on your host (see wireguard::arrival_from, and
+    // enable rp_filter).
+    pub tunnel_identity: Option<bool>,
+    // Services reachable over the tunnel that are not addressed by a Host
+    // header — SSH, SMB, printing, databases. Each gets its own address from
+    // service_subnet, which Guard listens on and proxies from.
+    //
+    // Named `service` rather than `endpoint` because `endpoint` above already
+    // means the public host:port that clients dial to reach WireGuard itself.
+    pub service: Option<HashMap<String, ConfigWireguardService>>,
+    // Maximum simultaneous proxied connections across all endpoints.
+    // Defaults to 512.
+    pub max_connections: Option<usize>,
+    // Maximum simultaneous proxied connections from any one device.
+    // Defaults to 64.
+    pub max_connections_per_device: Option<usize>,
+    // Downstream WireGuard instances Guard routes through, keyed by name.
+    // Each one puts the networks behind it within Guard's reach, so a
+    // [hostname.*] proxy_to pointing into them resolves and connects.
+    pub site: Option<HashMap<String, ConfigWireguardSite>>
+}
+
+// A downstream WireGuard peer with networks behind it — a home or branch
+// instance Guard chains through.
+//
+// Unlike a device peer (one /32, dialled in), a site peer carries whole
+// subnets and may sit behind NAT, dialling out to Guard and holding the tunnel
+// open with a keepalive.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ConfigWireguardSite {
+    #[serde(default = "default_true")]
+    pub active: bool,
+    // The site's WireGuard public key.
+    pub public_key: Option<String>,
+    // Networks reachable behind this site, e.g. ["10.0.1.0/24"]. These become
+    // the peer's AllowedIPs, so they must not overlap peer_subnet or another
+    // site: WireGuard routes by longest-prefix match across peers and the same
+    // range cannot belong to two of them.
+    pub subnets: Option<Vec<String>>,
+    // Where to reach the site, if it has a stable address. Omit when the site
+    // dials out to Guard (the usual case behind NAT).
+    pub endpoint: Option<String>,
+    // Seconds between keepalives. Needed when the site is behind NAT so the
+    // mapping stays open. Defaults to 25 when `endpoint` is unset.
     pub persistent_keepalive: Option<u32>
+}
+
+fn default_true() -> bool {
+    true
+}
+
+// A service reachable over the tunnel that cannot be addressed by a Host
+// header. Guard gives it an address of its own, listens there, authorises the
+// connecting device, and splices bytes to `destination`.
+//
+// Because the proxy never parses the payload, this works for any single
+// -connection TCP protocol: SSH, SMB, IPP, Postgres, an HTTPS API you cannot
+// set a Host on.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ConfigWireguardService {
+    #[serde(default = "default_true")]
+    pub active: bool,
+    // What Guard dials, as "host:port". Same spirit as a hostname's proxy_to:
+    // Guard connects to it, so a name resolvable from the Guard host is fine.
+    pub destination: Option<String>,
+    // Name the tunnel resolver answers for this endpoint. Optional; without it
+    // the endpoint is reachable only by its service address.
+    pub dns_name: Option<String>,
+    // Pin the service address instead of letting Guard allocate one. Allocated
+    // addresses are assigned in sorted endpoint-name order, so adding an
+    // endpoint can shift later ones; pin any address you reference elsewhere.
+    pub service_address: Option<String>,
+    // Policies the connecting device's user must satisfy. As everywhere else,
+    // an empty list denies.
+    pub applied_policies: Option<Vec<String>>
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -289,11 +398,21 @@ pub struct AuthMethod {
     pub ratelimit: Option<u32>,
     pub ratelimit_cooldown: Option<u32>,
     pub should_create_new_users: Option<bool>,
+    // method_type = "mtls": PEM bundle of the certificate authorities whose
+    // client certificates this method accepts. Every mtls method's CAs are
+    // loaded into one trust store at startup, because rustls fixes the client
+    // verifier per ServerConfig and cannot vary it per SNI — so verification is
+    // offered to every connection and which hostnames *require* it is decided
+    // per request.
+    pub mtls_ca: Option<String>,
     // pub user_info_reference_type: Option<String>,
     // pub user_info_reference_key: Option<String>,
     pub oauth_client_api: Option<String>,
     pub oauth_client_user_info: Option<String>,
-    // pub oauth_client_user_info_id: Option<String>,
+    // Which claim in the userinfo response carries the provider's stable user
+    // id. Not standardised across providers, so it has to be configurable —
+    // see oauth_user_id_from_userinfo in protocols/oauth/endpoint/client.rs.
+    pub oauth_client_user_info_id: Option<String>,
     pub oauth_client_token_endpoint: Option<String>,
     // pub oauth_token_endpoint_redirect_uri: Option<String>,
     // pub oauth_scope: Option<String>,
@@ -350,7 +469,15 @@ pub struct GuardedHostname {
     pub background_colour: Option<String>,
     pub domain_placeholder: Option<String>,
     pub username_placeholder: Option<String>,
-    pub style: Option<String>
+    pub style: Option<String>,
+    // Refuse this hostname unless the request arrived over the WireGuard tunnel.
+    // The service then has no public surface at all. Defaults to false.
+    #[serde(default)]
+    pub wireguard_only: Option<bool>,
+    // Set false to exclude this hostname from the tunnel entirely (it stays
+    // reachable publicly). Defaults to reachable over both.
+    #[serde(default)]
+    pub wireguard: Option<bool>
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

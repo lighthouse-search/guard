@@ -37,7 +37,21 @@ async fn reverse_proxy_authentication(jar: CookieJar, remote_addr: SocketAddr, h
         }
     }
     
-    let host = get_current_valid_hostname(headers.clone(), Some(header_to_use)).await.expect("Invalid or missing hostname.");
+    // An unknown or missing hostname is a client/proxy mistake, not a server
+    // fault: this is reachable by anything that can talk to the auth endpoint,
+    // so it must answer rather than panic the task.
+    let host = match get_current_valid_hostname(headers.clone(), Some(header_to_use)).await {
+        Some(host) => host,
+        None => {
+            log::info!("Reverse proxy authentication called with an invalid or missing hostname.");
+            return (
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false
+                })),
+            ).into_response();
+        }
+    };
 
     // Preserve the full original pathname + query the client was trying to reach so an
     // unauthenticated client can be redirected back to it after login. When the reverse

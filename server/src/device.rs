@@ -111,6 +111,55 @@ pub async fn device_list_wireguard_peers() -> Result<Vec<(String, String)>, Box<
         .collect())
 }
 
+// Look up a device by its allocated WireGuard tunnel address.
+//
+// This is the identity primitive for traffic arriving over the tunnel: WireGuard
+// will only emit a given tunnel address from the peer holding the matching
+// private key, so the source address of a tunnel packet identifies the device.
+//
+// SECURITY: this mapping is only meaningful for traffic that actually arrived on
+// the WireGuard interface. A source address is trivially forged from elsewhere,
+// so callers MUST establish arrival first (see `Arrival` in main.rs) and must
+// never infer tunnel identity from the source address alone.
+pub async fn device_get_by_wireguard_ip(wireguard_ip: &str) -> Result<Option<GuardDevices>, Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get()?;
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
+
+    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created, wireguard_public_key, wireguard_ip FROM {} WHERE wireguard_ip=?", sql.device.ok_or("sql.tables.device is not configured.")?);
+
+    let result: Vec<GuardDevices> = sql_query(query)
+    .bind::<Text, _>(wireguard_ip.to_string())
+    .load::<GuardDevices>(&mut db)?;
+
+    Ok(result.into_iter().next())
+}
+
+// Every device holding a WireGuard registration, so policy can be re-evaluated
+// for each of them and revoked registrations removed.
+pub async fn device_list_wireguard_registered() -> Result<Vec<GuardDevices>, Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get()?;
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
+
+    let query = format!("SELECT id, user_id, authentication_method, collateral, public_key, created, wireguard_public_key, wireguard_ip FROM {} WHERE wireguard_public_key IS NOT NULL", sql.device.ok_or("sql.tables.device is not configured.")?);
+
+    Ok(sql_query(query).load::<GuardDevices>(&mut db)?)
+}
+
+// Drop a device's WireGuard registration, freeing its tunnel address for
+// reallocation. The live peer is removed separately by `wireguard::reconcile`,
+// which treats the database as authoritative.
+pub async fn device_clear_wireguard(device_id: &str) -> Result<(), Box<dyn Error>> {
+    let mut db = crate::DB_POOL.get()?;
+    let sql: ConfigSqlTables = (&*SQL_TABLES).clone();
+
+    let query = format!("UPDATE {} SET wireguard_public_key=NULL, wireguard_ip=NULL WHERE id=?", sql.device.ok_or("sql.tables.device is not configured.")?);
+    sql_query(query)
+    .bind::<Text, _>(device_id.to_string())
+    .execute(&mut db)?;
+
+    Ok(())
+}
+
 // Bind a WireGuard public key + allocated tunnel address to a device.
 pub async fn device_set_wireguard(device_id: &str, wireguard_public_key: &str, wireguard_ip: &str) -> Result<(), Box<dyn Error>> {
     let mut db = crate::DB_POOL.get().expect("Failed to get a connection from the pool.");

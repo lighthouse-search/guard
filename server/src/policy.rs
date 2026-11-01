@@ -1,21 +1,139 @@
+use std::collections::HashMap;
+
 use crate::structs::*;
 use crate::global::*;
+use crate::CONFIG_VALUE;
 use serde_json::Value;
 
 pub async fn get_hostname_policies(hostname: GuardedHostname, only_active: bool) -> Vec<GuardPolicy> {
+    resolve_policies(hostname.applied_policies, only_active).await
+}
+
+// Resolve a list of policy ids into policies. Shared by the per-hostname lookup
+// above and by contexts that carry their own `applied_policies` (device
+// authentication, WireGuard registration) rather than a [hostname.*] entry.
+//
+// Named `resolve_policies` rather than `get_policies` so it cannot be confused
+// with `global::get_policies`, which returns every *defined* policy and is in
+// scope here through the glob import.
+pub async fn resolve_policies(policy_ids: Vec<String>, only_active: bool) -> Vec<GuardPolicy> {
     let mut policies: Vec<GuardPolicy> = Vec::new();
 
-    for authentication_method_id in hostname.applied_policies {
-        let authentication_method = get_policy(authentication_method_id.clone()).await.expect("Missing");
-        if only_active == true && authentication_method.active == true {
-            policies.push(authentication_method.clone());
-        }
-        if only_active == false {
-            policies.push(authentication_method.clone());
+    for policy_id in policy_ids {
+        // A reference to a policy that does not exist means the configuration is
+        // not intact, and Guard cannot know what the operator intended to
+        // enforce. Continuing would evaluate a *different*, weaker policy set
+        // than the one that was written down, so fail the request outright
+        // rather than guess. `validate_policy_references` is meant to catch this
+        // at startup; reaching here means the config changed underneath us.
+        let policy = get_policy(policy_id.clone()).await.unwrap_or_else(|| {
+            panic!(
+                "Policy '{}' is referenced but not defined in [policies]. Guard cannot evaluate an \
+                 incomplete policy set, so this request is being failed rather than authorised \
+                 against a partial one. Fix the reference or define the policy.",
+                policy_id
+            )
+        });
+        if only_active == false || policy.active == true {
+            policies.push(policy);
         }
     }
 
     policies
+}
+
+// Check at startup that every policy reference in the config resolves, so a typo
+// surfaces before Guard serves a request rather than as a failed request later.
+//
+// Covers every place a policy id can appear: [hostname.*], [device_authentication],
+// [wireguard], and the `and` chains between policies themselves. Reports every
+// problem at once, so a config with several typos takes one pass to fix.
+pub fn validate_policy_references() -> Result<(), String> {
+    // Mirrors global::get_policies: nested keys ("a.b") are not policies.
+    let defined: HashMap<String, GuardPolicy> = CONFIG_VALUE
+        .policies
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(key, _)| key.split('.').count() == 1)
+        .collect();
+
+    // (where the reference lives, the id it points at)
+    let mut references: Vec<(String, String)> = Vec::new();
+
+    for hostname in CONFIG_VALUE.hostname.clone().unwrap_or_default().values() {
+        for policy_id in &hostname.applied_policies {
+            references.push((format!("hostname '{}'", hostname.host), policy_id.clone()));
+        }
+    }
+    if let Some(device) = CONFIG_VALUE.device_authentication.clone() {
+        for policy_id in device.applied_policies.unwrap_or_default() {
+            references.push(("[device_authentication].applied_policies".to_string(), policy_id));
+        }
+    }
+    if let Some(wireguard) = CONFIG_VALUE.wireguard.clone() {
+        for policy_id in wireguard.applied_policies.unwrap_or_default() {
+            references.push(("[wireguard].applied_policies".to_string(), policy_id));
+        }
+    }
+    for (key, policy) in &defined {
+        for policy_id in policy.and.clone().unwrap_or_default() {
+            references.push((format!("policy '{}' ('and')", key), policy_id));
+        }
+    }
+
+    check_policy_references(&defined, &references)
+}
+
+// The pure half of `validate_policy_references`: given the defined policies and
+// every (source, referenced id) pair found in the config, report what is broken.
+fn check_policy_references(defined: &HashMap<String, GuardPolicy>, references: &[(String, String)]) -> Result<(), String> {
+    let mut problems: Vec<String> = references
+        .iter()
+        .filter(|(_, policy_id)| defined.contains_key(policy_id) == false)
+        .map(|(source, policy_id)| format!("  {} references undefined policy '{}'", source, policy_id))
+        .collect();
+
+    // A cycle in the `and` chains is the same class of broken config: it is
+    // handled defensively at request time (treated as a failure), but it can
+    // only ever mean the operator made a mistake, so say so now.
+    for key in defined.keys() {
+        if and_chain_has_cycle(defined, key, &mut Vec::new()) {
+            problems.push(format!("  policy '{}' is part of a cyclic 'and' reference", key));
+        }
+    }
+
+    if problems.is_empty() {
+        return Ok(());
+    }
+
+    problems.sort();
+    problems.dedup();
+    Err(format!("The policy configuration is not intact:\n{}", problems.join("\n")))
+}
+
+// Depth-first walk of a policy's `and` references looking for a loop back to
+// something already on the path.
+fn and_chain_has_cycle(defined: &HashMap<String, GuardPolicy>, policy_id: &str, path: &mut Vec<String>) -> bool {
+    if path.iter().any(|seen| seen == policy_id) {
+        return true;
+    }
+    let policy = match defined.get(policy_id) {
+        Some(policy) => policy,
+        // Undefined references are reported separately; not a cycle.
+        None => return false,
+    };
+
+    path.push(policy_id.to_string());
+    let found = policy
+        .and
+        .clone()
+        .unwrap_or_default()
+        .iter()
+        .any(|next| and_chain_has_cycle(defined, next, path));
+    path.pop();
+
+    found
 }
 
 pub async fn policy_authentication(policies: Vec<GuardPolicy>, user: Value, ip: String) -> bool {
@@ -195,4 +313,113 @@ async fn matches_policy_chain(policy: GuardPolicy, user: Value, _ip: String, cha
     // If matches = true, the user will be authorised. This means they haven't failed any policies.
 
     Ok(matches)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn policy(id: &str, and: Option<Vec<&str>>) -> (String, GuardPolicy) {
+        (
+            id.to_string(),
+            GuardPolicy {
+                active: true,
+                id: Some(id.to_string()),
+                action: "allow".to_string(),
+                alias: None,
+                property: "email".to_string(),
+                starts_with: None,
+                ends_with: None,
+                not: None,
+                is: None,
+                and: and.map(|ids| ids.into_iter().map(str::to_string).collect()),
+            },
+        )
+    }
+
+    fn defined(policies: Vec<(String, GuardPolicy)>) -> HashMap<String, GuardPolicy> {
+        policies.into_iter().collect()
+    }
+
+    #[test]
+    fn intact_config_passes() {
+        let policies = defined(vec![policy("staff_only", None), policy("au_only", None)]);
+        let references = vec![
+            ("hostname 'a.example.com'".to_string(), "staff_only".to_string()),
+            ("[wireguard].applied_policies".to_string(), "au_only".to_string()),
+        ];
+        assert!(check_policy_references(&policies, &references).is_ok());
+    }
+
+    #[test]
+    fn undefined_reference_is_reported_with_its_source() {
+        let policies = defined(vec![policy("staff_only", None)]);
+        let references = vec![("hostname 'a.example.com'".to_string(), "staff_onl".to_string())];
+        let error = check_policy_references(&policies, &references).unwrap_err();
+        assert!(error.contains("staff_onl"), "{}", error);
+        assert!(error.contains("hostname 'a.example.com'"), "{}", error);
+    }
+
+    #[test]
+    fn every_problem_is_reported_in_one_pass() {
+        // A config with several typos should take one fix cycle, not three.
+        let policies = defined(vec![policy("staff_only", None)]);
+        let references = vec![
+            ("hostname 'a.example.com'".to_string(), "typo_one".to_string()),
+            ("hostname 'b.example.com'".to_string(), "typo_two".to_string()),
+            ("[device_authentication].applied_policies".to_string(), "typo_three".to_string()),
+        ];
+        let error = check_policy_references(&policies, &references).unwrap_err();
+        assert!(error.contains("typo_one"), "{}", error);
+        assert!(error.contains("typo_two"), "{}", error);
+        assert!(error.contains("typo_three"), "{}", error);
+    }
+
+    #[test]
+    fn duplicate_problems_are_reported_once() {
+        let policies = defined(vec![]);
+        let references = vec![
+            ("hostname 'a.example.com'".to_string(), "missing".to_string()),
+            ("hostname 'a.example.com'".to_string(), "missing".to_string()),
+        ];
+        let error = check_policy_references(&policies, &references).unwrap_err();
+        assert_eq!(error.matches("references undefined policy 'missing'").count(), 1, "{}", error);
+    }
+
+    #[test]
+    fn dangling_and_reference_is_reported() {
+        let policies = defined(vec![policy("staff_only", Some(vec!["nonexistent"]))]);
+        let references = vec![("policy 'staff_only' ('and')".to_string(), "nonexistent".to_string())];
+        let error = check_policy_references(&policies, &references).unwrap_err();
+        assert!(error.contains("nonexistent"), "{}", error);
+    }
+
+    #[test]
+    fn direct_and_cycle_is_detected() {
+        let policies = defined(vec![policy("a", Some(vec!["b"])), policy("b", Some(vec!["a"]))]);
+        let error = check_policy_references(&policies, &[]).unwrap_err();
+        assert!(error.contains("cyclic 'and' reference"), "{}", error);
+    }
+
+    #[test]
+    fn indirect_and_cycle_is_detected() {
+        let policies = defined(vec![
+            policy("a", Some(vec!["b"])),
+            policy("b", Some(vec!["c"])),
+            policy("c", Some(vec!["a"])),
+        ]);
+        let error = check_policy_references(&policies, &[]).unwrap_err();
+        assert!(error.contains("cyclic 'and' reference"), "{}", error);
+    }
+
+    #[test]
+    fn a_shared_and_target_is_not_a_cycle() {
+        // Two policies both requiring the same third is a diamond, not a loop.
+        let policies = defined(vec![
+            policy("a", Some(vec!["shared"])),
+            policy("b", Some(vec!["shared"])),
+            policy("shared", None),
+        ]);
+        assert!(check_policy_references(&policies, &[]).is_ok());
+    }
 }

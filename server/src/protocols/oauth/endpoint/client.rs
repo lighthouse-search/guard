@@ -1,7 +1,7 @@
 use axum::extract::Query;
 use axum::response::{Response, IntoResponse};
 
-use serde_json::json;
+use serde_json::{json, Value};
 use std::net::SocketAddr;
 
 use crate::hostname::{device_authentication_hostname, hostname_auth_exit_flow, is_valid_authentication_method_for_hostname};
@@ -91,6 +91,36 @@ pub async fn oauth_exchange_code(params: Query<QueryDetails>, axum::extract::Con
     ).into_response()
 }
 
+// Which claim carries the provider's stable user id is not standardised. OpenID
+// Connect userinfo endpoints (Microsoft's graph.microsoft.com/oidc/userinfo,
+// Google's oauth2/v3/userinfo) return it as `sub`; provider-specific endpoints
+// (Discord /users/@me, graph.microsoft.com/v1.0/me, GitHub /user) return `id`,
+// and GitHub returns it as a JSON number rather than a string.
+//
+// `oauth_client_user_info_id` pins the claim per authentication-method. When it
+// is unset we try `id` then `sub`, so configs written before this existed keep
+// working. Returns Err with the claim names that were tried, for the log line.
+fn oauth_user_id_from_userinfo(user_info: &Value, configured_claim: Option<String>) -> Result<String, String> {
+    // A blank key in the config is the same as not setting one — the config
+    // creator writes "" when the field is cleared, and looking up "" would only
+    // ever fail.
+    let claims: Vec<String> = match configured_claim.map(|claim| claim.trim().to_string()) {
+        Some(claim) if claim.is_empty() == false => vec![claim],
+        _ => vec!["id".to_string(), "sub".to_string()],
+    };
+
+    for claim in claims.iter() {
+        match user_info.get(claim) {
+            // An empty id is as unusable as a missing one — don't bind a device to "".
+            Some(Value::String(value)) if value.trim().is_empty() == false => return Ok(value.clone()),
+            Some(Value::Number(value)) => return Ok(value.to_string()),
+            _ => continue,
+        }
+    }
+
+    Err(claims.join("' or '"))
+}
+
 // Device authentication (opened by the desktop app): completed entirely in the
 // browser. We resolve the external user (same lookup the reverse-proxy oauth
 // pipeline uses), then issue a one-time setup token bound to that user —
@@ -124,10 +154,10 @@ pub async fn oauth_device_exchange_code(params: Query<QueryDetails>, axum::extra
             return error_message(10008, axum::http::StatusCode::UNAUTHORIZED, "Unauthorized, external authentication failed.".to_string());
         }
     };
-    let user_id = match user_info.get("id").and_then(|id| id.as_str()) {
-        Some(id) => id.to_string(),
-        None => {
-            log::info!("oauth userinfo did not contain an 'id' field.");
+    let user_id = match oauth_user_id_from_userinfo(&user_info, auth_method.oauth_client_user_info_id.clone()) {
+        Ok(user_id) => user_id,
+        Err(claims_tried) => {
+            log::info!("oauth userinfo did not contain a usable '{}' field. Set authentication-method.oauth_client_user_info_id to the claim this provider returns (OpenID Connect userinfo endpoints return 'sub').", claims_tried);
             return error_message(10009, axum::http::StatusCode::BAD_REQUEST, "External authentication did not return a user id.".to_string());
         }
     };
@@ -157,4 +187,50 @@ pub async fn oauth_device_exchange_code(params: Query<QueryDetails>, axum::extra
             "setup_token": setup_token
         })).unwrap(),
     ).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefers_id_then_sub_when_no_claim_configured() {
+        // Discord /users/@me, graph /v1.0/me.
+        let user_info = json!({"id": "123", "sub": "ignored"});
+        assert_eq!(oauth_user_id_from_userinfo(&user_info, None).unwrap(), "123");
+
+        // Microsoft's /oidc/userinfo and Google's v3 userinfo only return `sub`.
+        let user_info = json!({"sub": "abc", "email": "someone@example.com"});
+        assert_eq!(oauth_user_id_from_userinfo(&user_info, None).unwrap(), "abc");
+    }
+
+    #[test]
+    fn configured_claim_wins_and_does_not_fall_back() {
+        let user_info = json!({"id": "123", "sub": "abc"});
+        assert_eq!(oauth_user_id_from_userinfo(&user_info, Some("sub".to_string())).unwrap(), "abc");
+
+        // A method pinned to a claim the provider didn't return must fail rather
+        // than silently binding the device to a different identifier.
+        let user_info = json!({"id": "123"});
+        assert_eq!(oauth_user_id_from_userinfo(&user_info, Some("oid".to_string())).unwrap_err(), "oid");
+    }
+
+    #[test]
+    fn accepts_numeric_ids() {
+        // GitHub /user returns `id` as a JSON number.
+        let user_info = json!({"id": 4209147});
+        assert_eq!(oauth_user_id_from_userinfo(&user_info, None).unwrap(), "4209147");
+    }
+
+    #[test]
+    fn rejects_blank_and_missing_ids() {
+        assert_eq!(oauth_user_id_from_userinfo(&json!({"id": "   "}), None).unwrap_err(), "id' or 'sub");
+        assert_eq!(oauth_user_id_from_userinfo(&json!({"name": "x"}), None).unwrap_err(), "id' or 'sub");
+    }
+
+    #[test]
+    fn blank_configured_claim_falls_back() {
+        let user_info = json!({"sub": "abc"});
+        assert_eq!(oauth_user_id_from_userinfo(&user_info, Some("  ".to_string())).unwrap(), "abc");
+    }
 }

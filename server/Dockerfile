@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 ubuntu:24.04 AS runtime
+FROM --platform=linux/amd64 ubuntu:latest AS runtime
 WORKDIR /builds
 
 # Runtime libraries the guard-server binary is dynamically linked against.

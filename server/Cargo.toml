@@ -72,6 +72,8 @@ rustls-pki-types = "1"
 # is not something you want on every `cargo build`.
 #
 # Linux releases deliberately do NOT use this: the container image installs
-# libmysqlclient21 from apt, so security updates arrive with the base image
-# rather than needing a Guard rebuild.
+# libmysqlclient24 from apt, so security updates arrive with the base image
+# rather than needing a Guard rebuild. The cost of that is a soname the build
+# machine decides — so the linux-amd64 CI job and server/Dockerfile pin the same
+# Ubuntu release. See the comments in both if you move either.
 vendored = ["mysqlclient-sys/bundled", "dep:openssl-sys", "openssl-sys/vendored"]

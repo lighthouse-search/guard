@@ -3,7 +3,7 @@ name: Auto update
 # Keeps published releases and container images current with upstream changes:
 #   * Rust crates          -> `cargo update` on every Cargo.toml in the repo
 #   * npm packages         -> `npm update` on every package.json in the repo
-#   * OS / apt packages    -> fresh `ubuntu:24.04` pull + cache-free image build
+#   * OS / apt packages    -> fresh base-image pull + cache-free image build
 #
 # It also audits every manifest for known advisories before and after the
 # refresh and reports what the refresh could not fix. The case worth calling
@@ -126,7 +126,7 @@ jobs:
           seeded=false
           [ -f "$lock" ] || seeded=true
 
-          # `FROM --platform=linux/amd64 ubuntu:24.04 AS runtime` -> `ubuntu:24.04`
+          # `FROM --platform=linux/amd64 ubuntu:26.04 AS runtime` -> `ubuntu:26.04`
           images=$(sed -nE 's/^[[:space:]]*[Ff][Rr][Oo][Mm][[:space:]]+//p' server/Dockerfile \
             | sed -E 's/(^|[[:space:]])--[^[:space:]]+//g' \
             | awk 'NF {print $1}' | sort -u)

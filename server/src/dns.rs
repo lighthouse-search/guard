@@ -82,8 +82,8 @@ impl RequestHandler for GuardResolver {
         let name = normalise(info.query.name().into());
         let record_type = info.query.query_type();
 
-        if let Some(address) = self.zone.get(&name) {
-            return self.respond_local(request, &mut response_handle, &name, record_type, *address).await;
+        if let Some(address) = zone_lookup(&self.zone, &name) {
+            return self.respond_local(request, &mut response_handle, &name, record_type, address).await;
         }
 
         match &self.upstream {
@@ -210,6 +210,20 @@ fn fallback_response_info(request: &Request) -> ResponseInfo {
 fn normalise(mut name: Name) -> Name {
     name.set_fqdn(true);
     name.to_lowercase()
+}
+
+/// Look a normalised name up in the zone, falling back to a wildcard entry one
+/// label up ("a.example.com" -> "*.example.com"), matching how Guard matches
+/// wildcard hostnames.
+fn zone_lookup(zone: &Zone, name: &Name) -> Option<Ipv4Addr> {
+    if let Some(address) = zone.get(name) {
+        return Some(*address);
+    }
+    if name.is_wildcard() || name.num_labels() < 2 {
+        return None;
+    }
+    let wildcard = name.base_name().prepend_label("*").ok()?;
+    zone.get(&normalise(wildcard)).copied()
 }
 
 /// Build the zone: every active hostname that is not excluded from the tunnel,
@@ -410,7 +424,25 @@ mod tests {
     }
 
     fn lookup(zone: &Zone, name: &str) -> Option<Ipv4Addr> {
-        zone.get(&normalise(name.parse().unwrap())).copied()
+        zone_lookup(zone, &normalise(name.parse().unwrap()))
+    }
+
+    #[test]
+    fn wildcard_hostnames_resolve_one_label_deep() {
+        let zone = zone_from_hostnames(vec![hostname("*.clubs.example.com", true, None)], gateway());
+        assert_eq!(lookup(&zone, "a.clubs.example.com"), Some(gateway()));
+        assert_eq!(lookup(&zone, "A.Clubs.Example.com."), Some(gateway()));
+        assert_eq!(lookup(&zone, "clubs.example.com"), None);
+        assert_eq!(lookup(&zone, "a.b.clubs.example.com"), None);
+    }
+
+    #[test]
+    fn exact_entries_win_over_wildcards() {
+        let services: Ipv4Addr = "10.9.0.5".parse().unwrap();
+        let mut zone = zone_from_hostnames(vec![hostname("*.example.com", true, None)], gateway());
+        zone.insert(normalise("db.example.com".parse().unwrap()), services);
+        assert_eq!(lookup(&zone, "db.example.com"), Some(services));
+        assert_eq!(lookup(&zone, "web.example.com"), Some(gateway()));
     }
 
     #[test]

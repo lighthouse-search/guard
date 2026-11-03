@@ -139,22 +139,41 @@ pub fn device_authentication_hostname() -> Result<GuardedHostname, String> {
     })
 }
 
+// Whether `host` is covered by the wildcard `pattern` (e.g. "*.example.com").
+// As with TLS certificates, the "*" stands for exactly one label: it matches
+// "a.example.com" but not "example.com" or "a.b.example.com". A port, if any,
+// is part of the suffix and must match too ("*.example.com:8443").
+pub fn wildcard_matches(pattern: &str, host: &str) -> bool {
+    let suffix = match pattern.strip_prefix("*.") {
+        Some(suffix) => suffix.to_ascii_lowercase(),
+        None => return false,
+    };
+    let host = host.to_ascii_lowercase();
+
+    match host.strip_suffix(&suffix).and_then(|rest| rest.strip_suffix('.')) {
+        Some(label) => label.is_empty() == false && label.contains(['.', ':', '*']) == false,
+        None => false,
+    }
+}
+
 pub async fn get_hostname(hostname: String) -> Result<GuardedHostname, String> {
     let hostnames = get_active_hostnames().await;
-    
-    let mut hostname_output: Option<GuardedHostname> = None;
-    for value in hostnames {
-        log::info!("{} {}", value.host, hostname);
-        if value.host == hostname {
-            hostname_output = Some(value);
-        }
+
+    // An exact entry always wins over a wildcard one.
+    if let Some(value) = hostnames.iter().find(|value| value.host.eq_ignore_ascii_case(&hostname)) {
+        return Ok(value.clone());
     }
 
-    if hostname_output.is_none() {
-        return Err("Invalid hostname.".into());
+    // A wildcard entry is returned with `host` set to the concrete hostname that
+    // matched, since everything downstream (login redirects, request signatures,
+    // host header checks) needs a real host rather than the pattern.
+    if let Some(value) = hostnames.iter().find(|value| wildcard_matches(&value.host, &hostname)) {
+        let mut matched = value.clone();
+        matched.host = hostname.to_ascii_lowercase();
+        return Ok(matched);
     }
 
-    return Ok(hostname_output.unwrap());
+    return Err("Invalid hostname.".into());
 }
 
 pub fn url_to_domain_port(host_unparsed: String) -> Result<String, String> {
@@ -204,5 +223,34 @@ pub async fn get_current_valid_hostname(headers: axum::http::HeaderMap, header_t
     } else {
         log::info!("Invalid hostname");
         return None;
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::wildcard_matches;
+
+    #[test]
+    fn wildcard_matches_exactly_one_label() {
+        assert!(wildcard_matches("*.clubs.example.com", "a.clubs.example.com"));
+        assert!(wildcard_matches("*.clubs.example.com", "A.Clubs.Example.com"));
+        assert!(wildcard_matches("*.Clubs.example.com", "a.clubs.example.com"));
+        assert!(!wildcard_matches("*.clubs.example.com", "clubs.example.com"));
+        assert!(!wildcard_matches("*.clubs.example.com", ".clubs.example.com"));
+        assert!(!wildcard_matches("*.clubs.example.com", "a.b.clubs.example.com"));
+        assert!(!wildcard_matches("*.clubs.example.com", "aclubs.example.com"));
+        assert!(!wildcard_matches("*.clubs.example.com", "a.clubs.example.com.evil.com"));
+    }
+
+    #[test]
+    fn wildcard_ports_must_match() {
+        assert!(wildcard_matches("*.example.com:8443", "a.example.com:8443"));
+        assert!(!wildcard_matches("*.example.com:8443", "a.example.com"));
+        assert!(!wildcard_matches("*.example.com", "a.example.com:8443"));
+    }
+
+    #[test]
+    fn non_wildcard_patterns_never_match() {
+        assert!(!wildcard_matches("a.example.com", "a.example.com"));
+        assert!(!wildcard_matches("*example.com", "aexample.com"));
     }
 }

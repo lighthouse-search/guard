@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 debian:trixie-slim AS runtime
+FROM --platform=linux/amd64 debian:stable-slim AS runtime
 WORKDIR /builds
 
 # Runtime libraries the guard-server binary is dynamically linked against.

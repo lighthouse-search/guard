@@ -1,21 +1,21 @@
-FROM --platform=linux/amd64 ubuntu:26.04 AS runtime
+FROM --platform=linux/amd64 debian:trixie-slim AS runtime
 WORKDIR /builds
 
 # Runtime libraries the guard-server binary is dynamically linked against.
-# libmysqlclient24 provides libmysqlclient.so.24 (diesel/mysqlclient-sys) and
-# pulls in the matching OpenSSL runtime (libssl.so.3) as a dependency.
+# libmariadb3 provides libmariadb.so.3 (diesel/mysqlclient-sys) — Debian ships
+# MariaDB Connector/C as its MySQL client library, not Oracle's libmysqlclient —
+# and pulls in the matching OpenSSL runtime (libssl.so.3) as a dependency.
 # ca-certificates provides the trust store for outbound TLS (OAuth, SMTP).
 #
-# The soname is tied to the Ubuntu release: 24.04 ships MySQL 8.0
-# (libmysqlclient21), 26.04 ships MySQL 8.4 (libmysqlclient24). Because the
-# Linux binary links the distro library rather than a vendored one, this base
-# image and the runner that builds the binary must be the same Ubuntu release —
-# rust.yml pins the linux-amd64 build to ubuntu-26.04 for exactly that reason.
-# Bumping the version here means bumping it there too, or the container starts
-# and immediately dies on a missing libmysqlclient.so.<n>.
+# Because the Linux binary links the distro library rather than a vendored one,
+# this base image and the container that builds the binary must be the same
+# Debian release — rust.yml builds linux-amd64 inside debian:trixie for exactly
+# that reason (it also sets the glibc floor). Bumping the release here means
+# bumping it there too, or the container starts and immediately dies on a
+# missing shared library.
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
-        libmysqlclient24 \
+        libmariadb3 \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

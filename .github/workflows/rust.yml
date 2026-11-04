@@ -112,24 +112,23 @@ jobs:
           # package instead — that is what the container image installs, so its
           # security updates arrive with the base image.
           #
-          # linux-amd64 pins ubuntu-26.04 rather than ubuntu-latest: it links the
-          # distro libmysqlclient, so the soname it records has to be the one the
-          # runtime image installs (26.04 -> libmysqlclient.so.24). Tracking
-          # ubuntu-latest would silently re-link the binary when GitHub moves
-          # that label — it is moving 24.04 -> 26.04 through November 2026 — and
-          # the container would then die on a missing library. Keep this release
-          # and server/Dockerfile's FROM in lockstep. It is also the glibc floor
-          # for the published guard-linux-amd64 archive.
+          # linux-amd64 builds inside a pinned debian:trixie container rather
+          # than on the runner's Ubuntu: it links the distro MySQL client
+          # library, so the soname it records has to be the one the runtime
+          # image installs (Debian ships MariaDB Connector/C -> libmariadb.so.3).
+          # Keep this release and server/Dockerfile's FROM in lockstep. It is
+          # also the glibc floor for the published guard-linux-amd64 archive.
           # linux-arm64 builds inside cross's own container, which carries its
           # sysroot, so the runner image is irrelevant there.
+          # An empty container runs the job directly on the runner.
           always='[
-            {"os":"ubuntu-26.04","target":"x86_64-unknown-linux-gnu","artifact-name":"guard-linux-amd64","use-cross":false,"vendored":false},
-            {"os":"ubuntu-latest","target":"aarch64-unknown-linux-gnu","artifact-name":"guard-linux-arm64","use-cross":true,"vendored":false}
+            {"os":"ubuntu-latest","container":"debian:trixie","target":"x86_64-unknown-linux-gnu","artifact-name":"guard-linux-amd64","use-cross":false,"vendored":false},
+            {"os":"ubuntu-latest","container":"","target":"aarch64-unknown-linux-gnu","artifact-name":"guard-linux-arm64","use-cross":true,"vendored":false}
           ]'
           main_only='[
-            {"os":"macos-latest","target":"aarch64-apple-darwin","artifact-name":"guard-darwin-arm64","use-cross":false,"vendored":true},
-            {"os":"windows-latest","target":"x86_64-pc-windows-msvc","artifact-name":"guard-windows-amd64","use-cross":false,"vendored":true},
-            {"os":"windows-11-arm","target":"aarch64-pc-windows-msvc","artifact-name":"guard-windows-arm64","use-cross":false,"vendored":true}
+            {"os":"macos-latest","container":"","target":"aarch64-apple-darwin","artifact-name":"guard-darwin-arm64","use-cross":false,"vendored":true},
+            {"os":"windows-latest","container":"","target":"x86_64-pc-windows-msvc","artifact-name":"guard-windows-amd64","use-cross":false,"vendored":true},
+            {"os":"windows-11-arm","container":"","target":"aarch64-pc-windows-msvc","artifact-name":"guard-windows-arm64","use-cross":false,"vendored":true}
           ]'
 
           if [ "$CONTAINERS_ONLY" = "true" ]; then
@@ -159,8 +158,23 @@ jobs:
       matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
 
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
 
     steps:
+      # Linux native (amd64) — runs as root inside the bare debian:trixie
+      # container, so this comes first: checkout wants git, the Rust toolchain
+      # action wants curl and a C toolchain, and packaging wants zip.
+      # default-libmysqlclient-dev is MariaDB Connector/C on Debian. libssl-dev
+      # is for that library's own linkage, not for Rust: nothing in the Linux
+      # dependency tree uses openssl-sys (lettre and reqwest are both rustls).
+      - name: Install system dependencies (Linux native)
+        if: runner.os == 'Linux' && !matrix.use-cross
+        run: |
+          apt-get update -y
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git zip build-essential pkg-config \
+            default-libmysqlclient-dev libssl-dev
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.BUILD_REF }}
@@ -169,13 +183,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
-      # Linux native (amd64) — link the distro libmysqlclient. libssl-dev is for
-      # that library's own linkage, not for Rust: nothing in the Linux dependency
-      # tree uses openssl-sys (lettre and reqwest are both rustls).
-      - name: Install system dependencies (Linux native)
-        if: runner.os == 'Linux' && !matrix.use-cross
-        run: sudo apt-get update -y && sudo apt-get install -y default-libmysqlclient-dev pkg-config libssl-dev
 
       # Linux arm64 — cross-compile via cross
       - name: Install cross
@@ -506,6 +513,6 @@ jobs:
           printf '%s\n' "$deps"
 
           if printf '%s\n' "$deps" | grep -q 'not found'; then
-            echo "::error::guard-server has unresolved shared libraries in the image. The Dockerfile's base image and the Ubuntu release the linux-amd64 job builds on are out of step — check libmysqlclient's soname in both."
+            echo "::error::guard-server has unresolved shared libraries in the image. The Dockerfile's base image and the Debian release the linux-amd64 job builds in are out of step — check the MySQL client library's soname in both."
             exit 1
           fi

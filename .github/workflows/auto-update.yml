@@ -126,7 +126,7 @@ jobs:
           seeded=false
           [ -f "$lock" ] || seeded=true
 
-          # `FROM --platform=linux/amd64 ubuntu:26.04 AS runtime` -> `ubuntu:26.04`
+          # `FROM --platform=linux/amd64 debian:trixie-slim AS runtime` -> `debian:trixie-slim`
           images=$(sed -nE 's/^[[:space:]]*[Ff][Rr][Oo][Mm][[:space:]]+//p' server/Dockerfile \
             | sed -E 's/(^|[[:space:]])--[^[:space:]]+//g' \
             | awk 'NF {print $1}' | sort -u)

@@ -173,9 +173,29 @@ pub async fn get_guard_authentication_metadata(jar: &indexmap::IndexMap<String, 
         return Err(error_message(2002, axum::http::StatusCode::BAD_REQUEST, "guard_authentication_metadata.authentication_method is null.".to_string()));
     }
     let requested_authentication_method = auth_metadata.authentication_method.unwrap();
-    let authentication_method: AuthMethod = get_authentication_method(requested_authentication_method, true).await.expect("Failed to get auth method.");
-    
-    is_valid_authentication_method_for_hostname(hostname.clone(), authentication_method.clone()).await.expect("Invalid authentication method for hostname.");
+    let authentication_method: AuthMethod = match get_authentication_method(requested_authentication_method.clone(), true).await {
+        Some(method) => method,
+        None => {
+            log::info!("guard_authentication_metadata.authentication_method '{}' does not exist or is inactive.", requested_authentication_method);
+            return Err(error_message(2006, axum::http::StatusCode::BAD_REQUEST, format!("You're signed in with '{}', which isn't an available sign-in method. Please sign out and sign in again.", requested_authentication_method)));
+        }
+    };
+
+    if let Err(error) = is_valid_authentication_method_for_hostname(hostname.clone(), authentication_method.clone()).await {
+        // The session cookie is shared across guarded hostnames, so a session from a method another hostname allows
+        // (e.g. Discord) can arrive here. Send browsers to login so they can pick a method this hostname supports.
+        log::info!("{} (method: '{}', hostname: '{}')", error, requested_authentication_method, hostname.host);
+        let incoming_host_header = headers.get("host").and_then(|v| v.to_str().ok()).unwrap_or("");
+        let accepts_html = headers.get("accept")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.contains("text/html"))
+            .unwrap_or(false);
+        if incoming_host_header == hostname.host && accepts_html {
+            return Err(redirect_to_login(hostname, original_path_and_query));
+        }
+        let hostname_label = hostname.alias.clone().unwrap_or(hostname.host.clone());
+        return Err(error_message(2007, axum::http::StatusCode::FORBIDDEN, format!("You're signed in with '{}', which {} doesn't accept. Please sign out and sign in again with one of: {}.", requested_authentication_method, hostname_label, hostname.authentication_methods.join(", "))));
+    }
 
     // This authentication is not verified. The client has requested this authentication method, but we haven't verified they're authenticated for this method.
     let output = GuardAuthenticationMetadata {

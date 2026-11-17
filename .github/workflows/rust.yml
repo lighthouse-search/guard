@@ -483,12 +483,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      # Build into the local Docker daemon only. Nothing is pushed until the
+      # linkage check below passes, so a broken image never replaces a tag that
+      # a deployment pulls.
+      - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./server/Dockerfile
-          push: true
+          load: true
           # Discard the layer cache and re-pull the base image so the
           # Dockerfile's `apt-get update && apt-get install` resolves against
           # current packages.
@@ -499,13 +502,10 @@ jobs:
       # The image build only proves the packages install. A soname mismatch
       # between the base image and the runner that linked the binary surfaces at
       # exec time, not build time, so check the linkage here: a red job beats a
-      # container that crash-loops on first start. The image is already pushed by
-      # the time this runs — on a containers-only run that is the point, the tag
-      # is there to be inspected either way.
+      # container that crash-loops on first start.
       - name: Verify the binary resolves in the image
         run: |
           image=$(printf '%s' "${{ steps.tags.outputs.tags }}" | head -1)
-          docker pull "$image"
 
           # ldd prints "not found" against any dependency the base image lacks,
           # and exits 0 while doing it — hence the explicit grep.
@@ -516,3 +516,15 @@ jobs:
             echo "::error::guard-server has unresolved shared libraries in the image. The Dockerfile's base image and the Debian release the linux-amd64 job builds in are out of step — check the MySQL client library's soname in both."
             exit 1
           fi
+
+      # Same inputs on the same builder, so every layer comes from the build
+      # above — the pushed image is the one that was just verified. pull and
+      # no-cache are deliberately left off: either would rebuild the apt layer
+      # and push something the check never saw.
+      - name: Push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./server/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
